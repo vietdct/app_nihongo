@@ -1,0 +1,37 @@
+name: nihongo
+description: Ứng dụng học tiếng Nhật theo khung JLPT (N5–N1).
+publish_to: "none"
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.5.0
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+
+  # State management + DI
+  flutter_riverpod: ^2.5.1
+
+  # Điều hướng
+  go_router: ^14.2.7
+
+  # Backend (Auth + Data + Storage)
+  supabase_flutter: ^2.5.6
+
+  # Lưu token an toàn (Keychain/Keystore) + kiểm tra kết nối
+  flutter_secure_storage: ^9.2.2
+  connectivity_plus: ^6.0.5
+
+  # Ghi chú: Drift (cache offline) sẽ được thêm ở Pha 2 để giữ Pha 1 gọn và build sạch.
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+  mocktail: ^1.0.4
+
+flutter:
+  uses-material-design: true

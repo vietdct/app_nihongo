@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  analyze-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Cài dependencies
+        run: flutter pub get
+
+      - name: Phân tích tĩnh
+        run: flutter analyze
+
+      - name: Chạy test
+        run: flutter test

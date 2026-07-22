@@ -1,0 +1,41 @@
+# ── Môi trường / bí mật (KHÔNG commit) ──
+env.json
+*.env
+.env
+
+# ── Flutter / Dart ──
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+.pub-cache/
+.pub/
+pubspec.lock
+coverage/
+*.g.dart.lock
+
+# ── IDE ──
+.idea/
+.vscode/
+*.iml
+*.log
+
+# ── Android ──
+android/.gradle/
+android/local.properties
+android/key.properties
+*.jks
+*.keystore
+
+# ── iOS / macOS ──
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Flutter.framework
+ios/Flutter/Flutter.podspec
+**/DerivedData/
+.DS_Store
+
+# ── Supabase (giữ migrations, bỏ tạm/local) ──
+supabase/.branches/
+supabase/.temp/
