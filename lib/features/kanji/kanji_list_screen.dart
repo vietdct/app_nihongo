@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../shared/level_selector.dart';
 import '../lesson/providers/content_providers.dart';
+import '../lesson/providers/level_providers.dart';
 
 final _kanjiSearchQueryProvider = StateProvider<String>((ref) => '');
 
@@ -13,32 +15,55 @@ class KanjiListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final kanjiAsync = ref.watch(kanjiListProvider);
     final query = ref.watch(_kanjiSearchQueryProvider).trim();
+    final selectedLevel = ref.watch(selectedLevelCodeProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Kanji · N5')),
+      appBar: AppBar(title: const Text('Kanji')),
       body: Column(
         children: [
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-            child: TextField(
-              decoration: const InputDecoration(
-                prefixIcon: Icon(Icons.search),
-                hintText: 'Tra kanji hoặc nghĩa...',
-                border: OutlineInputBorder(),
-                isDense: true,
-              ),
-              onChanged: (v) => ref.read(_kanjiSearchQueryProvider.notifier).state = v,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const LevelSelector(),
+                const SizedBox(height: 12),
+                TextField(
+                  decoration: const InputDecoration(
+                    prefixIcon: Icon(Icons.search),
+                    hintText: 'Tra kanji hoặc nghĩa...',
+                    border: OutlineInputBorder(),
+                    isDense: true,
+                  ),
+                  onChanged: (v) => ref.read(_kanjiSearchQueryProvider.notifier).state = v,
+                ),
+              ],
             ),
           ),
+          const Divider(height: 1),
           Expanded(
             child: kanjiAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(child: Text('Lỗi: $e')),
               data: (all) {
+                if (all.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        'Chưa có kanji nào cho $selectedLevel.\nNội dung đang được bổ sung dần.',
+                        textAlign: TextAlign.center,
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ),
+                  );
+                }
+
                 final filtered = query.isEmpty
                     ? all
                     : all
-                        .where((k) => k.character.contains(query) || k.meaningVi.toLowerCase().contains(query.toLowerCase()))
+                        .where((k) =>
+                            k.character.contains(query) || k.meaningVi.toLowerCase().contains(query.toLowerCase()))
                         .toList();
 
                 if (filtered.isEmpty) {

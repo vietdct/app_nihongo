@@ -32,8 +32,8 @@ class ContentRepositoryImpl implements ContentRepository {
   }
 
   @override
-  Stream<List<Vocabulary>> watchAllVocabulary() {
-    return _db.watchAllVocabulary().map(
+  Stream<List<Vocabulary>> watchVocabulary(String levelId) {
+    return _db.watchVocabularyByLevel(levelId).map(
           (rows) => rows
               .map((r) => Vocabulary(
                     id: r.id,
@@ -51,8 +51,8 @@ class ContentRepositoryImpl implements ContentRepository {
   }
 
   @override
-  Stream<List<Kanji>> watchAllKanji() {
-    return _db.watchAllKanji().map(
+  Stream<List<Kanji>> watchKanji(String levelId) {
+    return _db.watchKanjiByLevel(levelId).map(
           (rows) => rows
               .map((r) => Kanji(
                     id: r.id,

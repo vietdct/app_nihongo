@@ -23,12 +23,18 @@ class AppDatabase extends _$AppDatabase {
         .watch();
   }
 
-  Stream<List<VocabularyTableData>> watchAllVocabulary() {
-    return (select(vocabularyTable)..orderBy([(t) => OrderingTerm(expression: t.word)])).watch();
+  Stream<List<VocabularyTableData>> watchVocabularyByLevel(String levelId) {
+    return (select(vocabularyTable)
+          ..where((t) => t.levelId.equals(levelId))
+          ..orderBy([(t) => OrderingTerm(expression: t.word)]))
+        .watch();
   }
 
-  Stream<List<KanjiTableData>> watchAllKanji() {
-    return (select(kanjiTable)..orderBy([(t) => OrderingTerm(expression: t.strokeCount)])).watch();
+  Stream<List<KanjiTableData>> watchKanjiByLevel(String levelId) {
+    return (select(kanjiTable)
+          ..where((t) => t.levelId.equals(levelId))
+          ..orderBy([(t) => OrderingTerm(expression: t.strokeCount)]))
+        .watch();
   }
 
   Stream<List<LessonItemsTableData>> watchLessonItems(String lessonId) {
