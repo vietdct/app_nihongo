@@ -4,6 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/auth/login_screen.dart';
 import '../../features/home/home_screen.dart';
+import '../../features/kanji/kanji_detail_screen.dart';
+import '../../features/kanji/kanji_list_screen.dart';
+import '../../features/lesson/lesson_detail_screen.dart';
+import '../../features/lesson/lesson_list_screen.dart';
+import '../../features/vocabulary/vocabulary_list_screen.dart';
 import '../network/supabase_providers.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -23,6 +28,20 @@ final routerProvider = Provider<GoRouter>((ref) {
     routes: [
       GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
+      GoRoute(path: '/lessons', builder: (_, __) => const LessonListScreen()),
+      GoRoute(
+        path: '/lessons/:id',
+        builder: (context, state) => LessonDetailScreen(
+          lessonId: state.pathParameters['id']!,
+          title: state.extra as String?,
+        ),
+      ),
+      GoRoute(path: '/vocabulary', builder: (_, __) => const VocabularyListScreen()),
+      GoRoute(path: '/kanji', builder: (_, __) => const KanjiListScreen()),
+      GoRoute(
+        path: '/kanji/:id',
+        builder: (context, state) => KanjiDetailScreen(kanjiId: state.pathParameters['id']!),
+      ),
     ],
   );
 });

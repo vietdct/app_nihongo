@@ -25,13 +25,19 @@ dependencies:
   flutter_secure_storage: ^9.2.2
   connectivity_plus: ^6.0.5
 
-  # Ghi chú: Drift (cache offline) sẽ được thêm ở Pha 2 để giữ Pha 1 gọn và build sạch.
+  # Cache offline (Pha 2) — SQLite type-safe, có reactive Stream
+  drift: ^2.20.3
+  drift_flutter: ^0.2.2
+  path_provider: ^2.1.4
+  path: ^1.9.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
   mocktail: ^1.0.4
+  build_runner: ^2.4.13
+  drift_dev: ^2.20.3
 
 flutter:
   uses-material-design: true
