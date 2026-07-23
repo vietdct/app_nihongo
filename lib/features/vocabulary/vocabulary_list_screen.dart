@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../domain/entities/vocabulary.dart';
-import '../../shared/level_selector.dart';
+import '../../shared/level_badge.dart';
 import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
 
@@ -18,7 +18,10 @@ class VocabularyListScreen extends ConsumerWidget {
     final selectedLevel = ref.watch(selectedLevelCodeProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Từ vựng')),
+      appBar: AppBar(
+        title: const Text('Từ vựng'),
+        actions: const [LevelBadge(), SizedBox(width: 12)],
+      ),
       body: Column(
         children: [
           Padding(
@@ -26,8 +29,6 @@ class VocabularyListScreen extends ConsumerWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const LevelSelector(),
-                const SizedBox(height: 12),
                 TextField(
                   decoration: const InputDecoration(
                     prefixIcon: Icon(Icons.search),
