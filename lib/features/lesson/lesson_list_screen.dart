@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/theme/app_theme.dart';
 import '../../shared/level_badge.dart';
 import 'providers/content_providers.dart';
 import 'providers/level_providers.dart';
@@ -30,24 +31,57 @@ class LessonListScreen extends ConsumerWidget {
                 child: Text(
                   'Chưa có bài học nào cho $selectedLevel.\nNội dung đang được bổ sung dần.',
                   textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
+                  style: const TextStyle(color: AppColors.inkSoft),
                 ),
               ),
             );
           }
           return ListView.separated(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             itemCount: items.length,
             separatorBuilder: (_, __) => const SizedBox(height: 10),
             itemBuilder: (context, i) {
               final lesson = items[i];
-              return Card(
-                margin: EdgeInsets.zero,
-                child: ListTile(
-                  title: Text(lesson.title, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: lesson.description != null ? Text(lesson.description!) : null,
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/lessons/${lesson.id}', extra: lesson.title),
+              return InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => context.push('/lessons/${lesson.id}', extra: lesson.title),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: AppColors.border, width: 0.6),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 44,
+                        height: 44,
+                        decoration: BoxDecoration(color: AppColors.indigoSoft, borderRadius: BorderRadius.circular(12)),
+                        alignment: Alignment.center,
+                        child: Text('課', style: AppFonts.zenMaruGothic(fontSize: 18, color: AppColors.indigo)),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(lesson.title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: AppColors.ink)),
+                            if (lesson.description != null) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                lesson.description!,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right, color: AppColors.inkFaint),
+                    ],
+                  ),
                 ),
               );
             },

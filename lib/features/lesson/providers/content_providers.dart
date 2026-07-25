@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../data/repositories/content_repository_provider.dart';
+import '../../../domain/entities/grammar_point.dart';
 import '../../../domain/entities/kanji.dart';
 import '../../../domain/entities/lesson.dart';
 import '../../../domain/entities/vocabulary.dart';
@@ -37,6 +38,31 @@ final kanjiListProvider = StreamProvider<List<Kanji>>((ref) {
   return ref.watch(contentRepositoryProvider).watchKanji(levelId);
 });
 
+final grammarListProvider = StreamProvider<List<GrammarPoint>>((ref) {
+  ref.watch(contentRefreshProvider);
+  final levelId = ref.watch(currentLevelIdProvider);
+  if (levelId == null) return const Stream.empty();
+  return ref.watch(contentRepositoryProvider).watchGrammar(levelId);
+});
+
+final grammarLessonAssignmentsProvider = StreamProvider<Map<String, LessonAssignment>>((ref) {
+  final levelId = ref.watch(currentLevelIdProvider);
+  if (levelId == null) return const Stream.empty();
+  return ref.watch(contentRepositoryProvider).watchGrammarLessonAssignments(levelId);
+});
+
 final lessonItemsProvider = StreamProvider.family<List<LessonContentItem>, String>((ref, lessonId) {
   return ref.watch(contentRepositoryProvider).watchLessonItems(lessonId);
+});
+
+final vocabularyLessonAssignmentsProvider = StreamProvider<Map<String, LessonAssignment>>((ref) {
+  final levelId = ref.watch(currentLevelIdProvider);
+  if (levelId == null) return const Stream.empty();
+  return ref.watch(contentRepositoryProvider).watchVocabularyLessonAssignments(levelId);
+});
+
+final kanjiLessonAssignmentsProvider = StreamProvider<Map<String, LessonAssignment>>((ref) {
+  final levelId = ref.watch(currentLevelIdProvider);
+  if (levelId == null) return const Stream.empty();
+  return ref.watch(contentRepositoryProvider).watchKanjiLessonAssignments(levelId);
 });

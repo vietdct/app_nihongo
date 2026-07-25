@@ -3,11 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/login_screen.dart';
+import '../../features/grammar/grammar_flashcard_screen.dart';
+import '../../features/grammar/grammar_list_screen.dart';
 import '../../features/home/home_screen.dart';
+import '../../features/kaiwa/kaiwa_home_screen.dart';
 import '../../features/kanji/kanji_detail_screen.dart';
+import '../../features/kanji/kanji_draw_search_screen.dart';
 import '../../features/kanji/kanji_list_screen.dart';
 import '../../features/lesson/lesson_detail_screen.dart';
 import '../../features/lesson/lesson_list_screen.dart';
+import '../../features/vocabulary/vocabulary_flashcard_screen.dart';
 import '../../features/vocabulary/vocabulary_list_screen.dart';
 import '../network/supabase_providers.dart';
 
@@ -37,11 +42,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(path: '/vocabulary', builder: (_, __) => const VocabularyListScreen()),
+      GoRoute(path: '/vocabulary/flashcards', builder: (_, __) => const VocabularyFlashcardScreen()),
       GoRoute(path: '/kanji', builder: (_, __) => const KanjiListScreen()),
+      GoRoute(path: '/kanji/draw', builder: (_, __) => const KanjiDrawSearchScreen()),
       GoRoute(
         path: '/kanji/:id',
         builder: (context, state) => KanjiDetailScreen(kanjiId: state.pathParameters['id']!),
       ),
+      GoRoute(path: '/grammar', builder: (_, __) => const GrammarListScreen()),
+      GoRoute(path: '/grammar/flashcards', builder: (_, __) => const GrammarFlashcardScreen()),
+      GoRoute(path: '/kaiwa', builder: (_, __) => const KaiwaHomeScreen()),
     ],
   );
 });

@@ -1,3 +1,4 @@
+import 'grammar_point.dart';
 import 'kanji.dart';
 import 'vocabulary.dart';
 
@@ -21,20 +22,38 @@ class Lesson {
 /// đánh đổi ràng buộc FK cứng lấy ít bảng lặp lại cho một người maintain).
 enum LessonItemType { vocabulary, kanji, grammar }
 
-/// Một mục trong bài học đã được "resolve" — hoặc là Vocabulary hoặc Kanji.
-/// UI chỉ cần switch trên [type] để hiển thị đúng widget.
+/// Bài học mà 1 từ vựng/kanji/ngữ pháp thuộc về, cùng thứ tự dạy trong bài
+/// đó — dùng để lọc/sắp theo bài thay vì hiện 1 danh sách phẳng.
+class LessonAssignment {
+  const LessonAssignment({required this.lessonId, required this.orderIndex});
+
+  final String lessonId;
+  final int orderIndex;
+}
+
+/// Một mục trong bài học đã được "resolve" — Vocabulary, Kanji, hoặc
+/// GrammarPoint. UI chỉ cần switch trên [type] để hiển thị đúng widget.
 class LessonContentItem {
   const LessonContentItem.vocabulary(Vocabulary vocab)
       : type = LessonItemType.vocabulary,
         vocabulary = vocab,
-        kanji = null;
+        kanji = null,
+        grammar = null;
 
   const LessonContentItem.kanji(Kanji k)
       : type = LessonItemType.kanji,
         kanji = k,
-        vocabulary = null;
+        vocabulary = null,
+        grammar = null;
+
+  const LessonContentItem.grammar(GrammarPoint g)
+      : type = LessonItemType.grammar,
+        grammar = g,
+        vocabulary = null,
+        kanji = null;
 
   final LessonItemType type;
   final Vocabulary? vocabulary;
   final Kanji? kanji;
+  final GrammarPoint? grammar;
 }

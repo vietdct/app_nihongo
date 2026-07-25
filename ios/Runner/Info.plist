@@ -26,6 +26,10 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Nihongo cần quyền micro để bạn luyện nói tiếng Nhật với AI Kaiwa.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Nihongo cần nhận diện giọng nói để chấm điểm câu nói tiếng Nhật của bạn.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

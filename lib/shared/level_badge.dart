@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/theme/app_theme.dart';
 import '../domain/entities/jlpt_level.dart';
 import '../features/lesson/providers/level_providers.dart';
 
@@ -12,21 +13,20 @@ class LevelBadge extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(selectedLevelCodeProvider);
-    final scheme = Theme.of(context).colorScheme;
 
     return InkWell(
       borderRadius: BorderRadius.circular(100),
       onTap: () => _showLevelPicker(context, ref),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: scheme.onPrimary.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(100),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+        decoration: const BoxDecoration(
+          color: AppColors.indigo,
+          borderRadius: BorderRadius.all(Radius.circular(100)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(selected, style: const TextStyle(fontWeight: FontWeight.w800, color: Colors.white)),
+            Text(selected, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: Colors.white)),
             const SizedBox(width: 4),
             const Icon(Icons.expand_more, size: 18, color: Colors.white),
           ],

@@ -16,9 +16,9 @@ void main() {
       expect(theme.colorScheme.brightness, Brightness.dark);
     });
 
-    test('màu nhấn shu-iro được gán vào secondary', () {
+    test('màu cam đất được gán vào primary (CTA chính)', () {
       final theme = AppTheme.light();
-      expect(theme.colorScheme.secondary, AppColors.shuIro);
+      expect(theme.colorScheme.primary, AppColors.accent);
     });
   });
 }

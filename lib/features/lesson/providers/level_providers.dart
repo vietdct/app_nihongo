@@ -8,7 +8,7 @@ import '../../../domain/entities/jlpt_level.dart';
 /// nhiều và cần offline). Sắp theo order_index: N5 → N1.
 final jlptLevelsProvider = FutureProvider<List<JlptLevel>>((ref) async {
   final supabase = ref.watch(supabaseProvider);
-  final rows = await supabase.from('jlpt_levels').select().order('order_index');
+  final rows = await supabase.from('jlpt_levels').select().order('order_index', ascending: true);
   return [
     for (final r in rows)
       JlptLevel(

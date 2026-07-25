@@ -31,6 +31,14 @@ dependencies:
   path_provider: ^2.1.4
   path: ^1.9.0
 
+  # Parse path "d" của KanjiVG (Pha 3d) để tự vẽ animation nét chữ Hán
+  path_drawing: ^1.0.1
+
+  # AI Kaiwa — nói/nghe bằng giọng nói
+  speech_to_text: ^7.0.0
+  flutter_tts: ^4.2.2
+  shared_preferences: ^2.5.5
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -41,3 +49,28 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+
+  # Font đóng gói cục bộ (Be Vietnam Pro + Zen Maru Gothic) — theo thiết kế lại
+  # giao diện. Bundle sẵn trong assets thay vì tải qua CDN lúc chạy: hoạt động
+  # offline, không phụ thuộc mạng khi test/build.
+  fonts:
+    - family: BeVietnamPro
+      fonts:
+        - asset: assets/fonts/BeVietnamPro-Regular.ttf
+        - asset: assets/fonts/BeVietnamPro-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/BeVietnamPro-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/BeVietnamPro-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/BeVietnamPro-ExtraBold.ttf
+          weight: 800
+    - family: ZenMaruGothic
+      fonts:
+        - asset: assets/fonts/ZenMaruGothic-Regular.ttf
+        - asset: assets/fonts/ZenMaruGothic-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/ZenMaruGothic-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/ZenMaruGothic-Black.ttf
+          weight: 900
