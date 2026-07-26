@@ -168,7 +168,7 @@ class GrammarListScreen extends ConsumerWidget {
                   decoration: BoxDecoration(
                     color: AppColors.card,
                     borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.border, width: 0.6),
+                    border: Border.all(color: AppColors.border, width: 1.0),
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: ListView.separated(
@@ -361,7 +361,7 @@ class _GrammarDetailSheet extends StatelessWidget {
               if (grammar.commonMistake != null)
                 _InfoBlock(
                   icon: Icons.error_outline_rounded,
-                  color: AppColors.accentStrong,
+                  color: AppColors.danger,
                   label: 'Lỗi thường gặp',
                   content: grammar.commonMistake!,
                 ),

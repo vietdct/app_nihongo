@@ -184,7 +184,7 @@ class KanjiListScreen extends ConsumerWidget {
                           color: AppColors.card,
                           borderRadius: BorderRadius.circular(16),
                           border:
-                              Border.all(color: AppColors.border, width: 0.6),
+                              Border.all(color: AppColors.border, width: 1.0),
                         ),
                         child: Stack(
                           children: [

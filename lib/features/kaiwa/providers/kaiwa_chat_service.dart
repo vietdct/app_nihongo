@@ -88,6 +88,8 @@ class KaiwaChatService {
       contentJp: aiJson['reply_jp'] as String,
       translationVi: aiJson['reply_translation_vi'] as String?,
       furigana: _sanitizeFurigana(aiJson['reply_furigana'] as String?),
+      suggestedReplyJp: aiJson['suggested_reply_jp'] as String?,
+      suggestedReplyVi: aiJson['suggested_reply_vi'] as String?,
     );
 
     // Ghi DB nền — id đã biết trước nên UI không cần đợi round-trip này.
@@ -100,6 +102,8 @@ class KaiwaChatService {
         'content_jp': aiMessage.contentJp,
         'translation_vi': aiMessage.translationVi,
         'furigana': aiMessage.furigana,
+        'suggested_reply_jp': aiMessage.suggestedReplyJp,
+        'suggested_reply_vi': aiMessage.suggestedReplyVi,
       }).catchError((Object e) {
         debugPrint('Kaiwa: lỗi lưu tin nhắn mở đầu: $e');
         return <String, dynamic>{};
@@ -146,6 +150,8 @@ class KaiwaChatService {
       contentJp: aiJson['reply_jp'] as String,
       translationVi: aiJson['reply_translation_vi'] as String?,
       furigana: _sanitizeFurigana(aiJson['reply_furigana'] as String?),
+      suggestedReplyJp: aiJson['suggested_reply_jp'] as String?,
+      suggestedReplyVi: aiJson['suggested_reply_vi'] as String?,
     );
 
     // id đã biết trước từ client nên UI hiện ngay sau khi AI trả lời — 3 lượt
@@ -168,6 +174,8 @@ class KaiwaChatService {
           'content_jp': aiMessage.contentJp,
           'translation_vi': aiMessage.translationVi,
           'furigana': aiMessage.furigana,
+          'suggested_reply_jp': aiMessage.suggestedReplyJp,
+          'suggested_reply_vi': aiMessage.suggestedReplyVi,
         }),
         _sb.from('kaiwa_conversations').update({
           'last_message_at': DateTime.now().toUtc().toIso8601String(),

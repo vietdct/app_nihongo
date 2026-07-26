@@ -8,7 +8,11 @@ import '../features/lesson/providers/level_providers.dart';
 /// Huy hiệu cấp độ gọn ở header — bấm mở bottom sheet chọn cấp N5–N1.
 /// Thay cho dải chip nằm ngang chiếm nhiều chỗ dọc trên Home.
 class LevelBadge extends ConsumerWidget {
-  const LevelBadge({super.key});
+  const LevelBadge({super.key, this.onGradient = false});
+
+  /// true khi đặt trên nền gradient (VD header Home) — đổi sang pill trắng mờ
+  /// thay vì nền indigo đặc để không bị chìm màu vào gradient.
+  final bool onGradient;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -19,9 +23,9 @@ class LevelBadge extends ConsumerWidget {
       onTap: () => _showLevelPicker(context, ref),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        decoration: const BoxDecoration(
-          color: AppColors.indigo,
-          borderRadius: BorderRadius.all(Radius.circular(100)),
+        decoration: BoxDecoration(
+          color: onGradient ? Colors.white.withValues(alpha: 0.22) : AppColors.indigo,
+          borderRadius: const BorderRadius.all(Radius.circular(100)),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

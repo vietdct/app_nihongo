@@ -60,6 +60,8 @@ class KaiwaMessage {
     this.translationVi,
     this.furigana,
     this.feedback,
+    this.suggestedReplyJp,
+    this.suggestedReplyVi,
   });
 
   final String id;
@@ -68,4 +70,9 @@ class KaiwaMessage {
   final String? translationVi;
   final String? furigana;
   final KaiwaFeedback? feedback;
+
+  /// Chỉ có ý nghĩa ở message role AI — câu trả lời mẫu AI gợi ý cho người
+  /// học dùng để đáp lại [contentJp], xem "Gợi ý trả lời" ở `kaiwa_chat_screen.dart`.
+  final String? suggestedReplyJp;
+  final String? suggestedReplyVi;
 }

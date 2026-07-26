@@ -589,8 +589,8 @@ class _CardShell extends StatelessWidget {
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(26),
-        border: Border.all(color: AppColors.border, width: 0.8),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border, width: 1.0),
         boxShadow: [
           BoxShadow(
             color: AppColors.ink.withValues(alpha: 0.06),
@@ -643,6 +643,8 @@ class _KanjiFrontState extends State<_KanjiFront> {
             key: _canvasKey,
             character: widget.kanji.character,
             strokeData: strokeData,
+            strokeColor: AppColors.ink,
+            guideColor: AppColors.ink.withValues(alpha: 0.12),
           ),
           const SizedBox(height: 12),
           if (strokeData != null)

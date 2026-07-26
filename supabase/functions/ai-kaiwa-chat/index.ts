@@ -27,6 +27,11 @@ const RESPONSE_SCHEMA = {
     reply_jp: { type: "string", description: "Câu trả lời bằng tiếng Nhật, đúng vai và mức lịch sự." },
     reply_furigana: { type: "string", description: "reply_jp với furigana dạng 漢字(かんじ) trên mọi chữ Hán, giữ nguyên kana/dấu câu." },
     reply_translation_vi: { type: "string", description: "Bản dịch tiếng Việt tự nhiên của reply_jp." },
+    suggested_reply_jp: {
+      type: "string",
+      description: "1 câu trả lời mẫu tự nhiên bằng tiếng Nhật mà người học có thể dùng để đáp lại reply_jp, đúng trình độ và mức lịch sự.",
+    },
+    suggested_reply_vi: { type: "string", description: "Bản dịch tiếng Việt của suggested_reply_jp." },
     feedback: {
       type: "object",
       properties: {
@@ -46,7 +51,10 @@ const RESPONSE_SCHEMA = {
       ],
     },
   },
-  required: ["reply_jp", "reply_furigana", "reply_translation_vi", "feedback"],
+  required: [
+    "reply_jp", "reply_furigana", "reply_translation_vi",
+    "suggested_reply_jp", "suggested_reply_vi", "feedback",
+  ],
 };
 
 interface PromptParams {
@@ -72,6 +80,7 @@ QUY TẮC:
 - has_user_message = ${p.hasUserMessage}. Nếu true, hãy đánh giá câu người học vừa gửi: độ tự nhiên, ngữ pháp, từ vựng, độ lịch sự, mức giống người Nhật bản xứ; giải thích lỗi sai bằng tiếng Việt dễ hiểu, nêu lỗi người Việt hay mắc liên quan nếu có, và gợi ý câu nói tự nhiên hơn. Nếu câu đã tốt, vẫn chấm điểm cao và khen ngắn gọn thay vì bịa lỗi.
 - Nếu has_user_message = false (tin nhắn mở đầu cuộc hội thoại), đặt rating = 0 và để các trường feedback còn lại là chuỗi rỗng "".
 - Mỗi trường feedback tối đa 1-2 câu ngắn, đi thẳng vào trọng tâm — không lặp lại nội dung giữa các trường, không viết dài dòng.
+- Luôn kèm suggested_reply_jp: 1 câu trả lời mẫu tự nhiên mà người học có thể dùng để đáp lại reply_jp bạn vừa nói, ngắn gọn, đúng trình độ ${p.jlptLevel} và mức lịch sự, kèm bản dịch suggested_reply_vi — dùng khi người học bí không biết nói gì.
 - Luôn phản hồi đúng theo cấu trúc JSON được yêu cầu, không kèm văn bản thừa.`;
 }
 

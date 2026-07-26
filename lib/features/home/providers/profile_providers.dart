@@ -12,13 +12,15 @@ final profileProvider = FutureProvider<Profile?>((ref) async {
 
   final row = await supabase
       .from('profiles')
-      .select('display_name, xp, streak_count')
+      .select('display_name, xp, streak_count, last_study_date')
       .eq('id', user.id)
       .single();
 
+  final lastStudyDateStr = row['last_study_date'] as String?;
   return Profile(
     displayName: row['display_name'] as String,
     xp: row['xp'] as int,
     streakCount: row['streak_count'] as int,
+    lastStudyDate: lastStudyDateStr == null ? null : DateTime.parse(lastStudyDateStr),
   );
 });

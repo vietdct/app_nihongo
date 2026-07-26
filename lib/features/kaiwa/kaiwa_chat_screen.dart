@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import '../../core/services/jp_voice_prefs.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/kaiwa_message.dart';
 import '../../domain/entities/kaiwa_persona.dart';
@@ -13,8 +15,10 @@ import '../../domain/entities/kaiwa_scenario.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/kaiwa_chat_service.dart';
 
-const _voiceNamePrefKey = 'kaiwa_tts_voice_name';
-const _voiceLocalePrefKey = 'kaiwa_tts_voice_locale';
+// Dùng chung khoá lưu giọng đọc với Quiz/Nghe hiểu (lib/core/services/jp_voice_prefs.dart)
+// — chọn giọng ở Kaiwa thì Quiz cũng đọc bằng giọng đó, không cần chọn lại.
+const _voiceNamePrefKey = jpVoiceNamePrefKey;
+const _voiceLocalePrefKey = jpVoiceLocalePrefKey;
 
 // Hồ sơ pitch/tốc độ đọc theo persona.voiceStyle (cột voice_style trong bảng
 // kaiwa_personas) — để mỗi nhân vật nghe khác nhau dù dùng chung 1 giọng
@@ -71,6 +75,15 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
   bool _speechLowConfidence = false;
   bool _applyingSpeechText = false;
 
+  // Đếm giây khi đang ghi âm — chỉ để hiển thị (mm:ss) trên thanh ghi âm,
+  // không ảnh hưởng logic nhận diện giọng nói.
+  Timer? _recordingTimer;
+  int _recordingSeconds = 0;
+
+  // Bật/tắt thẻ xem trước "Gợi ý trả lời" — reset về false mỗi khi có lượt
+  // hội thoại mới vì gợi ý cũ không còn khớp ngữ cảnh.
+  bool _suggestionVisible = false;
+
   // Danh sách giọng đọc tiếng Nhật máy đã cài (qua flutter_tts.getVoices) —
   // chất lượng phụ thuộc engine/giọng có sẵn trên thiết bị, không phải do app
   // tự tổng hợp. Lựa chọn được lưu lại bằng SharedPreferences để dùng cho các
@@ -123,11 +136,41 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
 
   @override
   void dispose() {
+    _recordingTimer?.cancel();
     _textController.dispose();
     _scrollController.dispose();
     _speech.stop();
     _tts.stop();
     super.dispose();
+  }
+
+  KaiwaMessage? get _lastAiMessage {
+    if (_messages.isEmpty) return null;
+    final last = _messages.last;
+    return last.role == KaiwaMessageRole.ai ? last : null;
+  }
+
+  void _startRecordingTimer() {
+    _recordingTimer?.cancel();
+    _recordingSeconds = 0;
+    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() => _recordingSeconds++);
+    });
+  }
+
+  void _stopRecordingTimer() {
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+  }
+
+  void _useSuggestion(String jp) {
+    setState(() {
+      _textController.text = jp;
+      _textController.selection = TextSelection.collapsed(offset: jp.length);
+      _suggestionVisible = false;
+      _isSpeechDraft = false;
+      _speechLowConfidence = false;
+    });
   }
 
   // Dùng chung cho mọi chỗ phát TTS (auto-speak, bấm icon loa nghe lại, nghe
@@ -202,7 +245,10 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
   void _forceStopMicForTts() {
     if (!mounted) return;
     final wasListening = _isListening;
-    if (wasListening) _speech.stop();
+    if (wasListening) {
+      _speech.stop();
+      _stopRecordingTimer();
+    }
     setState(() {
       _ttsSpeaking = true;
       if (wasListening) _isListening = false;
@@ -325,6 +371,7 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
         _conversationId = result.conversationId;
         _messages.add(result.aiMessage);
         _starting = false;
+        _suggestionVisible = false;
       });
       _scrollToBottom();
       unawaited(_speakAi(result.aiMessage.contentJp));
@@ -352,6 +399,7 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
       _messages.add(KaiwaMessage(id: optimisticId, role: KaiwaMessageRole.user, contentJp: text));
       _sending = true;
       _textController.clear();
+      _suggestionVisible = false;
     });
     _scrollToBottom();
 
@@ -422,6 +470,7 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
       onStatus: (status) {
         if (!mounted) return;
         if (status == 'done' || status == 'notListening') {
+          _stopRecordingTimer();
           setState(() => _isListening = false);
         }
       },
@@ -433,8 +482,9 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
   Future<void> _toggleListening() async {
     if (_ttsSpeaking) return;
     if (_isListening) {
+      _stopRecordingTimer();
       await _speech.stop();
-      setState(() => _isListening = false);
+      if (mounted) setState(() => _isListening = false);
       return;
     }
     if (!await _ensureSpeechInitialized()) {
@@ -464,6 +514,7 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
       _isSpeechDraft = false;
       _speechLowConfidence = false;
     });
+    _startRecordingTimer();
     try {
       await _speech.listen(
         onResult: (result) {
@@ -480,6 +531,7 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
               _speechLowConfidence = result.hasConfidenceRating && !result.isConfident();
             }
           });
+          if (result.finalResult) _stopRecordingTimer();
           _applyingSpeechText = false;
         },
         listenOptions: SpeechListenOptions(localeId: 'ja_JP', partialResults: true),
@@ -488,11 +540,54 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
       // listen() có thể throw đồng bộ (VD phiên trước chưa dọn xong) — trường
       // hợp này không đi qua onError của initialize(), phải tự bắt ở đây.
       if (!mounted) return;
+      _stopRecordingTimer();
       setState(() => _isListening = false);
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(content: Text('Lỗi ghi âm: $e')));
     }
+  }
+
+  // Nút thùng rác trên thanh ghi âm — huỷ hẳn, không giữ lại chữ đã nhận diện.
+  Future<void> _cancelListening() async {
+    _stopRecordingTimer();
+    await _speech.stop();
+    if (!mounted) return;
+    setState(() {
+      _isListening = false;
+      _textController.clear();
+      _isSpeechDraft = false;
+      _speechLowConfidence = false;
+    });
+  }
+
+  // Nút gửi trên thanh ghi âm — dừng ghi & gửi luôn phần đã nhận diện được,
+  // không cần đợi finalResult (người dùng chủ động xác nhận là đủ rồi).
+  Future<void> _sendFromRecording() async {
+    _stopRecordingTimer();
+    await _speech.stop();
+    if (mounted) setState(() => _isListening = false);
+    await _send();
+  }
+
+  // Bấm icon vàng cạnh bong bóng người dùng → hiện phân tích ngữ pháp + câu
+  // đã sửa đúng, giống mẫu tham khảo (ảnh app Emma).
+  void _showFeedbackSheet(KaiwaMessage message) {
+    final feedback = message.feedback;
+    if (feedback == null || !feedback.hasContent) return;
+    showModalBottomSheet(
+      context: context,
+      showDragHandle: true,
+      isScrollControlled: true,
+      builder: (sheetContext) => _FeedbackSheet(
+        original: message.contentJp,
+        feedback: feedback,
+        onRetry: () {
+          Navigator.of(sheetContext).pop();
+          setState(() => _textController.text = message.contentJp);
+        },
+      ),
+    );
   }
 
   @override
@@ -583,10 +678,18 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
                               showTranslation: _showTranslation,
                               showFurigana: _showFurigana,
                               onSpeak: (text) => _speak(text),
-                              onRetry: () => setState(() => _textController.text = _messages[i].contentJp),
+                              onShowFeedback: () => _showFeedbackSheet(_messages[i]),
                             );
                           },
                         ),
+                      ),
+                      _SuggestionBar(
+                        suggestion: _lastAiMessage?.suggestedReplyJp,
+                        translation: _lastAiMessage?.suggestedReplyVi,
+                        visible: _suggestionVisible,
+                        enabled: !_sending && !_isListening,
+                        onToggle: () => setState(() => _suggestionVisible = !_suggestionVisible),
+                        onUse: _useSuggestion,
                       ),
                       // _InputBar giữ nguyên vị trí trong cây widget dù đang gửi hay
                       // không — nếu chèn/xoá 1 widget khác kiểu ngay phía trên nó,
@@ -601,8 +704,11 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
                         ttsSpeaking: _ttsSpeaking,
                         isSpeechDraft: _isSpeechDraft,
                         speechLowConfidence: _speechLowConfidence,
+                        recordingSeconds: _recordingSeconds,
                         onMic: _toggleListening,
                         onSend: () => _send(),
+                        onCancelRecording: _cancelListening,
+                        onSendRecording: _sendFromRecording,
                       ),
                     ],
                   ),
@@ -621,8 +727,11 @@ class _InputBar extends StatelessWidget {
     required this.ttsSpeaking,
     required this.isSpeechDraft,
     required this.speechLowConfidence,
+    required this.recordingSeconds,
     required this.onMic,
     required this.onSend,
+    required this.onCancelRecording,
+    required this.onSendRecording,
   });
 
   final TextEditingController controller;
@@ -632,8 +741,11 @@ class _InputBar extends StatelessWidget {
   final bool ttsSpeaking;
   final bool isSpeechDraft;
   final bool speechLowConfidence;
+  final int recordingSeconds;
   final VoidCallback onMic;
   final VoidCallback onSend;
+  final VoidCallback onCancelRecording;
+  final VoidCallback onSendRecording;
 
   @override
   Widget build(BuildContext context) {
@@ -642,7 +754,7 @@ class _InputBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
       decoration: const BoxDecoration(
         color: AppColors.card,
-        border: Border(top: BorderSide(color: AppColors.border, width: 0.6)),
+        border: Border(top: BorderSide(color: AppColors.border, width: 1.0)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -650,7 +762,7 @@ class _InputBar extends StatelessWidget {
         children: [
           // Nhắc rà lại câu vì STT hệ thống không biết ngữ cảnh hội thoại nên
           // hay đoán sai từ — đặc biệt khi confidence thấp thì cảnh báo rõ hơn.
-          if (isSpeechDraft) ...[
+          if (isSpeechDraft && !isListening) ...[
             Padding(
               padding: const EdgeInsets.only(left: 44, bottom: 4),
               child: Row(
@@ -668,46 +780,267 @@ class _InputBar extends StatelessWidget {
               ),
             ),
           ],
-          Row(
-            children: [
-              IconButton(
-                tooltip: !speechAvailable
-                    ? 'Không hỗ trợ giọng nói trên thiết bị này'
-                    : ttsSpeaking
-                        ? 'Đợi nhân vật đọc xong đã'
-                        : (isListening ? 'Dừng ghi âm' : 'Nói bằng giọng nói'),
-                icon: Icon(
-                  isListening ? Icons.mic : Icons.mic_none,
-                  color: isListening ? AppColors.accent : (speechAvailable && !ttsSpeaking ? AppColors.teal : AppColors.inkFaint),
-                ),
-                onPressed: speechAvailable && !ttsSpeaking ? onMic : null,
-              ),
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  minLines: 1,
-                  maxLines: 4,
-                  decoration: InputDecoration(
-                    hintText: 'Nhập hoặc nói câu tiếng Nhật...',
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                    enabledBorder: isSpeechDraft
-                        ? OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: warnColor, width: 1.2))
-                        : null,
-                    focusedBorder: isSpeechDraft
-                        ? OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: warnColor, width: 1.6))
-                        : null,
+          if (isListening)
+            _RecordingBar(
+              seconds: recordingSeconds,
+              onCancel: onCancelRecording,
+              onPause: onMic,
+              onSend: onSendRecording,
+            )
+          else
+            Row(
+              children: [
+                IconButton(
+                  tooltip: !speechAvailable
+                      ? 'Không hỗ trợ giọng nói trên thiết bị này'
+                      : ttsSpeaking
+                          ? 'Đợi nhân vật đọc xong đã'
+                          : 'Nói bằng giọng nói',
+                  icon: Icon(
+                    Icons.mic_none,
+                    color: speechAvailable && !ttsSpeaking ? AppColors.teal : AppColors.inkFaint,
                   ),
-                  onSubmitted: (_) => onSend(),
+                  onPressed: speechAvailable && !ttsSpeaking ? onMic : null,
+                ),
+                Expanded(
+                  child: TextField(
+                    controller: controller,
+                    minLines: 1,
+                    maxLines: 4,
+                    decoration: InputDecoration(
+                      hintText: 'Nhập hoặc nói câu tiếng Nhật...',
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                      enabledBorder: isSpeechDraft
+                          ? OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: warnColor, width: 1.2))
+                          : null,
+                      focusedBorder: isSpeechDraft
+                          ? OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: warnColor, width: 1.6))
+                          : null,
+                    ),
+                    onSubmitted: (_) => onSend(),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                IconButton(
+                  tooltip: 'Gửi',
+                  icon: const Icon(Icons.send_rounded, color: AppColors.teal),
+                  onPressed: sending ? null : onSend,
+                ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Thanh ghi âm thay cho ô nhập chữ khi đang nói — thùng rác (huỷ), nút tạm
+/// dừng (dừng nhận diện, giữ lại chữ), waveform minh hoạ đang nghe, thời gian
+/// đã ghi, và nút gửi luôn phần đã nhận diện được.
+class _RecordingBar extends StatelessWidget {
+  const _RecordingBar({
+    required this.seconds,
+    required this.onCancel,
+    required this.onPause,
+    required this.onSend,
+  });
+
+  final int seconds;
+  final VoidCallback onCancel;
+  final VoidCallback onPause;
+  final VoidCallback onSend;
+
+  String get _timeLabel {
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        IconButton(
+          tooltip: 'Huỷ ghi âm',
+          icon: const Icon(Icons.delete_outline_rounded, color: AppColors.inkFaint),
+          onPressed: onCancel,
+        ),
+        InkWell(
+          borderRadius: BorderRadius.circular(100),
+          onTap: onPause,
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: const BoxDecoration(color: AppColors.teal, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: const Icon(Icons.pause_rounded, color: Colors.white, size: 18),
+          ),
+        ),
+        const SizedBox(width: 10),
+        const Expanded(child: _RecordingWaveform()),
+        const SizedBox(width: 8),
+        Text(_timeLabel, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600, color: AppColors.inkSoft)),
+        const SizedBox(width: 8),
+        InkWell(
+          borderRadius: BorderRadius.circular(100),
+          onTap: onSend,
+          child: Container(
+            width: 34,
+            height: 34,
+            decoration: const BoxDecoration(color: AppColors.teal, shape: BoxShape.circle),
+            alignment: Alignment.center,
+            child: const Icon(Icons.arrow_upward_rounded, color: Colors.white, size: 18),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Dãy cột nhấp nháy minh hoạ đang ghi âm — chỉ là hiệu ứng hình ảnh (không
+/// đọc biên độ âm thanh thật từ mic, gói speech_to_text không lộ dữ liệu đó),
+/// đổi ngẫu nhiên chiều cao mỗi 400ms để trông như đang "nghe".
+class _RecordingWaveform extends StatefulWidget {
+  const _RecordingWaveform();
+
+  @override
+  State<_RecordingWaveform> createState() => _RecordingWaveformState();
+}
+
+class _RecordingWaveformState extends State<_RecordingWaveform> with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  final _random = Random();
+  late List<double> _heights;
+
+  @override
+  void initState() {
+    super.initState();
+    _heights = _randomHeights();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 400))
+      ..addStatusListener((status) {
+        if (status == AnimationStatus.completed) {
+          setState(() => _heights = _randomHeights());
+          _controller.forward(from: 0);
+        }
+      })
+      ..forward();
+  }
+
+  List<double> _randomHeights() => List.generate(24, (_) => 0.25 + _random.nextDouble() * 0.75);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 22,
+      child: Row(
+        children: [
+          for (final h in _heights)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 1),
+                child: Container(
+                  height: 22 * h,
+                  decoration: BoxDecoration(color: AppColors.teal, borderRadius: BorderRadius.circular(2)),
                 ),
               ),
-              const SizedBox(width: 6),
-              IconButton(
-                tooltip: 'Gửi',
-                icon: const Icon(Icons.send_rounded, color: AppColors.teal),
-                onPressed: sending ? null : onSend,
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Chip + thẻ xem trước "Gợi ý trả lời" — AI đã kèm sẵn 1 câu gợi ý mỗi lượt
+/// nói (không tốn thêm lần gọi API nào), chip chỉ bật/tắt hiển thị. Bấm
+/// "Dùng câu này" điền vào ô nhập để người học vẫn xem/sửa trước khi gửi,
+/// không gửi thẳng — tránh biến hội thoại thành "AI tự nói chuyện với AI".
+class _SuggestionBar extends StatelessWidget {
+  const _SuggestionBar({
+    required this.suggestion,
+    required this.translation,
+    required this.visible,
+    required this.enabled,
+    required this.onToggle,
+    required this.onUse,
+  });
+
+  final String? suggestion;
+  final String? translation;
+  final bool visible;
+  final bool enabled;
+  final VoidCallback onToggle;
+  final ValueChanged<String> onUse;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = suggestion?.trim() ?? '';
+    if (text.isEmpty) return const SizedBox.shrink();
+    return Container(
+      color: AppColors.card,
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(100),
+            onTap: enabled ? onToggle : null,
+            child: Opacity(
+              opacity: enabled ? 1 : 0.5,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                decoration: BoxDecoration(
+                  color: visible ? AppColors.teal : AppColors.tealSoft,
+                  borderRadius: BorderRadius.circular(100),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.lightbulb_outline_rounded, size: 15, color: visible ? Colors.white : AppColors.teal),
+                    const SizedBox(width: 5),
+                    Text(
+                      'Gợi ý trả lời',
+                      style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: visible ? Colors.white : AppColors.teal),
+                    ),
+                  ],
+                ),
               ),
-            ],
+            ),
           ),
+          if (visible) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: AppColors.tealSoft, borderRadius: BorderRadius.circular(14)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(text, style: AppFonts.zenMaruGothic(fontSize: 15, color: AppColors.ink, fontWeight: FontWeight.w600)),
+                  if ((translation ?? '').trim().isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(translation!.trim(), style: const TextStyle(fontSize: 12, fontStyle: FontStyle.italic, color: AppColors.inkSoft)),
+                  ],
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => onUse(text),
+                      style: TextButton.styleFrom(foregroundColor: AppColors.teal, padding: const EdgeInsets.symmetric(horizontal: 10)),
+                      child: const Text('Dùng câu này', style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -738,7 +1071,7 @@ class _TypingBubble extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.card,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: AppColors.border, width: 0.6),
+              border: Border.all(color: AppColors.border, width: 1.0),
             ),
             child: const SizedBox(
               height: 14,
@@ -759,7 +1092,7 @@ class _MessageBubble extends StatelessWidget {
     required this.showTranslation,
     required this.showFurigana,
     required this.onSpeak,
-    required this.onRetry,
+    required this.onShowFeedback,
   });
 
   final KaiwaMessage message;
@@ -767,11 +1100,12 @@ class _MessageBubble extends StatelessWidget {
   final bool showTranslation;
   final bool showFurigana;
   final void Function(String text) onSpeak;
-  final VoidCallback onRetry;
+  final VoidCallback onShowFeedback;
 
   @override
   Widget build(BuildContext context) {
     final isAi = message.role == KaiwaMessageRole.ai;
+    final hasFeedback = !isAi && message.feedback != null && message.feedback!.hasContent;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -789,13 +1123,17 @@ class _MessageBubble extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
               ],
+              if (hasFeedback) ...[
+                _FeedbackIconButton(onTap: onShowFeedback),
+                const SizedBox(width: 6),
+              ],
               Flexible(
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: isAi ? AppColors.card : AppColors.teal,
                     borderRadius: BorderRadius.circular(16),
-                    border: isAi ? Border.all(color: AppColors.border, width: 0.6) : null,
+                    border: isAi ? Border.all(color: AppColors.border, width: 1.0) : null,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -833,59 +1171,226 @@ class _MessageBubble extends StatelessWidget {
               ],
             ],
           ),
-          if (!isAi && message.feedback != null && message.feedback!.hasContent) ...[
-            const SizedBox(height: 6),
-            _FeedbackCard(feedback: message.feedback!, onRetry: onRetry),
-          ],
         ],
       ),
     );
   }
 }
 
-class _FeedbackCard extends StatelessWidget {
-  const _FeedbackCard({required this.feedback, required this.onRetry});
+/// Icon vàng cạnh bong bóng người dùng — bấm vào mở `_FeedbackSheet` phân
+/// tích ngữ pháp, giống mẫu tham khảo (ảnh app Emma) thay vì hiện thẳng thẻ
+/// feedback dưới mỗi tin nhắn như trước (chiếm chỗ, gây rối mắt khi hội thoại dài).
+class _FeedbackIconButton extends StatelessWidget {
+  const _FeedbackIconButton({required this.onTap});
 
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(100),
+      onTap: onTap,
+      child: Container(
+        width: 24,
+        height: 24,
+        decoration: BoxDecoration(color: AppColors.accent.withValues(alpha: 0.16), shape: BoxShape.circle),
+        alignment: Alignment.center,
+        child: const Icon(Icons.priority_high_rounded, size: 15, color: AppColors.accent),
+      ),
+    );
+  }
+}
+
+/// Bottom sheet phân tích ngữ pháp — câu gốc (gạch ngang) + câu đã sửa đúng
+/// (nếu AI có gợi ý sửa khác câu gốc), giải thích ngắn, và phần "phân tích
+/// chi tiết" mở rộng (điểm số + nhận xét từng mặt) giữ nguyên dữ liệu cũ của
+/// `_FeedbackCard` nhưng ẩn mặc định để phần chính (câu sửa + giải thích)
+/// không bị loãng.
+class _FeedbackSheet extends StatefulWidget {
+  const _FeedbackSheet({required this.original, required this.feedback, required this.onRetry});
+
+  final String original;
   final KaiwaFeedback feedback;
   final VoidCallback onRetry;
 
   @override
+  State<_FeedbackSheet> createState() => _FeedbackSheetState();
+}
+
+class _FeedbackSheetState extends State<_FeedbackSheet> {
+  bool _detailsVisible = false;
+
+  @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: const BoxConstraints(maxWidth: 300),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(color: AppColors.tealSoft, borderRadius: BorderRadius.circular(14)),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              for (var i = 0; i < 5; i++)
-                Icon(i < feedback.rating ? Icons.star_rounded : Icons.star_border_rounded, size: 16, color: AppColors.teal),
-              const Spacer(),
-              InkWell(
-                onTap: onRetry,
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  child: Text('Thử lại', style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.teal)),
+    final feedback = widget.feedback;
+    final corrected = feedback.betterPhrasing.trim();
+    final hasCorrection = corrected.isNotEmpty && corrected != widget.original.trim();
+    final details = <(String, String)>[
+      ('Tự nhiên', feedback.naturalness),
+      ('Ngữ pháp', feedback.grammar),
+      ('Từ vựng', feedback.vocabulary),
+      ('Lịch sự', feedback.politeness),
+      ('Giống người Nhật', feedback.nativeLikeness),
+    ].where((d) => d.$2.trim().isNotEmpty).toList();
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(18, 2, 18, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text('Phân tích ngữ pháp', style: TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: AppColors.ink)),
                 ),
+                for (var i = 0; i < 5; i++)
+                  Icon(i < feedback.rating ? Icons.star_rounded : Icons.star_border_rounded, size: 15, color: AppColors.teal),
+                const SizedBox(width: 8),
+                InkWell(
+                  onTap: widget.onRetry,
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                    child: Text('Thử lại', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.teal)),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            _FeedbackTextRow(
+              icon: Icons.close_rounded,
+              iconColor: AppColors.danger,
+              strikethrough: hasCorrection,
+              highlighted: false,
+              text: widget.original,
+            ),
+            if (hasCorrection) ...[
+              const SizedBox(height: 8),
+              _FeedbackTextRow(
+                icon: Icons.check_rounded,
+                iconColor: AppColors.moss,
+                strikethrough: false,
+                highlighted: true,
+                text: corrected,
               ),
             ],
+            if (feedback.explanation.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              Text(feedback.explanation, style: const TextStyle(fontSize: 13, height: 1.45, color: AppColors.inkSoft)),
+            ],
+            if (feedback.commonMistake.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _FeedbackLine(icon: Icons.error_outline_rounded, text: feedback.commonMistake),
+            ],
+            if (details.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              InkWell(
+                borderRadius: BorderRadius.circular(100),
+                onTap: () => setState(() => _detailsVisible = !_detailsVisible),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 11),
+                  decoration: BoxDecoration(color: AppColors.tealSoft, borderRadius: BorderRadius.circular(100)),
+                  alignment: Alignment.center,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.auto_awesome_rounded, size: 15, color: AppColors.teal),
+                      const SizedBox(width: 6),
+                      Text(
+                        _detailsVisible ? 'Ẩn phân tích chi tiết' : 'Phân tích chi tiết',
+                        style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700, color: AppColors.teal),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (_detailsVisible) ...[
+                const SizedBox(height: 10),
+                for (final d in details) _FeedbackDetailRow(label: d.$1, text: d.$2),
+              ],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FeedbackTextRow extends StatelessWidget {
+  const _FeedbackTextRow({
+    required this.icon,
+    required this.iconColor,
+    required this.strikethrough,
+    required this.highlighted,
+    required this.text,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final bool strikethrough;
+  final bool highlighted;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 22,
+          height: 22,
+          margin: const EdgeInsets.only(top: 3),
+          decoration: BoxDecoration(shape: BoxShape.circle, color: iconColor.withValues(alpha: 0.15)),
+          alignment: Alignment.center,
+          child: Icon(icon, size: 13, color: iconColor),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: highlighted ? AppColors.mossSoft : Colors.transparent,
+              borderRadius: BorderRadius.circular(12),
+              border: highlighted ? null : Border.all(color: AppColors.border, width: 1.2),
+            ),
+            child: Text(
+              text,
+              style: AppFonts.zenMaruGothic(
+                fontSize: 14.5,
+                color: AppColors.ink,
+              ).copyWith(
+                decoration: strikethrough ? TextDecoration.lineThrough : null,
+                decorationColor: AppColors.inkFaint,
+                decorationThickness: 1.4,
+              ),
+            ),
           ),
-          if (feedback.explanation.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            Text(feedback.explanation, style: const TextStyle(fontSize: 12, color: AppColors.ink, height: 1.35)),
+        ),
+      ],
+    );
+  }
+}
+
+class _FeedbackDetailRow extends StatelessWidget {
+  const _FeedbackDetailRow({required this.label, required this.text});
+
+  final String label;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: RichText(
+        text: TextSpan(
+          style: const TextStyle(fontSize: 12, height: 1.4, color: AppColors.inkSoft),
+          children: [
+            TextSpan(text: '$label: ', style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.ink)),
+            TextSpan(text: text),
           ],
-          if (feedback.commonMistake.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            _FeedbackLine(icon: Icons.error_outline_rounded, text: feedback.commonMistake),
-          ],
-          if (feedback.betterPhrasing.isNotEmpty) ...[
-            const SizedBox(height: 4),
-            _FeedbackLine(icon: Icons.lightbulb_outline_rounded, text: feedback.betterPhrasing),
-          ],
-        ],
+        ),
       ),
     );
   }

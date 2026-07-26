@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/lesson.dart';
@@ -22,13 +23,31 @@ class LessonDetailScreen extends ConsumerWidget {
         error: (e, _) => Center(child: Text('Lỗi: $e')),
         data: (contentItems) {
           if (contentItems.isEmpty) {
-            return const Center(child: Text('Bài học này chưa có nội dung.', style: TextStyle(color: AppColors.inkSoft)));
+            return const Center(
+                child: Text('Bài học này chưa có nội dung.',
+                    style: TextStyle(color: AppColors.inkSoft),),);
           }
-          return ListView.separated(
-            padding: const EdgeInsets.all(20),
-            itemCount: contentItems.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 10),
-            itemBuilder: (context, i) => _ContentItemTile(item: contentItems[i]),
+          return Column(
+            children: [
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: contentItems.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 10),
+                  itemBuilder: (context, i) =>
+                      _ContentItemTile(item: contentItems[i]),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: FilledButton.icon(
+                  onPressed: () =>
+                      context.push('/lessons/$lessonId/quiz', extra: title),
+                  icon: const Icon(Icons.quiz_outlined),
+                  label: const Text('Kiểm tra bài học'),
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -88,16 +107,27 @@ class _ContentItemTile extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
             alignment: Alignment.center,
-            child: Text(glyph, style: AppFonts.zenMaruGothic(fontSize: item.type == LessonItemType.vocabulary ? 16 : 19, color: fg)),
+            child: Text(glyph,
+                style: AppFonts.zenMaruGothic(
+                    fontSize: item.type == LessonItemType.vocabulary ? 16 : 19,
+                    color: fg,),),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14.5, color: AppColors.ink)),
+                Text(title,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14.5,
+                        color: AppColors.ink,),),
                 const SizedBox(height: 2),
-                Text(subtitle, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft)),
+                Text(subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12.5, color: AppColors.inkSoft,),),
               ],
             ),
           ),

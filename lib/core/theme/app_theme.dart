@@ -1,33 +1,43 @@
 import 'package:flutter/material.dart';
 
-/// Bảng màu ấm — nền giấy kem, cam đất làm điểm nhấn chính, lam/rêu cho
-/// hai nhóm nội dung Kanji/Từ vựng. Thiết kế lại theo bản mockup
-/// "Nihongo App Redesign" (claude.ai/design), thay cho bảng chàm/chu sa cũ.
+/// Bảng màu ấm — nền kem, cam san hô làm điểm nhấn chính, mỗi mảng nội dung
+/// (Từ vựng/Kanji/Ngữ pháp/Kaiwa) một màu riêng. Theo bản mockup
+/// "Nihongo App Redesign" (claude.ai/design), thay cho bảng cam đất cũ.
 abstract final class AppColors {
-  static const accent = Color(0xFFE2632E); // cam đất — CTA, Bài học
-  static const accentSoft = Color(0xFFFBE6D8);
-  static const accentStrong = Color(0xFFB94A1E);
+  static const accent = Color(0xFFFF7A45); // cam san hô — CTA, Bài học
+  static const accentSoft = Color(0xFFFFE4D1);
+  static const accentStrong = Color(0xFFE85A1A);
 
-  static const moss = Color(0xFF5C8A5F); // rêu — Từ vựng, trạng thái hoàn thành
-  static const mossSoft = Color(0xFFE5EFE1);
+  static const moss = Color(0xFF3FB35B); // xanh lá — Từ vựng, trạng thái hoàn thành
+  static const mossSoft = Color(0xFFDEF7E3);
 
-  static const indigo = Color(0xFF4B6278); // lam xám — Kanji, huy hiệu cấp độ
-  static const indigoSoft = Color(0xFFE7ECF0);
+  static const indigo = Color(0xFF4C7EF0); // xanh dương — Kanji, huy hiệu cấp độ
+  static const indigoSoft = Color(0xFFE6EDFF);
 
-  static const plum = Color(0xFF8C5E83); // mận — Ngữ pháp
-  static const plumSoft = Color(0xFFF0E5EE);
+  static const plum = Color(0xFFC8559E); // hồng mận — Ngữ pháp
+  static const plumSoft = Color(0xFFFCE7F5);
 
-  static const teal = Color(0xFF2E8E82); // ngọc lam — AI Kaiwa
-  static const tealSoft = Color(0xFFE1F0EC);
+  static const teal = Color(0xFF12B8AA); // ngọc lam — AI Kaiwa
+  static const tealSoft = Color(0xFFD7F7F3);
 
-  static const canvas = Color(0xFFFAF7F2); // nền màn hình
+  static const canvas = Color(0xFFFFF9EF); // nền màn hình
   static const card = Color(0xFFFFFFFF);
-  static const chip = Color(0xFFF2EBE0); // nền pill/chip chưa chọn
-  static const border = Color(0xFFEAE1D2);
+  static const chip = Color(0xFFF1EADA); // nền pill/chip chưa chọn
+  static const border = Color(0xFFF0E6D3);
 
-  static const ink = Color(0xFF2A2420); // chữ chính
-  static const inkSoft = Color(0xFF948A7C); // chữ phụ
+  static const ink = Color(0xFF241C15); // chữ chính
+  static const inkSoft = Color(0xFF8C8072); // chữ phụ
   static const inkFaint = Color(0xFFB7AE9F); // placeholder/hint
+
+  // Trạng thái lỗi thật sự (VD hộp "Lỗi thường gặp" ở Ngữ pháp) — tách khỏi
+  // accentStrong vì accentStrong giờ mang nghĩa "cam đậm/nổi bật" trung tính
+  // (badge đếm số thẻ chưa thuộc), không phải lỗi.
+  static const danger = Color(0xFFC11F30);
+  static const dangerSoft = Color(0xFFFFE1E4);
+
+  // Gradient header hero ở Home — cam san hô ngả hồng, theo mockup.
+  static const heroGradientStart = Color(0xFFFF9C5A);
+  static const heroGradientEnd = Color(0xFFD85A93);
 }
 
 /// Font chữ Nhật (器 glyph, tiêu đề 日本語) — dùng riêng, tách khỏi text theme
@@ -101,7 +111,7 @@ abstract final class AppTheme {
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: isLight ? const BorderSide(color: AppColors.border, width: 0.6) : BorderSide.none,
+          side: isLight ? const BorderSide(color: AppColors.border, width: 1.0) : BorderSide.none,
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
