@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/network/supabase_providers.dart';
 import '../../../domain/entities/lesson.dart';
 import '../../../domain/services/dialogue_listening_generator.dart';
 import '../../../domain/services/quiz_generator.dart';
@@ -99,3 +101,42 @@ final levelListeningQuestionsProvider =
         _dialogueGenerator.generate(dialogues: dialogues, questionCount: 12),
   );
 });
+
+final quizXpControllerProvider = Provider.autoDispose<QuizXpController?>((ref) {
+  final sb = ref.watch(supabaseProvider);
+  final userId = ref.watch(currentUserProvider)?.id;
+  if (userId == null) return null;
+  return QuizXpController(sb, userId);
+});
+
+/// Cộng XP thật vào `profiles.xp` mỗi câu trả lời đúng trong quiz. Đọc giá
+/// trị hiện tại rồi ghi đè (không có RPC increment riêng) — chấp nhận được
+/// vì các lệnh gọi trong 1 phiên quiz luôn được await tuần tự, không có 2
+/// request cộng XP chạy song song từ cùng 1 thiết bị.
+class QuizXpController {
+  QuizXpController(this._sb, this._userId);
+
+  final SupabaseClient _sb;
+  final String _userId;
+
+  Future<void> addXp(int delta) async {
+    final row =
+        await _sb.from('profiles').select('xp').eq('id', _userId).single();
+    final current = (row['xp'] as num?)?.toInt() ?? 0;
+    await _sb
+        .from('profiles')
+        .update({'xp': current + delta}).eq('id', _userId);
+  }
+
+  /// Ghi mốc hoàn thành 1 bài quiz — Quiz không có bảng log buổi làm bài nào
+  /// khác, dùng để mission "Hoàn thành 1 bài Quiz" trên Home biết hôm nay đã
+  /// làm chưa (xem `daily_mission.dart`/`mission_providers.dart`). Gọi khi
+  /// hết câu hỏi, không phụ thuộc điểm số (mission là "hoàn thành", không
+  /// phải "đạt điểm cao").
+  Future<void> markQuizCompletedToday() async {
+    await _sb
+        .from('profiles')
+        .update({'last_quiz_completed_at': DateTime.now().toUtc().toIso8601String()})
+        .eq('id', _userId);
+  }
+}

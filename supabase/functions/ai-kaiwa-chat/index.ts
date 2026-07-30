@@ -66,6 +66,7 @@ interface PromptParams {
   scenarioContext: string;
   jlptLevel: string;
   hasUserMessage: boolean;
+  seedWord?: string;
 }
 
 function buildSystemPrompt(p: PromptParams): string {
@@ -80,7 +81,11 @@ QUY TẮC:
 - has_user_message = ${p.hasUserMessage}. Nếu true, hãy đánh giá câu người học vừa gửi: độ tự nhiên, ngữ pháp, từ vựng, độ lịch sự, mức giống người Nhật bản xứ; giải thích lỗi sai bằng tiếng Việt dễ hiểu, nêu lỗi người Việt hay mắc liên quan nếu có, và gợi ý câu nói tự nhiên hơn. Nếu câu đã tốt, vẫn chấm điểm cao và khen ngắn gọn thay vì bịa lỗi.
 - Nếu has_user_message = false (tin nhắn mở đầu cuộc hội thoại), đặt rating = 0 và để các trường feedback còn lại là chuỗi rỗng "".
 - Mỗi trường feedback tối đa 1-2 câu ngắn, đi thẳng vào trọng tâm — không lặp lại nội dung giữa các trường, không viết dài dòng.
-- Luôn kèm suggested_reply_jp: 1 câu trả lời mẫu tự nhiên mà người học có thể dùng để đáp lại reply_jp bạn vừa nói, ngắn gọn, đúng trình độ ${p.jlptLevel} và mức lịch sự, kèm bản dịch suggested_reply_vi — dùng khi người học bí không biết nói gì.
+- Luôn kèm suggested_reply_jp: 1 câu trả lời mẫu tự nhiên mà người học có thể dùng để đáp lại reply_jp bạn vừa nói, ngắn gọn, đúng trình độ ${p.jlptLevel} và mức lịch sự, kèm bản dịch suggested_reply_vi — dùng khi người học bí không biết nói gì.${
+    p.seedWord
+      ? `\n- Người học vừa học từ vựng "${p.seedWord}" và muốn luyện dùng nó — hãy chủ động dẫn dắt hội thoại để có cơ hội tự nhiên dùng từ này trong reply_jp (không gượng ép nếu ngữ cảnh không hợp), hoặc khuyến khích người học dùng từ đó qua suggested_reply_jp.`
+      : ""
+  }
 - Luôn phản hồi đúng theo cấu trúc JSON được yêu cầu, không kèm văn bản thừa.`;
 }
 
@@ -190,7 +195,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const {
       personaName, personaRole, personaPersonality, politenessLevel,
-      scenarioTitle, scenarioContext, jlptLevel, history, message,
+      scenarioTitle, scenarioContext, jlptLevel, history, message, seedWord,
     } = body;
 
     const hasUserMessage = typeof message === "string" && message.trim().length > 0;
@@ -198,6 +203,7 @@ Deno.serve(async (req) => {
     const systemPrompt = buildSystemPrompt({
       personaName, personaRole, personaPersonality, politenessLevel,
       scenarioTitle, scenarioContext, jlptLevel, hasUserMessage,
+      seedWord: typeof seedWord === "string" && seedWord.trim().length > 0 ? seedWord.trim() : undefined,
     });
 
     const messages: ChatMessage[] = [];

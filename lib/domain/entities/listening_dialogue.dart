@@ -15,7 +15,7 @@ class ListeningDialogue {
     required this.id,
     required this.levelId,
     required this.turns,
-    required this.questionVi,
+    required this.questionJa,
     required this.options,
     required this.correctIndex,
   });
@@ -23,7 +23,10 @@ class ListeningDialogue {
   final String id;
   final String levelId;
   final List<ListeningTurn> turns;
-  final String questionVi;
+
+  /// Câu hỏi bằng tiếng Nhật (đề bài) — người học luyện đọc/nghe hiểu tiếng
+  /// Nhật thật, không phải đọc tiếng Việt rồi chỉ nghe hội thoại tiếng Nhật.
+  final String questionJa;
   final List<String> options;
   final int correctIndex;
 }

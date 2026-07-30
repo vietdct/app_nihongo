@@ -17,6 +17,15 @@ final kaiwaChatServiceProvider = Provider.autoDispose<KaiwaChatService?>((ref) {
   return KaiwaChatService(sb, userId);
 });
 
+/// Toàn bộ tin nhắn thật của 1 hội thoại — dùng cho màn Tóm tắt (tính điểm
+/// trung bình, số câu đã sửa...) và luồng resume ở Dashboard.
+final kaiwaMessagesProvider =
+    FutureProvider.autoDispose.family<List<KaiwaMessage>, String>((ref, conversationId) async {
+  final service = ref.watch(kaiwaChatServiceProvider);
+  if (service == null) return [];
+  return service.loadMessages(conversationId);
+});
+
 /// Gọi Edge Function `ai-kaiwa-chat` (proxy tới Anthropic, giữ API key
 /// server-side) rồi lưu lại lượt hội thoại vào Supabase. Mỗi lượt người học
 /// gửi câu, feedback AI chấm được đính kèm ngay trên message role 'user' đó
@@ -66,6 +75,7 @@ class KaiwaChatService {
     required KaiwaScenario scenario,
     required String levelCode,
     String? levelId,
+    String? seedWord,
   }) async {
     // Tạo phiên hội thoại và gọi AI song song — hai việc này không phụ thuộc
     // nhau, chạy tuần tự chỉ cộng thêm độ trễ ghi DB vào độ trễ (lớn hơn nhiều)
@@ -77,7 +87,14 @@ class KaiwaChatService {
         'scenario_id': scenario.id,
         if (levelId != null) 'level_id': levelId,
       }).select().single(),
-      _callAi(persona: persona, scenario: scenario, levelCode: levelCode, history: const [], message: null),
+      _callAi(
+        persona: persona,
+        scenario: scenario,
+        levelCode: levelCode,
+        history: const [],
+        message: null,
+        seedWord: seedWord,
+      ),
     ]);
     final conversationId = (results[0] as Map<String, dynamic>)['id'] as String;
     final aiJson = results[1] as Map<String, dynamic>;
@@ -189,12 +206,40 @@ class KaiwaChatService {
     return (userMessage: userMessage, aiMessage: aiMessage);
   }
 
+  /// Nạp lại toàn bộ lịch sử tin nhắn thật của 1 hội thoại đã có — dùng khi
+  /// người dùng bấm "Tiếp tục hội thoại" từ Dashboard thay vì bắt đầu mới.
+  /// Không gọi AI, chỉ đọc dữ liệu đã lưu.
+  Future<List<KaiwaMessage>> loadMessages(String conversationId) async {
+    final rows = await _sb
+        .from('kaiwa_messages')
+        .select()
+        .eq('conversation_id', conversationId)
+        .order('created_at', ascending: true);
+
+    return [
+      for (final r in rows)
+        KaiwaMessage(
+          id: r['id'] as String,
+          role: r['role'] == 'ai' ? KaiwaMessageRole.ai : KaiwaMessageRole.user,
+          contentJp: r['content_jp'] as String,
+          translationVi: r['translation_vi'] as String?,
+          furigana: _sanitizeFurigana(r['furigana'] as String?),
+          feedback: r['feedback'] == null
+              ? null
+              : KaiwaFeedback.fromJson((r['feedback'] as Map).cast<String, dynamic>()),
+          suggestedReplyJp: r['suggested_reply_jp'] as String?,
+          suggestedReplyVi: r['suggested_reply_vi'] as String?,
+        ),
+    ];
+  }
+
   Future<Map<String, dynamic>> _callAi({
     required KaiwaPersona persona,
     required KaiwaScenario scenario,
     required String levelCode,
     required List<Map<String, String>> history,
     String? message,
+    String? seedWord,
   }) async {
     // Không có timeout thì nếu mạng chậm hoặc Anthropic/Gemini phản hồi lâu
     // (edge function còn thử fallback tuần tự 2 lượt), màn hình sẽ đứng chờ
@@ -213,6 +258,7 @@ class KaiwaChatService {
             'jlptLevel': levelCode,
             'history': history,
             'message': message,
+            if (seedWord != null) 'seedWord': seedWord,
           },
         )
         .timeout(

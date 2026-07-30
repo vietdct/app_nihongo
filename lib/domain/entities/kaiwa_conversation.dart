@@ -4,9 +4,13 @@ class KaiwaConversation {
     required this.id,
     required this.personaId,
     required this.scenarioId,
+    required this.startedAt,
+    required this.lastMessageAt,
   });
 
   final String id;
   final String personaId;
   final String scenarioId;
+  final DateTime startedAt;
+  final DateTime lastMessageAt;
 }

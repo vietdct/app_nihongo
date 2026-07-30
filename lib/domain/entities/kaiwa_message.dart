@@ -62,6 +62,10 @@ class KaiwaMessage {
     this.feedback,
     this.suggestedReplyJp,
     this.suggestedReplyVi,
+    this.intervalDays = 0,
+    this.easeFactor = 2.5,
+    this.dueAt,
+    this.reviewCount = 0,
   });
 
   final String id;
@@ -75,4 +79,23 @@ class KaiwaMessage {
   /// học dùng để đáp lại [contentJp], xem "Gợi ý trả lời" ở `kaiwa_chat_screen.dart`.
   final String? suggestedReplyJp;
   final String? suggestedReplyVi;
+
+  /// Lịch ôn tập SRS thật (SM-2 rút gọn, xem `srs_scheduler.dart`) — ghi bởi
+  /// `KaiwaReviewScreen`, migration `20260728010000_kaiwa_srs.sql`.
+  final double intervalDays;
+  final double easeFactor;
+  final DateTime? dueAt;
+  final int reviewCount;
+
+  /// Chỉ những câu THẬT SỰ bị sửa mới đáng ôn tập — feedback có câu tự nhiên
+  /// hơn ([KaiwaFeedback.betterPhrasing]) và câu đó khác với câu gốc đã nói.
+  /// Không đoán/không ôn những câu AI chấm đã ổn (rating cao, không có sửa).
+  bool get isReviewable =>
+      feedback != null &&
+      feedback!.hasContent &&
+      feedback!.betterPhrasing.trim().isNotEmpty &&
+      feedback!.betterPhrasing.trim() != contentJp.trim();
+
+  /// true nếu chưa từng ôn theo SRS ([dueAt] null) hoặc đã tới/qua hạn ôn.
+  bool get isDueNow => dueAt == null || !dueAt!.isAfter(DateTime.now());
 }

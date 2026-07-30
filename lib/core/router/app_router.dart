@@ -1,23 +1,46 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../features/auth/login_screen.dart';
+import '../../features/grammar/grammar_compare_screen.dart';
+import '../../features/grammar/grammar_detail_screen.dart';
 import '../../features/grammar/grammar_flashcard_screen.dart';
 import '../../features/grammar/grammar_list_screen.dart';
-import '../../features/home/home_screen.dart';
+import '../../features/grammar/grammar_practice_screen.dart';
+import '../../features/grammar/grammar_review_screen.dart';
+import '../../features/grammar/grammar_tutor_screen.dart';
+import '../../features/kaiwa/kaiwa_history_screen.dart';
 import '../../features/kaiwa/kaiwa_home_screen.dart';
+import '../../features/kaiwa/kaiwa_review_screen.dart';
+import '../../features/kaiwa/kaiwa_roleplay_screen.dart';
+import '../../features/kaiwa/kaiwa_scenario_map_screen.dart';
+import '../../features/kaiwa/kaiwa_shadowing_screen.dart';
+import '../../features/kaiwa/kaiwa_statistics_screen.dart';
 import '../../features/kanji/kanji_detail_screen.dart';
 import '../../features/kanji/kanji_draw_search_screen.dart';
 import '../../features/kanji/kanji_list_screen.dart';
+import '../../features/kanji/kanji_family_screen.dart';
+import '../../features/kanji/kanji_review_screen.dart';
+import '../../features/kanji/kanji_statistics_screen.dart';
+import '../../features/kanji/kanji_stroke_practice_screen.dart';
+import '../../features/kanji/kanji_tutor_screen.dart';
+import '../../features/kanji/providers/kanji_reading_practice_providers.dart';
+import '../../features/lesson/providers/content_providers.dart';
 import '../../features/lesson/lesson_detail_screen.dart';
 import '../../features/lesson/lesson_list_screen.dart';
+import '../../features/lesson/lesson_runner_screen.dart';
 import '../../features/lesson/providers/level_providers.dart';
+import '../../features/premium/premium_screen.dart';
 import '../../features/quiz/providers/quiz_providers.dart';
+import 'main_tab_shell.dart';
 import '../../features/quiz/quiz_category_screen.dart';
 import '../../features/quiz/quiz_screen.dart';
 import '../../features/vocabulary/vocabulary_flashcard_screen.dart';
+import '../../features/vocabulary/vocabulary_home_screen.dart';
 import '../../features/vocabulary/vocabulary_list_screen.dart';
+import '../../features/vocabulary/vocabulary_review_screen.dart';
 import '../network/supabase_providers.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -28,14 +51,13 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/',
     refreshListenable: refresh,
     redirect: (context, state) {
-      final loggedIn = ref.read(currentUserProvider) != null;
       final atLogin = state.matchedLocation == '/login';
-      if (!loggedIn) return atLogin ? null : '/login';
+      if (!refresh.loggedIn) return atLogin ? null : '/login';
       if (atLogin) return '/';
       return null;
     },
     routes: [
-      GoRoute(path: '/', builder: (_, __) => const HomeScreen()),
+      GoRoute(path: '/', builder: (_, __) => const MainTabShell()),
       GoRoute(path: '/login', builder: (_, __) => const LoginScreen()),
       GoRoute(path: '/lessons', builder: (_, __) => const LessonListScreen()),
       GoRoute(
@@ -43,6 +65,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => LessonDetailScreen(
           lessonId: state.pathParameters['id']!,
           title: state.extra as String?,
+        ),
+      ),
+      GoRoute(
+        path: '/lessons/:id/run',
+        builder: (context, state) => LessonRunnerScreen(
+          lessonId: state.pathParameters['id']!,
         ),
       ),
       GoRoute(
@@ -56,7 +84,8 @@ final routerProvider = Provider<GoRouter>((ref) {
                   ref.watch(lessonQuizQuestionsProvider(lessonId));
               return questionsAsync.when(
                 loading: () => const Scaffold(
-                    body: Center(child: CircularProgressIndicator()),),
+                  body: Center(child: CircularProgressIndicator()),
+                ),
                 error: (e, _) => Scaffold(body: Center(child: Text('Lỗi: $e'))),
                 data: (questions) => QuizScreen(
                   questions: questions,
@@ -69,15 +98,19 @@ final routerProvider = Provider<GoRouter>((ref) {
         },
       ),
       GoRoute(
-          path: '/quiz', builder: (_, __) => const QuizCategoryScreen(),),
+        path: '/quiz',
+        builder: (_, __) => const QuizCategoryScreen(),
+      ),
       GoRoute(
         path: '/quiz/:category',
         builder: (context, state) {
           final category = QuizCategoryLabel.fromRouteSegment(
-              state.pathParameters['category']!,);
+            state.pathParameters['category']!,
+          );
           if (category == null) {
             return const Scaffold(
-                body: Center(child: Text('Loại quiz không hợp lệ')),);
+              body: Center(child: Text('Loại quiz không hợp lệ')),
+            );
           }
           return Consumer(
             builder: (context, ref, _) {
@@ -86,9 +119,9 @@ final routerProvider = Provider<GoRouter>((ref) {
               final level = ref.watch(selectedLevelCodeProvider);
               return questionsAsync.when(
                 loading: () => const Scaffold(
-                    body: Center(child: CircularProgressIndicator()),),
-                error: (e, _) =>
-                    Scaffold(body: Center(child: Text('Lỗi: $e'))),
+                  body: Center(child: CircularProgressIndicator()),
+                ),
+                error: (e, _) => Scaffold(body: Center(child: Text('Lỗi: $e'))),
                 data: (questions) => QuizScreen(
                   questions: questions,
                   title: '${category.label} · $level',
@@ -106,7 +139,8 @@ final routerProvider = Provider<GoRouter>((ref) {
             final level = ref.watch(selectedLevelCodeProvider);
             return questionsAsync.when(
               loading: () => const Scaffold(
-                  body: Center(child: CircularProgressIndicator()),),
+                body: Center(child: CircularProgressIndicator()),
+              ),
               error: (e, _) => Scaffold(body: Center(child: Text('Lỗi: $e'))),
               data: (questions) => QuizScreen(
                 questions: questions,
@@ -118,41 +152,182 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
-          path: '/vocabulary',
-          builder: (_, __) => const VocabularyListScreen(),),
+        path: '/vocabulary',
+        builder: (_, __) => const VocabularyHomeScreen(),
+      ),
       GoRoute(
-          path: '/vocabulary/flashcards',
-          builder: (_, __) => const VocabularyFlashcardScreen(),),
+        path: '/vocabulary/list',
+        builder: (_, __) => const VocabularyListScreen(),
+      ),
+      GoRoute(
+        path: '/vocabulary/flashcards',
+        builder: (_, __) => const VocabularyFlashcardScreen(),
+      ),
+      GoRoute(
+        path: '/vocabulary/review',
+        builder: (_, __) => const VocabularyReviewScreen(),
+      ),
       GoRoute(path: '/kanji', builder: (_, __) => const KanjiListScreen()),
       GoRoute(
-          path: '/kanji/draw',
-          builder: (_, __) => const KanjiDrawSearchScreen(),),
+        path: '/kanji/draw',
+        builder: (_, __) => const KanjiDrawSearchScreen(),
+      ),
+      GoRoute(
+        path: '/kanji/review',
+        builder: (_, __) => const KanjiReviewScreen(),
+      ),
+      GoRoute(
+        path: '/kanji/statistics',
+        builder: (_, __) => const KanjiStatisticsScreen(),
+      ),
       GoRoute(
         path: '/kanji/:id',
         builder: (context, state) =>
             KanjiDetailScreen(kanjiId: state.pathParameters['id']!),
       ),
+      GoRoute(
+        path: '/kanji/:id/practice',
+        builder: (context, state) => KanjiStrokePracticeScreen(
+          kanjiId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/kanji/:id/reading',
+        builder: (context, state) {
+          final kanjiId = state.pathParameters['id']!;
+          return Consumer(
+            builder: (context, ref, _) {
+              final questionsAsync =
+                  ref.watch(kanjiReadingPracticeQuestionsProvider(kanjiId));
+              final allKanji = ref.watch(kanjiListProvider).valueOrNull;
+              String? character;
+              if (allKanji != null) {
+                for (final k in allKanji) {
+                  if (k.id == kanjiId) {
+                    character = k.character;
+                    break;
+                  }
+                }
+              }
+              return questionsAsync.when(
+                loading: () => const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                ),
+                error: (e, _) => Scaffold(body: Center(child: Text('Lỗi: $e'))),
+                data: (questions) => QuizScreen(
+                  questions: questions,
+                  title: character == null
+                      ? 'Luyện đọc Kanji'
+                      : 'Luyện đọc: $character',
+                ),
+              );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        path: '/kanji/:id/family',
+        builder: (context, state) => KanjiFamilyScreen(
+          kanjiId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/kanji/:id/tutor',
+        builder: (context, state) => KanjiTutorScreen(
+          kanjiId: state.pathParameters['id']!,
+        ),
+      ),
       GoRoute(path: '/grammar', builder: (_, __) => const GrammarListScreen()),
       GoRoute(
-          path: '/grammar/flashcards',
-          builder: (_, __) => const GrammarFlashcardScreen(),),
+        path: '/grammar/flashcards',
+        builder: (_, __) => const GrammarFlashcardScreen(),
+      ),
+      GoRoute(
+        path: '/grammar/practice',
+        builder: (_, __) => const GrammarPracticeScreen(),
+      ),
+      GoRoute(
+        path: '/grammar/review',
+        builder: (_, __) => const GrammarReviewScreen(),
+      ),
+      GoRoute(
+        path: '/grammar/:id',
+        builder: (context, state) => GrammarDetailScreen(
+          grammarId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/grammar/:id/tutor',
+        builder: (context, state) => GrammarTutorScreen(
+          grammarId: state.pathParameters['id']!,
+        ),
+      ),
+      GoRoute(
+        path: '/grammar-compare/:idA/:idB',
+        builder: (context, state) => GrammarCompareScreen(
+          idA: state.pathParameters['idA']!,
+          idB: state.pathParameters['idB']!,
+        ),
+      ),
       GoRoute(path: '/kaiwa', builder: (_, __) => const KaiwaHomeScreen()),
+      GoRoute(
+        path: '/kaiwa/topics',
+        builder: (context, state) => KaiwaScenarioMapScreen(
+          seedWord: state.extra as String?,
+        ),
+      ),
+      GoRoute(
+        path: '/kaiwa/topics/:scenarioId/roleplay',
+        builder: (context, state) => KaiwaRoleplayScreen(
+          scenarioId: state.pathParameters['scenarioId']!,
+          seedWord: state.extra as String?,
+        ),
+      ),
+      GoRoute(
+        path: '/kaiwa/history',
+        builder: (_, __) => const KaiwaHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/kaiwa/shadowing',
+        builder: (_, __) => const KaiwaShadowingScreen(),
+      ),
+      GoRoute(
+        path: '/kaiwa/review',
+        builder: (_, __) => const KaiwaReviewScreen(),
+      ),
+      GoRoute(
+        path: '/kaiwa/statistics',
+        builder: (_, __) => const KaiwaStatisticsScreen(),
+      ),
+      GoRoute(path: '/premium', builder: (_, __) => const PremiumScreen()),
     ],
   );
 });
 
 /// Bắc cầu từ Riverpod auth stream sang [Listenable] để go_router tự
 /// đánh giá lại redirect mỗi khi trạng thái đăng nhập đổi.
+///
+/// [loggedIn] lấy thẳng từ giá trị `next` mà callback của [authStateProvider]
+/// nhận được — KHÔNG đọc lại qua `ref.read/watch(currentUserProvider)`. Đọc
+/// lại qua provider khác dễ dính đúng lúc provider đó chưa kịp rebuild theo
+/// sự kiện vừa phát (redirect chạy ngay khi notifyListeners(), nhưng
+/// currentUserProvider có thể rebuild ở 1 nhịp microtask sau đó), khiến
+/// redirect đọc nhầm trạng thái "vẫn đăng nhập" ngay sau khi vừa đăng xuất.
 class _AuthRefreshListenable extends ChangeNotifier {
   _AuthRefreshListenable(Ref ref) {
-    _sub = ref.listen(
+    loggedIn = ref.read(supabaseProvider).auth.currentSession != null;
+    _sub = ref.listen<AsyncValue<AuthState>>(
       authStateProvider,
-      (_, __) => notifyListeners(),
+      (_, next) {
+        loggedIn = next.valueOrNull?.session != null;
+        notifyListeners();
+      },
       fireImmediately: false,
     );
   }
 
-  late final ProviderSubscription<Object?> _sub;
+  bool loggedIn = false;
+  late final ProviderSubscription<AsyncValue<AuthState>> _sub;
 
   @override
   void dispose() {

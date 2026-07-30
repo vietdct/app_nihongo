@@ -21,7 +21,7 @@ class DialogueListeningGenerator {
   }) {
     final valid = dialogues
         .where((d) =>
-            d.turns.isNotEmpty && d.options.length >= 2 && d.questionVi.trim().isNotEmpty,)
+            d.turns.isNotEmpty && d.options.length >= 2 && d.questionJa.trim().isNotEmpty,)
         .toList();
     if (valid.length < 2) return const [];
 
@@ -37,7 +37,7 @@ class DialogueListeningGenerator {
     final shuffled = d.options.toList()..shuffle(rng);
 
     return QuizQuestion(
-      promptVi: d.questionVi,
+      promptVi: d.questionJa,
       displayJp: [for (final t in d.turns) '${t.speaker}: ${t.jp}'].join('\n'),
       options: shuffled,
       correctIndex: shuffled.indexOf(correctText),

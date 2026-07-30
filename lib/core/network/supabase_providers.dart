@@ -12,8 +12,13 @@ final authStateProvider = StreamProvider<AuthState>(
   (ref) => ref.watch(supabaseProvider).auth.onAuthStateChange,
 );
 
-/// User hiện tại (null nếu chưa đăng nhập). Rebuild theo [authStateProvider].
+/// User hiện tại (null nếu chưa đăng nhập). Lấy thẳng từ session của sự kiện
+/// [authStateProvider] mới nhất (không tra riêng `auth.currentUser`) — SDK
+/// cập nhật field `currentUser` nội bộ có thể chậm hơn 1 nhịp so với lúc
+/// stream `onAuthStateChange` phát sự kiện, khiến router đọc "vẫn đăng nhập"
+/// ngay sau khi đăng xuất và không redirect kịp về /login.
 final currentUserProvider = Provider<User?>((ref) {
-  ref.watch(authStateProvider);
+  final authState = ref.watch(authStateProvider).valueOrNull;
+  if (authState != null) return authState.session?.user;
   return ref.watch(supabaseProvider).auth.currentUser;
 });

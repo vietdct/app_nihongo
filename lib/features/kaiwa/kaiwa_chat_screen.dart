@@ -9,11 +9,15 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 import '../../core/services/jp_voice_prefs.dart';
 import '../../core/theme/app_theme.dart';
+import '../../domain/entities/kaiwa_feedback_context.dart';
 import '../../domain/entities/kaiwa_message.dart';
 import '../../domain/entities/kaiwa_persona.dart';
 import '../../domain/entities/kaiwa_scenario.dart';
 import '../lesson/providers/level_providers.dart';
+import 'kaiwa_summary_screen.dart';
+import 'kaiwa_tutor_screen.dart';
 import 'providers/kaiwa_chat_service.dart';
+import 'providers/kaiwa_conversation_providers.dart';
 
 // Dùng chung khoá lưu giọng đọc với Quiz/Nghe hiểu (lib/core/services/jp_voice_prefs.dart)
 // — chọn giọng ở Kaiwa thì Quiz cũng đọc bằng giọng đó, không cần chọn lại.
@@ -36,10 +40,25 @@ const _voiceProfiles = <String, ({double pitch, double rate})>{
 const _defaultVoiceProfile = (pitch: 1.0, rate: 0.42);
 
 class KaiwaChatScreen extends ConsumerStatefulWidget {
-  const KaiwaChatScreen({super.key, required this.persona, required this.scenario});
+  const KaiwaChatScreen({
+    super.key,
+    required this.persona,
+    required this.scenario,
+    this.resumeConversationId,
+    this.seedWord,
+  });
 
   final KaiwaPersona persona;
   final KaiwaScenario scenario;
+
+  /// Nếu có — mở lại hội thoại đã tồn tại (nạp lịch sử thật, không gọi AI,
+  /// không tự đọc lại toàn bộ lịch sử) thay vì bắt đầu một hội thoại mới.
+  final String? resumeConversationId;
+
+  /// Từ vựng người dùng muốn luyện dùng trong hội thoại (VD từ thẻ "Từ vựng
+  /// hôm nay" > "Dùng trong AI Kaiwa") — chỉ áp dụng khi bắt đầu hội thoại
+  /// mới, gửi kèm cho AI qua `ai-kaiwa-chat` để chủ động dẫn dắt dùng từ này.
+  final String? seedWord;
 
   @override
   ConsumerState<KaiwaChatScreen> createState() => _KaiwaChatScreenState();
@@ -131,7 +150,14 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
         ..showSnackBar(SnackBar(content: Text('Lỗi đọc tiếng Nhật: $msg')));
     });
     _loadVoices();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _startConversation());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final resumeId = widget.resumeConversationId;
+      if (resumeId != null) {
+        _resumeConversation(resumeId);
+      } else {
+        _startConversation();
+      }
+    });
   }
 
   @override
@@ -365,6 +391,7 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
         scenario: widget.scenario,
         levelCode: levelCode,
         levelId: levelId,
+        seedWord: widget.seedWord,
       );
       if (!mounted) return;
       setState(() {
@@ -373,6 +400,10 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
         _starting = false;
         _suggestionVisible = false;
       });
+      // Dashboard Kaiwa (streak/"Tiếp tục hội thoại"/"Hội thoại gần đây") giữ
+      // provider này sống suốt vòng đời tab — không invalidate thì màn đó vẫn
+      // hiện số liệu cũ dù hội thoại mới đã tạo xong.
+      ref.invalidate(kaiwaConversationsProvider);
       _scrollToBottom();
       unawaited(_speakAi(result.aiMessage.contentJp));
     } catch (e) {
@@ -381,6 +412,43 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
         _starting = false;
         _error = 'Không mở được hội thoại: $e';
       });
+    }
+  }
+
+  Future<void> _resumeConversation(String conversationId) async {
+    final service = ref.read(kaiwaChatServiceProvider);
+    if (service == null) return;
+    setState(() {
+      _starting = true;
+      _error = null;
+    });
+    try {
+      final messages = await service.loadMessages(conversationId);
+      if (!mounted) return;
+      setState(() {
+        _conversationId = conversationId;
+        _messages
+          ..clear()
+          ..addAll(messages);
+        _starting = false;
+        _suggestionVisible = false;
+      });
+      _scrollToBottom();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _starting = false;
+        _error = 'Không mở lại được hội thoại: $e';
+      });
+    }
+  }
+
+  void _retryStart() {
+    final resumeId = widget.resumeConversationId;
+    if (resumeId != null) {
+      _resumeConversation(resumeId);
+    } else {
+      _startConversation();
     }
   }
 
@@ -423,6 +491,7 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
         _messages.add(result.aiMessage);
         _sending = false;
       });
+      ref.invalidate(kaiwaConversationsProvider);
       _scrollToBottom();
       unawaited(_speakAi(result.aiMessage.contentJp));
     } catch (e) {
@@ -586,6 +655,62 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
           Navigator.of(sheetContext).pop();
           setState(() => _textController.text = message.contentJp);
         },
+        onAskMore: () {
+          Navigator.of(sheetContext).pop();
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (_) => KaiwaTutorScreen(
+                turn: KaiwaFeedbackContext(
+                  originalSentence: message.contentJp,
+                  betterPhrasing: feedback.betterPhrasing,
+                  explanation: feedback.explanation,
+                  commonMistake: feedback.commonMistake,
+                  grammarNote: feedback.grammar,
+                  vocabularyNote: feedback.vocabulary,
+                  politenessNote: feedback.politeness,
+                  personaName: widget.persona.name,
+                  scenarioTitle: widget.scenario.title,
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  // Kết thúc hội thoại hiện tại → xác nhận rồi sang màn tóm tắt thật (tính
+  // từ đúng dữ liệu đã lưu của hội thoại này). "Kết thúc" không xoá gì cả —
+  // vẫn mở lại được từ Dashboard/Lịch sử sau đó, chỉ là điểm dừng để xem lại.
+  Future<void> _confirmEndConversation() async {
+    final conversationId = _conversationId;
+    if (conversationId == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Kết thúc hội thoại này?'),
+        content: const Text('Bạn sẽ xem tóm tắt buổi hội thoại — vẫn có thể tiếp tục lại sau từ Dashboard.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dialogContext).pop(false), child: const Text('Huỷ')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: AppColors.teal),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Kết thúc'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    _tts.stop();
+    if (_isListening) await _speech.stop();
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (_) => KaiwaSummaryScreen(
+          conversationId: conversationId,
+          persona: widget.persona,
+          scenario: widget.scenario,
+        ),
       ),
     );
   }
@@ -638,6 +763,16 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
             icon: Icon(Icons.translate, color: _showTranslation ? AppColors.teal : AppColors.inkFaint),
             onPressed: () => setState(() => _showTranslation = !_showTranslation),
           ),
+          PopupMenuButton<String>(
+            tooltip: 'Thêm',
+            icon: const Icon(Icons.more_vert, color: AppColors.inkFaint),
+            onSelected: (value) {
+              if (value == 'end') _confirmEndConversation();
+            },
+            itemBuilder: (context) => const [
+              PopupMenuItem(value: 'end', child: Text('Kết thúc hội thoại')),
+            ],
+          ),
         ],
       ),
       body: SafeArea(
@@ -654,7 +789,7 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
                           const SizedBox(height: 16),
                           FilledButton(
                             style: FilledButton.styleFrom(backgroundColor: AppColors.teal),
-                            onPressed: _startConversation,
+                            onPressed: _retryStart,
                             child: const Text('Thử lại'),
                           ),
                         ],
@@ -663,6 +798,24 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
                   )
                 : Column(
                     children: [
+                      if (widget.seedWord != null)
+                        Container(
+                          width: double.infinity,
+                          color: AppColors.tealSoft,
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.lightbulb_outline_rounded, size: 14, color: AppColors.teal),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  'Gợi ý: thử dùng từ "${widget.seedWord}" trong hội thoại này',
+                                  style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: AppColors.teal),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       Expanded(
                         child: ListView.builder(
                           controller: _scrollController,
@@ -1207,11 +1360,17 @@ class _FeedbackIconButton extends StatelessWidget {
 /// `_FeedbackCard` nhưng ẩn mặc định để phần chính (câu sửa + giải thích)
 /// không bị loãng.
 class _FeedbackSheet extends StatefulWidget {
-  const _FeedbackSheet({required this.original, required this.feedback, required this.onRetry});
+  const _FeedbackSheet({
+    required this.original,
+    required this.feedback,
+    required this.onRetry,
+    required this.onAskMore,
+  });
 
   final String original;
   final KaiwaFeedback feedback;
   final VoidCallback onRetry;
+  final VoidCallback onAskMore;
 
   @override
   State<_FeedbackSheet> createState() => _FeedbackSheetState();
@@ -1283,6 +1442,16 @@ class _FeedbackSheetState extends State<_FeedbackSheet> {
               const SizedBox(height: 10),
               _FeedbackLine(icon: Icons.error_outline_rounded, text: feedback.commonMistake),
             ],
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: widget.onAskMore,
+                style: OutlinedButton.styleFrom(foregroundColor: AppColors.teal, side: const BorderSide(color: AppColors.teal)),
+                icon: const Icon(Icons.chat_bubble_outline_rounded, size: 16),
+                label: const Text('Hỏi AI thêm về câu này'),
+              ),
+            ),
             if (details.isNotEmpty) ...[
               const SizedBox(height: 16),
               InkWell(

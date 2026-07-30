@@ -18,6 +18,11 @@ class QuizQuestion {
     this.displayIsJapanese = true,
   });
 
+  /// Dòng hướng dẫn/câu hỏi phía trên — tiếng Việt cho câu hỏi Vocab/Kanji/
+  /// Ngữ pháp (VD "Từ này có nghĩa là gì?"); với câu hỏi nghe hiểu hội thoại
+  /// (xem [DialogueListeningGenerator]) đây là chính đề bài bằng tiếng Nhật
+  /// (`ListeningDialogue.questionJa`) — luyện đọc hiểu tiếng Nhật thật thay
+  /// vì chỉ dịch sẵn ra tiếng Việt.
   final String promptVi;
 
   /// Chữ lớn hiển thị giữa màn — Nhật (kanji/kana) khi [displayIsJapanese],
@@ -64,10 +69,17 @@ class QuizGenerator {
   /// trình độ). [distractorPool]: nguồn nhiễu mở rộng khi [pool] không đủ
   /// đáp án nhiễu khác nghĩa — câu hỏi luôn lấy từ [pool], không bao giờ
   /// lấy từ [distractorPool].
+  /// [readingOnly]: chỉ hỏi trục cách đọc (termToReading/readingToTerm) —
+  /// dùng cho màn Luyện đọc riêng 1 Kanji (`kanji_reading_practice_providers.dart`),
+  /// nơi mục đích là luyện đọc chứ không phải ôn nghĩa. Item nào không có
+  /// cách đọc riêng biệt (VD ngữ pháp, hoặc từ kana thuần) vẫn rơi về
+  /// termToMeaning thay vì bị loại hẳn — tránh câu hỏi trống, chấp nhận lẫn
+  /// 1 câu hỏi nghĩa thay vì bịa cách đọc không có thật.
   List<QuizQuestion> generate({
     required List<LessonContentItem> pool,
     List<LessonContentItem>? distractorPool,
     int questionCount = 10,
+    bool readingOnly = false,
   }) {
     final rng = _random ?? Random();
 
@@ -83,7 +95,12 @@ class QuizGenerator {
 
     return [
       for (final item in selected)
-        _buildQuestion(item, allCandidates, _pickDirection(item, allCandidates, rng), rng),
+        _buildQuestion(
+          item,
+          allCandidates,
+          _pickDirection(item, allCandidates, rng, readingOnly: readingOnly),
+          rng,
+        ),
     ];
   }
 
@@ -99,13 +116,16 @@ class QuizGenerator {
   _Direction _pickDirection(
     _ContentItem item,
     List<_ContentItem> allCandidates,
-    Random rng,
-  ) {
+    Random rng, {
+    bool readingOnly = false,
+  }) {
     final hasDistinctReading = item.reading != null &&
         item.reading!.trim().toLowerCase() != item.term.trim().toLowerCase();
     final candidates = <_Direction>[
-      _Direction.termToMeaning,
-      _Direction.meaningToTerm,
+      if (!readingOnly || !hasDistinctReading) ...[
+        _Direction.termToMeaning,
+        _Direction.meaningToTerm,
+      ],
       if (hasDistinctReading) ...[
         _Direction.termToReading,
         _Direction.readingToTerm,

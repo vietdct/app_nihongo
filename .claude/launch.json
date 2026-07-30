@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "nihongo-ios",
+      "runtimeExecutable": "flutter",
+      "runtimeArgs": [
+        "run",
+        "--dart-define-from-file=env.json",
+        "-d",
+        "0CE01FC0-8B22-4FF5-B0C2-1DF92C747CEC"
+      ],
+      "port": 0
+    }
+  ]
+}

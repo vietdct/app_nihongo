@@ -4,14 +4,18 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/network/supabase_providers.dart';
 import '../../core/theme/app_theme.dart';
+import '../../domain/entities/vocabulary.dart';
+import '../../domain/services/word_of_the_day.dart';
 import '../../shared/level_badge.dart';
 import '../auth/auth_controller.dart';
+import '../grammar/providers/grammar_progress_providers.dart';
+import '../kanji/providers/kanji_progress_providers.dart';
 import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
+import '../vocabulary/providers/vocab_progress_providers.dart';
+import 'providers/mission_providers.dart';
 import 'providers/profile_providers.dart';
 import 'widgets/daily_goal_card.dart';
-import 'widgets/feature_tile.dart';
-import 'widgets/skill_path_node.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -22,6 +26,21 @@ class HomeScreen extends ConsumerWidget {
     if (hour < 14) return 'Chào buổi trưa';
     if (hour < 18) return 'Chào buổi chiều';
     return 'Chào buổi tối';
+  }
+
+  static int? _pctKnown<T>(
+    List<T>? items,
+    Map<String, dynamic>? progress,
+    String Function(T) idOf,
+  ) {
+    if (items == null || progress == null || items.isEmpty) return null;
+    final known = items.where((e) {
+      final p = progress[idOf(e)];
+      if (p == null) return false;
+      final dynamic isKnown = (p as dynamic).isKnown;
+      return isKnown == true;
+    }).length;
+    return ((known / items.length) * 100).round();
   }
 
   @override
@@ -35,6 +54,26 @@ class HomeScreen extends ConsumerWidget {
     final initial = email.isNotEmpty ? email[0].toUpperCase() : '?';
     final profile = profileAsync.valueOrNull;
     final displayName = profile?.displayName ?? email;
+
+    final vocabList = ref.watch(vocabularyListProvider).valueOrNull;
+    final kanjiList = ref.watch(kanjiListProvider).valueOrNull;
+    final grammarList = ref.watch(grammarListProvider).valueOrNull;
+    final vocabProgress = ref.watch(vocabProgressProvider).valueOrNull;
+    final kanjiProgress = ref.watch(kanjiProgressProvider).valueOrNull;
+    final grammarProgress = ref.watch(grammarProgressProvider).valueOrNull;
+
+    final progressBars = <_ProgressBarData>[
+      if (_pctKnown(vocabList, vocabProgress, (v) => v.id) case final pct?)
+        _ProgressBarData(label: 'Từ vựng', color: AppColors.moss, pct: pct),
+      if (_pctKnown(kanjiList, kanjiProgress, (k) => k.id) case final pct?)
+        _ProgressBarData(label: 'Kanji', color: AppColors.indigo, pct: pct),
+      if (_pctKnown(grammarList, grammarProgress, (g) => g.id) case final pct?)
+        _ProgressBarData(label: 'Ngữ pháp', color: AppColors.plum, pct: pct),
+    ];
+
+    final wordOfDay = vocabList == null
+        ? null
+        : pickWordOfTheDay(pool: vocabList, levelId: selectedLevel);
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -57,192 +96,52 @@ class HomeScreen extends ConsumerWidget {
             data: (items) => items.isEmpty
                 ? const SizedBox.shrink()
                 : Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                    child: _ContinueLessonCard(
-                      title: items.first.title,
-                      lessonId: items.first.id,
-                      levelLabel: selectedLevel,
+                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _SectionLabel('Continue learning'),
+                        const SizedBox(height: 10),
+                        _ContinueLessonCard(
+                          title: items.first.title,
+                          lessonId: items.first.id,
+                          levelLabel: selectedLevel,
+                        ),
+                      ],
                     ),
                   ),
             orElse: () => const SizedBox.shrink(),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SectionLabel('Lộ trình học · $selectedLevel'),
-                const SizedBox(height: 16),
-                Column(
-                  children: [
-                    _SkillPathRow(
-                      alignLeft: true,
-                      node: SkillPathNode(
-                          glyph: '語',
-                          label: 'Từ vựng',
-                          color: AppColors.moss,
-                          onTap: () => context.push('/vocabulary'),),
-                    ),
-                    const SizedBox(height: 20),
-                    _SkillPathRow(
-                      alignLeft: false,
-                      node: SkillPathNode(
-                          glyph: '字',
-                          label: 'Kanji',
-                          color: AppColors.indigo,
-                          onTap: () => context.push('/kanji'),),
-                    ),
-                    const SizedBox(height: 20),
-                    _SkillPathRow(
-                      alignLeft: true,
-                      node: SkillPathNode(
-                          glyph: '文',
-                          label: 'Ngữ pháp',
-                          color: AppColors.plum,
-                          onTap: () => context.push('/grammar'),),
-                    ),
-                    const SizedBox(height: 20),
-                    _SkillPathRow(
-                      alignLeft: false,
-                      node: SkillPathNode(
-                          glyph: '聴',
-                          label: 'Nghe hiểu',
-                          color: AppColors.accent,
-                          onTap: () => context.push('/listening'),),
-                    ),
-                    const SizedBox(height: 20),
-                    _SkillPathRow(
-                      alignLeft: true,
-                      node: SkillPathNode(
-                          glyph: '話',
-                          label: 'AI Kaiwa',
-                          color: AppColors.teal,
-                          onTap: () => context.push('/kaiwa'),),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 26, 20, 0),
+            child: _TodayMissionSection(),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const _SectionLabel('Ôn tập nhanh'),
-                const SizedBox(height: 12),
-                GridView.count(
-                  crossAxisCount: 3,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 10,
-                  crossAxisSpacing: 10,
-                  childAspectRatio: 0.82,
-                  children: [
-                    const ReviewTile(
-                        icon: Icons.style_outlined,
-                        label: 'Flashcard',
-                        phaseNote: 'sẽ có ở Pha 3',),
-                    ReviewTile(
-                        icon: Icons.help_outline_rounded,
-                        label: 'Quiz',
-                        onTap: () => context.push('/quiz'),),
-                    const ReviewTile(
-                        icon: Icons.fact_check_outlined,
-                        label: 'Thi thử',
-                        phaseNote: 'sẽ có ở Pha 7',),
-                  ],
-                ),
-              ],
+          if (progressBars.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _SectionLabel('Tiến độ'),
+                  const SizedBox(height: 12),
+                  _ProgressCard(bars: progressBars),
+                ],
+              ),
             ),
-          ),
+          if (wordOfDay != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _SectionLabel('Từ vựng hôm nay'),
+                  const SizedBox(height: 10),
+                  _WordOfDayCard(vocab: wordOfDay),
+                ],
+              ),
+            ),
           const SizedBox(height: 28),
         ],
-      ),
-      bottomNavigationBar: const _HomeBottomNav(),
-    );
-  }
-}
-
-/// Footer 4 tab theo mockup (Trang chủ/Ôn tập/Premium/Hồ sơ). Chỉ "Trang chủ"
-/// có màn hình thật — 3 tab kia chưa được xây (không có màn Ôn tập tổng hợp/
-/// Premium/Hồ sơ), bấm vào báo "sắp có" giống các nút SẮP CÓ khác trong app
-/// thay vì dẫn tới màn hình trống hoặc giả vờ đã có.
-class _HomeBottomNav extends StatelessWidget {
-  const _HomeBottomNav();
-
-  static const _tabs = [
-    (icon: Icons.home_rounded, label: 'Trang chủ'),
-    (icon: Icons.history_rounded, label: 'Ôn tập'),
-    (icon: Icons.workspace_premium_outlined, label: 'Premium'),
-    (icon: Icons.person_outline_rounded, label: 'Hồ sơ'),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(6, 8, 6, 10),
-      decoration: const BoxDecoration(
-        color: AppColors.card,
-        border: Border(top: BorderSide(color: AppColors.border, width: 1.0)),
-      ),
-      child: SafeArea(
-        top: false,
-        child: Row(
-          children: [
-            for (var i = 0; i < _tabs.length; i++)
-              Expanded(
-                child: _NavTabButton(
-                  icon: _tabs[i].icon,
-                  label: _tabs[i].label,
-                  active: i == 0,
-                  onTap: i == 0
-                      ? null
-                      : () {
-                          ScaffoldMessenger.of(context)
-                            ..hideCurrentSnackBar()
-                            ..showSnackBar(SnackBar(
-                                content: Text(
-                                    '${_tabs[i].label} — sẽ có ở bản sau',),),);
-                        },
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NavTabButton extends StatelessWidget {
-  const _NavTabButton(
-      {required this.icon,
-      required this.label,
-      required this.active,
-      required this.onTap,});
-
-  final IconData icon;
-  final String label;
-  final bool active;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final color = active ? AppColors.accent : AppColors.inkFaint;
-    return InkWell(
-      onTap: onTap,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 22, color: color),
-            const SizedBox(height: 3),
-            Text(label,
-                style: TextStyle(
-                    fontSize: 9, fontWeight: FontWeight.w700, color: color,),),
-          ],
-        ),
       ),
     );
   }
@@ -421,23 +320,6 @@ class _HeaderPill extends StatelessWidget {
   }
 }
 
-/// Căn 1 node skill-path sang trái/phải để tạo hiệu ứng zigzag như mockup.
-class _SkillPathRow extends StatelessWidget {
-  const _SkillPathRow({required this.alignLeft, required this.node});
-
-  final bool alignLeft;
-  final SkillPathNode node;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment:
-          alignLeft ? MainAxisAlignment.start : MainAxisAlignment.end,
-      children: [node],
-    );
-  }
-}
-
 /// Thẻ "vào học ngay" nổi bật dưới thẻ mục tiêu — trỏ tới bài học đầu tiên
 /// trong danh sách thật (app chưa lưu "đang học dở bài nào" nên không dùng
 /// chữ "Tiếp tục" ngụ ý đã học dở, chỉ mời vào học bài đầu của cấp độ hiện tại).
@@ -452,53 +334,380 @@ class _ContinueLessonCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () => context.push('/lessons/$lessonId', extra: title),
+      borderRadius: BorderRadius.circular(20),
+      onTap: () => context.push('/lessons/$lessonId/run'),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppColors.accent, AppColors.accentStrong],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accent.withValues(alpha: 0.3),
+              blurRadius: 20,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 52,
+              height: 52,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.22),
+                borderRadius: BorderRadius.circular(15),
+              ),
+              alignment: Alignment.center,
+              child: const Icon(Icons.menu_book_rounded,
+                  color: Colors.white, size: 24,),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('$levelLabel — Vào học ngay',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 14,
+                          color: Colors.white,),),
+                  const SizedBox(height: 2),
+                  Text(title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,),),
+                ],
+              ),
+            ),
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.25),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(Icons.play_arrow_rounded,
+                  color: Colors.white, size: 20,),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// "Today's Mission" — checklist + badge XP mỗi mục + đếm x/y đã xong, nối
+/// dữ liệu thật qua `dailyMissionStatusProvider` (xem `mission_providers.dart`):
+/// không còn tick tay, mỗi mục tự bật khi đạt ngưỡng hoạt động thật hôm nay
+/// và tự cộng XP đúng 1 lần/ngày.
+class _MissionData {
+  const _MissionData({required this.label, required this.xp, required this.done});
+
+  final String label;
+  final int xp;
+  final bool done;
+}
+
+class _TodayMissionSection extends ConsumerWidget {
+  const _TodayMissionSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final status = ref.watch(dailyMissionStatusProvider).valueOrNull;
+    final missions = [
+      _MissionData(label: 'Học 10 từ vựng mới', xp: 10, done: status?.vocabDone ?? false),
+      _MissionData(label: 'Ôn tập 5 chữ Kanji', xp: 10, done: status?.kanjiDone ?? false),
+      _MissionData(label: 'Hoàn thành 1 bài Quiz', xp: 15, done: status?.quizDone ?? false),
+      _MissionData(label: 'Trò chuyện cùng AI Kaiwa', xp: 15, done: status?.kaiwaDone ?? false),
+    ];
+    final doneCount = missions.where((m) => m.done).length;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const _SectionLabel("Today's Mission"),
+            Text(
+              '$doneCount/${missions.length}',
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.accent,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border, width: 1.0),
+          ),
+          child: Column(
+            children: [
+              for (var i = 0; i < missions.length; i++) ...[
+                if (i > 0)
+                  const Divider(height: 1, color: AppColors.canvas),
+                _MissionRow(mission: missions[i]),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MissionRow extends StatelessWidget {
+  const _MissionRow({required this.mission});
+
+  final _MissionData mission;
+
+  @override
+  Widget build(BuildContext context) {
+    final done = mission.done;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      child: Row(
+        children: [
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              color: done ? AppColors.moss : Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: done ? AppColors.moss : AppColors.border,
+                width: 2,
+              ),
+            ),
+            alignment: Alignment.center,
+            child: done
+                ? const Icon(Icons.check_rounded,
+                    size: 14, color: Colors.white,)
+                : null,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              mission.label,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: done ? AppColors.inkFaint : AppColors.ink,
+                decoration:
+                    done ? TextDecoration.lineThrough : TextDecoration.none,
+              ),
+            ),
+          ),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+            decoration: BoxDecoration(
+              color: done ? AppColors.mossSoft : AppColors.chip,
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: Text(
+              '+${mission.xp} XP',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w800,
+                color: done ? AppColors.moss : AppColors.inkFaint,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// 1 thanh phần trăm trong thẻ "Tiến độ" — [pct] tính thật từ
+/// known-count/total của progress provider tương ứng (đồng bộ cách tính với
+/// banner "x/y đã thuộc" ở các màn danh sách), không có kỹ năng nào bị bịa số.
+class _ProgressBarData {
+  const _ProgressBarData(
+      {required this.label, required this.color, required this.pct,});
+
+  final String label;
+  final Color color;
+  final int pct;
+}
+
+class _ProgressCard extends StatelessWidget {
+  const _ProgressCard({required this.bars});
+
+  final List<_ProgressBarData> bars;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border, width: 1.0),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < bars.length; i++) ...[
+            if (i > 0) const SizedBox(height: 14),
+            _ProgressBarRow(bar: bars[i]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProgressBarRow extends StatelessWidget {
+  const _ProgressBarRow({required this.bar});
+
+  final _ProgressBarData bar;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration:
+                      BoxDecoration(color: bar.color, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 8),
+                Text(bar.label,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12.5,
+                        color: AppColors.ink,),),
+              ],
+            ),
+            Text('${bar.pct}%',
+                style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 11,
+                    color: bar.color,),),
+          ],
+        ),
+        const SizedBox(height: 6),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(100),
+          child: LinearProgressIndicator(
+            value: bar.pct / 100,
+            minHeight: 8,
+            backgroundColor: AppColors.chip,
+            valueColor: AlwaysStoppedAnimation(bar.color),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Từ vựng ngẫu nhiên-theo-ngày (chỉ số quyết định bằng số ngày trong năm,
+/// không phải bịa) — luôn cùng 1 từ trong suốt 1 ngày, đổi từ khi sang ngày
+/// mới. Bấm vào mở danh sách từ vựng.
+class _WordOfDayCard extends StatelessWidget {
+  const _WordOfDayCard({required this.vocab});
+
+  final Vocabulary vocab;
+
+  @override
+  Widget build(BuildContext context) {
+    final meaning = vocab.meanings.first;
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => context.push('/vocabulary'),
+      child: Container(
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(18),
           border: Border.all(color: AppColors.border, width: 1.0),
         ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              width: 46,
-              height: 46,
+              width: 56,
+              height: 56,
               decoration: BoxDecoration(
-                  color: AppColors.accentSoft,
-                  borderRadius: BorderRadius.circular(13),),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.mossSoft, AppColors.tealSoft],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
               alignment: Alignment.center,
-              child: const Icon(Icons.menu_book_rounded,
-                  color: AppColors.accentStrong, size: 20,),
+              child: Text(
+                vocab.word.isEmpty ? '' : vocab.word[0],
+                style: AppFonts.zenMaruGothic(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.moss,),
+              ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Vào học ngay · $title',
+                  Row(
+                    children: [
+                      Text(vocab.word,
+                          style: AppFonts.zenMaruGothic(
+                              fontSize: 17,
+                              fontWeight: FontWeight.w800,
+                              color: AppColors.ink,),),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(vocab.reading,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppFonts.zenMaruGothic(
+                                fontSize: 10.5, color: AppColors.inkSoft,),),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(meaning.meaningVi,
                       style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 13.5,
-                          color: AppColors.ink,),),
-                  const SizedBox(height: 1),
-                  Text('Bài học đầu · $levelLabel',
-                      style: const TextStyle(
-                          fontSize: 11, color: AppColors.inkSoft,),),
+                          fontSize: 12, color: AppColors.inkSoft,),),
+                  if (meaning.exampleJp != null) ...[
+                    const SizedBox(height: 4),
+                    Text(meaning.exampleJp!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 10.5,
+                            color: AppColors.inkFaint,
+                            fontStyle: FontStyle.italic,),),
+                  ],
                 ],
               ),
             ),
-            Container(
-              width: 26,
-              height: 26,
-              decoration: const BoxDecoration(
-                  color: AppColors.accent, shape: BoxShape.circle,),
-              alignment: Alignment.center,
-              child: const Icon(Icons.arrow_forward_ios_rounded,
-                  color: Colors.white, size: 10,),
-            ),
+            const Icon(Icons.chevron_right_rounded,
+                color: AppColors.inkFaint, size: 20,),
           ],
         ),
       ),

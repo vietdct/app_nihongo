@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/grammar_point.dart';
-import '../../shared/flip_card.dart';
 import '../lesson/providers/content_providers.dart';
 import 'providers/grammar_progress_providers.dart';
+import 'widgets/grammar_content_sections.dart';
 
-/// Flashcard ngữ pháp — vuốt phải để đánh dấu đã thuộc, vuốt trái để đánh
-/// dấu chưa thuộc (gom vào danh sách ôn lại cuối phiên). Chạm vào thẻ để
-/// lật xem giải thích/ví dụ/lỗi thường gặp; chạm ngôi sao để lưu lại sau.
+/// Bộ thẻ ngữ pháp vuốt qua — vuốt phải để đánh dấu đã thuộc, vuốt trái để
+/// đánh dấu chưa thuộc (gom vào danh sách ôn lại cuối phiên). Mỗi thẻ là 1
+/// trang đầy đủ giải thích/ví dụ/lỗi thường gặp; chạm ngôi sao để lưu lại.
 class GrammarFlashcardScreen extends ConsumerStatefulWidget {
   const GrammarFlashcardScreen({super.key});
 
@@ -236,7 +237,7 @@ class _GrammarFlashcardScreenState
                 Text(
                   _unknownIds.isNotEmpty
                       ? 'Vuốt phải: đã thuộc · Vuốt trái: chưa thuộc · Chạm badge để xem/ôn ngay'
-                      : 'Vuốt phải: đã thuộc · Vuốt trái: chưa thuộc · Chạm: xem giải thích',
+                      : 'Vuốt phải: đã thuộc · Vuốt trái: chưa thuộc',
                   textAlign: TextAlign.center,
                   style:
                       const TextStyle(fontSize: 12, color: AppColors.inkFaint),
@@ -470,8 +471,8 @@ class _SwipeableGrammarCardState extends State<_SwipeableGrammarCard>
     final angle = (_drag.dx / 2800).clamp(-0.25, 0.25);
 
     return GestureDetector(
-      onPanUpdate: _completing ? null : _onPanUpdate,
-      onPanEnd: _completing ? null : _onPanEnd,
+      onHorizontalDragUpdate: _completing ? null : _onPanUpdate,
+      onHorizontalDragEnd: _completing ? null : _onPanEnd,
       child: Transform.translate(
         offset: _drag,
         child: Transform.rotate(
@@ -480,9 +481,9 @@ class _SwipeableGrammarCardState extends State<_SwipeableGrammarCard>
             clipBehavior: Clip.none,
             alignment: Alignment.topCenter,
             children: [
-              FlipCard(
-                front: _GrammarFront(grammar: widget.grammar),
-                back: _GrammarBack(grammar: widget.grammar),
+              _GrammarCardContent(
+                grammar: widget.grammar,
+                onMarkKnown: widget.onSwipeRight,
               ),
               if (rightProgress > 0.08)
                 Positioned(
@@ -563,190 +564,194 @@ class _StampLabel extends StatelessWidget {
   }
 }
 
-class _CardShell extends StatelessWidget {
-  const _CardShell({
-    required this.child,
-    this.background = AppColors.card,
-    this.scrollable = false,
-  });
-
-  final Widget child;
-  final Color background;
-  final bool scrollable;
-
-  @override
-  Widget build(BuildContext context) {
-    final maxHeight = MediaQuery.of(context).size.height * 0.56;
-    return Container(
-      width: double.infinity,
-      constraints: BoxConstraints(maxWidth: 420, maxHeight: maxHeight),
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border, width: 1.0),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.ink.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: scrollable ? SingleChildScrollView(child: child) : child,
-    );
-  }
-}
-
-class _GrammarFront extends StatelessWidget {
-  const _GrammarFront({required this.grammar});
+/// Toàn bộ nội dung 1 điểm ngữ pháp trên MỘT trang cuộn dọc duy nhất (không
+/// lật mặt) — đúng cấu trúc thiết kế: thẻ tiêu đề gradient nhỏ ở trên, các
+/// mục Ý nghĩa/Ví dụ/Mẹo ghi nhớ/So sánh/Lỗi thường gặp mỗi mục 1 khối riêng.
+class _GrammarCardContent extends StatelessWidget {
+  const _GrammarCardContent({required this.grammar, required this.onMarkKnown});
 
   final GrammarPoint grammar;
+  final VoidCallback onMarkKnown;
 
   @override
   Widget build(BuildContext context) {
-    return _CardShell(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            grammar.title,
-            textAlign: TextAlign.center,
-            style: AppFonts.zenMaruGothic(
-              fontSize: 26,
-              fontWeight: FontWeight.w800,
-              color: AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 28),
-          const Icon(
-            Icons.touch_app_outlined,
-            color: AppColors.inkFaint,
-            size: 20,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _GrammarBack extends StatelessWidget {
-  const _GrammarBack({required this.grammar});
-
-  final GrammarPoint grammar;
-
-  @override
-  Widget build(BuildContext context) {
-    return _CardShell(
-      background: AppColors.plumSoft,
-      scrollable: true,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            grammar.explanation,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: AppColors.ink,
-              height: 1.4,
-            ),
-          ),
-          if (grammar.exampleJp != null) ...[
-            const SizedBox(height: 12),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
               decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    grammar.exampleJp!,
-                    style: AppFonts.zenMaruGothic(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: AppColors.ink,
-                    ),
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.plum, Color(0xFF8A3B70)],
+                ),
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.plum.withValues(alpha: 0.25),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
                   ),
-                  if (grammar.exampleVi != null) ...[
-                    const SizedBox(height: 5),
-                    Text(
-                      grammar.exampleVi!,
-                      style: const TextStyle(
-                        fontSize: 11.5,
-                        color: AppColors.inkSoft,
-                      ),
-                    ),
-                  ],
                 ],
               ),
+              child: Text(
+                grammar.title,
+                textAlign: TextAlign.center,
+                style: AppFonts.zenMaruGothic(
+                  fontSize: 26,
+                  fontWeight: FontWeight.w800,
+                  color: Colors.white,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            GrammarSection(
+              color: AppColors.plum,
+              label: 'Ý NGHĨA',
+              child: GrammarInfoBox(
+                child: Text(
+                  grammar.explanation,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                    height: 1.4,
+                  ),
+                ),
+              ),
+            ),
+            if (grammar.exampleJp != null) ...[
+              const SizedBox(height: 14),
+              GrammarSection(
+                color: AppColors.indigo,
+                label: 'VÍ DỤ',
+                child: GrammarInfoBox(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        grammar.exampleJp!,
+                        style: AppFonts.zenMaruGothic(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      if (grammar.exampleVi != null) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          grammar.exampleVi!,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.inkSoft,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            if (grammar.memoryTip != null) ...[
+              const SizedBox(height: 14),
+              GrammarSection(
+                color: AppColors.moss,
+                label: 'MẸO GHI NHỚ',
+                child: GrammarInfoBox(
+                  background: AppColors.chip,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.lightbulb_rounded,
+                          color: AppColors.accent, size: 20,),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          grammar.memoryTip!,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.ink,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            if (grammar.comparisonNote != null) ...[
+              const SizedBox(height: 14),
+              GrammarSection(
+                color: AppColors.plum,
+                label: 'SO SÁNH',
+                child: GrammarInfoBox(
+                  background: AppColors.plumSoft,
+                  child: Text(
+                    grammar.comparisonNote!,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: AppColors.ink,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            if (grammar.commonMistake != null) ...[
+              const SizedBox(height: 14),
+              GrammarSection(
+                color: AppColors.danger,
+                label: 'LỖI THƯỜNG GẶP',
+                child: GrammarInfoBox(
+                  background: AppColors.dangerSoft,
+                  child: Text(
+                    grammar.commonMistake!,
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: AppColors.danger,
+                      height: 1.4,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => context.push('/quiz/grammar'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.plum,
+                    ),
+                    child: const Text('Quiz ngữ pháp'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: onMarkKnown,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.plum,
+                      side: const BorderSide(color: AppColors.plum, width: 2),
+                    ),
+                    icon: const Icon(Icons.check_rounded, size: 18),
+                    label: const Text('Đã thuộc'),
+                  ),
+                ),
+              ],
             ),
           ],
-          if (grammar.memoryTip != null) ...[
-            const SizedBox(height: 12),
-            _BackInfoLine(
-              icon: Icons.lightbulb_outline_rounded,
-              color: AppColors.moss,
-              text: grammar.memoryTip!,
-            ),
-          ],
-          if (grammar.commonMistake != null) ...[
-            const SizedBox(height: 8),
-            _BackInfoLine(
-              icon: Icons.error_outline_rounded,
-              color: AppColors.danger,
-              text: grammar.commonMistake!,
-            ),
-          ],
-          if (grammar.comparisonNote != null) ...[
-            const SizedBox(height: 8),
-            _BackInfoLine(
-              icon: Icons.compare_arrows_rounded,
-              color: AppColors.indigo,
-              text: grammar.comparisonNote!,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _BackInfoLine extends StatelessWidget {
-  const _BackInfoLine({
-    required this.icon,
-    required this.color,
-    required this.text,
-  });
-
-  final IconData icon;
-  final Color color;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 14, color: color),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Text(
-            text,
-            style: const TextStyle(
-              fontSize: 11.5,
-              color: AppColors.ink,
-              height: 1.4,
-            ),
-          ),
         ),
-      ],
+      ),
     );
   }
 }

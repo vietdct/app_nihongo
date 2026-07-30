@@ -22,7 +22,7 @@ final listeningDialoguesForLevelProvider =
             ListeningTurn(
                 speaker: t['speaker'] as String, jp: t['jp'] as String,),
         ],
-        questionVi: r['question_vi'] as String,
+        questionJa: r['question_ja'] as String,
         options: List<String>.from(r['options'] as List),
         correctIndex: r['correct_index'] as int,
       ),

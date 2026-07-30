@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../domain/entities/vocab_meaning.dart';
 import '../../domain/entities/vocabulary.dart';
 import '../../shared/flip_card.dart';
+import '../home/providers/mission_providers.dart';
 import '../lesson/providers/content_providers.dart';
 import 'providers/vocab_progress_providers.dart';
 
@@ -37,7 +38,10 @@ class _VocabularyFlashcardScreenState
       _index++;
     });
     await controller?.setKnown(v.id, true);
-    if (mounted) ref.invalidate(vocabProgressProvider);
+    if (mounted) {
+      ref.invalidate(vocabProgressProvider);
+      ref.invalidate(dailyMissionStatusProvider);
+    }
   }
 
   Future<void> _markUnknown(
@@ -49,7 +53,10 @@ class _VocabularyFlashcardScreenState
       _index++;
     });
     await controller?.setKnown(v.id, false);
-    if (mounted) ref.invalidate(vocabProgressProvider);
+    if (mounted) {
+      ref.invalidate(vocabProgressProvider);
+      ref.invalidate(dailyMissionStatusProvider);
+    }
   }
 
   Future<void> _toggleStar(

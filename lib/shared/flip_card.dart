@@ -12,17 +12,20 @@ class FlipCard extends StatefulWidget {
   final Widget back;
 
   @override
-  State<FlipCard> createState() => _FlipCardState();
+  State<FlipCard> createState() => FlipCardState();
 }
 
-class _FlipCardState extends State<FlipCard> with SingleTickerProviderStateMixin {
+/// Public state so parent widgets can trigger a flip programmatically (VD nút
+/// "Xem lại"/"Tập viết" ở mặt sau quay ngược về mặt trước) qua GlobalKey,
+/// giống cách KanjiStrokeCanvasState expose replay().
+class FlipCardState extends State<FlipCard> with SingleTickerProviderStateMixin {
   late final _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 380),
   );
   bool _showingFront = true;
 
-  void _flip() {
+  void flip() {
     if (_showingFront) {
       _controller.forward();
     } else {
@@ -40,7 +43,7 @@ class _FlipCardState extends State<FlipCard> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: _flip,
+      onTap: flip,
       child: AnimatedBuilder(
         animation: _controller,
         builder: (context, child) {

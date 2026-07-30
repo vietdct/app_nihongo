@@ -1329,3 +1329,93 @@ from (values
   ('66666666-0000-0000-0000-000000000054'::uuid, 'Dùng もっと (hơn) khi câu hỏi so sánh cần どちら (giữa 2 cái, cái nào).', 'どちら chỉ dùng khi so sánh ĐÚNG 2 đối tượng; từ 3 đối tượng trở lên phải dùng どれ.', 'So với どちら ở Bài 2 (hỏi hướng/phía) — cùng từ どちら nhưng dùng trong ngữ cảnh so sánh ở đây.')
 ) as v(id, common_mistake, memory_tip, comparison_note)
 where g.id = v.id;
+
+-- ─────────────────────────────────────────────────────────────
+-- Cặp ngữ pháp dễ nhầm (Grammar Compare) — 21 cặp thật, đối chiếu trực
+-- tiếp từ các dòng comparison_note phía trên đã tự nhắc tên 1 điểm ngữ
+-- pháp cụ thể khác (VD 'So với Vてください (Bài 9)' ở mục ～を ください).
+-- Không bịa thêm nội dung ngôn ngữ học nào — chỉ cấu trúc hoá lại quan hệ
+-- đã có sẵn trong dữ liệu ở trên.
+-- ─────────────────────────────────────────────────────────────
+insert into grammar_comparison_pairs (grammar_id_a, grammar_id_b)
+values
+  ('66666666-0000-0000-0000-000000000001'::uuid, '66666666-0000-0000-0000-000000000002'::uuid),
+  ('66666666-0000-0000-0000-000000000001'::uuid, '66666666-0000-0000-0000-000000000004'::uuid),
+  ('66666666-0000-0000-0000-000000000003'::uuid, '66666666-0000-0000-0000-000000000005'::uuid),
+  ('66666666-0000-0000-0000-000000000006'::uuid, '66666666-0000-0000-0000-000000000007'::uuid),
+  ('66666666-0000-0000-0000-000000000005'::uuid, '66666666-0000-0000-0000-000000000008'::uuid),
+  ('66666666-0000-0000-0000-000000000010'::uuid, '66666666-0000-0000-0000-000000000019'::uuid),
+  ('66666666-0000-0000-0000-000000000011'::uuid, '66666666-0000-0000-0000-000000000048'::uuid),
+  ('66666666-0000-0000-0000-000000000013'::uuid, '66666666-0000-0000-0000-000000000014'::uuid),
+  ('66666666-0000-0000-0000-000000000016'::uuid, '66666666-0000-0000-0000-000000000021'::uuid),
+  ('66666666-0000-0000-0000-000000000017'::uuid, '66666666-0000-0000-0000-000000000021'::uuid),
+  ('66666666-0000-0000-0000-000000000019'::uuid, '66666666-0000-0000-0000-000000000020'::uuid),
+  ('66666666-0000-0000-0000-000000000020'::uuid, '66666666-0000-0000-0000-000000000036'::uuid),
+  ('66666666-0000-0000-0000-000000000025'::uuid, '66666666-0000-0000-0000-000000000018'::uuid),
+  ('66666666-0000-0000-0000-000000000026'::uuid, '66666666-0000-0000-0000-000000000033'::uuid),
+  ('66666666-0000-0000-0000-000000000027'::uuid, '66666666-0000-0000-0000-000000000021'::uuid),
+  ('66666666-0000-0000-0000-000000000031'::uuid, '66666666-0000-0000-0000-000000000032'::uuid),
+  ('66666666-0000-0000-0000-000000000034'::uuid, '66666666-0000-0000-0000-000000000035'::uuid),
+  ('66666666-0000-0000-0000-000000000039'::uuid, '66666666-0000-0000-0000-000000000040'::uuid),
+  ('66666666-0000-0000-0000-000000000043'::uuid, '66666666-0000-0000-0000-000000000054'::uuid),
+  ('66666666-0000-0000-0000-000000000046'::uuid, '66666666-0000-0000-0000-000000000047'::uuid),
+  ('66666666-0000-0000-0000-000000000053'::uuid, '66666666-0000-0000-0000-000000000014'::uuid)
+on conflict do nothing;
+-- Kanji Family (Đợt 4): components ghép trực tiếp, tách 1 cấp từ dữ liệu
+-- IDS thật (CHISE IDS Database qua github.com/cjkvi/cjkvi-ids, CC0), đã
+-- chuẩn hoá 2 biến thể bộ thủ chuẩn Unicode (亻→人, 飠→食) và 1 trường hợp
+-- 亲 (dạng viết gọn của 立+木, dùng trong 新 — khớp đúng mnemonic có sẵn
+-- "Ghép bộ Lập, Mộc và Cân"). Chỉ 11 kanji dưới đây có component trùng với
+-- 1 kanji khác đang có trong app N5 — các kanji còn lại giữ mảng rỗng mặc
+-- định (không có quan hệ ghép-bộ thật để hiển thị).
+update kanji set components = array['八','人'] where character = '火';
+update kanji set components = array['人','王','丷'] where character = '金';
+update kanji set components = array['𭕄','冖','子'] where character = '学';
+update kanji set components = array['木','交'] where character = '校';
+update kanji set components = array['人','可'] where character = '何';
+update kanji set components = array['人','良'] where character = '食';
+update kanji set components = array['食','欠'] where character = '飲';
+update kanji set components = array['一','人'] where character = '大';
+update kanji set components = array['立','木','斤'] where character = '新';
+update kanji set components = array['女','巿'] where character = '姉';
+update kanji set components = array['女','未'] where character = '妹';
+
+-- Grammar Practice mở rộng (Đợt 4): soạn tay 29/54 mẫu N5 có cấu trúc trợ từ
+-- rõ ràng (ưu tiên câu ví dụ thật đã có, không bịa thêm). ~15 mẫu có
+-- practice_blank_index (bài điền từ), ~14 mẫu chỉ có practice_tokens (bài
+-- ghép câu) — mẫu không soạn ở đây giữ mảng rỗng mặc định, tự rơi về bài
+-- ghép-câu-với-mẫu (không cần dữ liệu soạn thêm).
+
+-- Nhóm điền từ (có practice_blank_index)
+update grammar_points set practice_tokens = array['わたし','は','学生','です'], practice_blank_index = 1 where title = 'N1 は N2 です';
+update grammar_points set practice_tokens = array['わたし','も','学生','です'], practice_blank_index = 1 where title = 'N1 も N2 です';
+update grammar_points set practice_tokens = array['わたし','は','医者','じゃありません'], practice_blank_index = 3 where title = 'N1 は N2 じゃありません';
+update grammar_points set practice_tokens = array['これ','は','会社','の','車','です'], practice_blank_index = 3 where title = 'N の N';
+update grammar_points set practice_tokens = array['これ','は','日本','の','車','です'], practice_blank_index = 3 where title = 'N1 の N2 (sản xuất/sở hữu)';
+update grammar_points set practice_tokens = array['その','傘','を','ください'], practice_blank_index = 2 where title = '～を ください';
+update grammar_points set practice_tokens = array['そこ','に','本','が','あります'], practice_blank_index = 1 where title = 'ここ／そこ／あそこに Nが あります／います';
+update grammar_points set practice_tokens = array['犬','も','猫','も','います'], practice_blank_index = 1 where title = 'N1 も N2 も';
+update grammar_points set practice_tokens = array['会社','は','九時','から','六時','まで','です'], practice_blank_index = 3 where title = '～から～まで';
+update grammar_points set practice_tokens = array['土曜日','と','日曜日','は','休み','です'], practice_blank_index = 1 where title = 'N と N';
+update grammar_points set practice_tokens = array['電車','で','行きます'], practice_blank_index = 1 where title = '何で行きますか／N で行きます';
+update grammar_points set practice_tokens = array['ご飯','を','食べます'], practice_blank_index = 1 where title = 'Nを Vます';
+update grammar_points set practice_tokens = array['箸','で','食べます'], practice_blank_index = 1 where title = 'で (công cụ/phương tiện thực hiện hành động)';
+update grammar_points set practice_tokens = array['忙しい','から','休みません'], practice_blank_index = 1 where title = '～から (lý do)';
+update grammar_points set practice_tokens = array['難しいです','が','面白いです'], practice_blank_index = 1 where title = '～が、～ (nhưng)';
+
+-- Nhóm ghép câu (chỉ practice_tokens, không có blank_index)
+update grammar_points set practice_tokens = array['あなた','は','先生','です','か'] where title = 'N1 は N2 ですか';
+update grammar_points set practice_tokens = array['この','時計','は','いくら','です','か'] where title = '～はいくらですか';
+update grammar_points set practice_tokens = array['机','の','上','に','猫','が','います'] where title = 'N(nơi chốn)に N(vật/người)が あります／います';
+update grammar_points set practice_tokens = array['箱','の','中','に','本','や','ノート','が','あります'] where title = 'N1 や N2';
+update grammar_points set practice_tokens = array['来週','国','へ','帰ります'] where title = 'N(nơi chốn)へ 行きます／来ます／帰ります';
+update grammar_points set practice_tokens = array['友達','と','一緒に','行きます'] where title = 'だれと 行きますか／N と(一緒に) 行きます';
+update grammar_points set practice_tokens = array['一緒に','映画','を','見ませんか'] where title = 'Vませんか';
+update grammar_points set practice_tokens = array['新しい','車','が','ほしいです'] where title = 'Nが ほしいです';
+update grammar_points set practice_tokens = array['旅行','に','行きたいです'] where title = 'Vたいです';
+update grammar_points set practice_tokens = array['この','本','は','難しいです'] where title = 'Nは Aいです (tính từ đuôi -i)';
+update grammar_points set practice_tokens = array['この','町','は','静かです'] where title = 'Nは Naです (tính từ đuôi -na)';
+update grammar_points set practice_tokens = array['今','テレビ','を','見ています'] where title = 'Vています (đang làm)';
+update grammar_points set practice_tokens = array['ここ','に','座ってください'] where title = 'Vてください';
+update grammar_points set practice_tokens = array['写真','を','撮ってもいいですか'] where title = 'Vてもいいですか・Vてはいけません';
+update grammar_points set practice_tokens = array['私','の','家','には','猫','が','二匹','います'] where title = 'Nには Nが います／あります';

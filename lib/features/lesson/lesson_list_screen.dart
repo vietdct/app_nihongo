@@ -44,7 +44,7 @@ class LessonListScreen extends ConsumerWidget {
               final lesson = items[i];
               return InkWell(
                 borderRadius: BorderRadius.circular(16),
-                onTap: () => context.push('/lessons/${lesson.id}', extra: lesson.title),
+                onTap: () => context.push('/lessons/${lesson.id}/run'),
                 child: Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(

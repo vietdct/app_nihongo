@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/kanji.dart';
-import '../../shared/flip_card.dart';
+import '../../domain/entities/vocabulary.dart';
 import '../../shared/kanji_stroke_canvas.dart';
+import '../home/providers/mission_providers.dart';
 import '../lesson/providers/content_providers.dart';
+import 'providers/kanji_family_providers.dart';
 import 'providers/kanji_progress_providers.dart';
 
-/// Bấm vào 1 kanji mở flashcard dạng bộ thẻ vuốt qua — giống hệt từ vựng:
-/// vuốt phải đánh dấu đã thuộc, vuốt trái đánh dấu chưa thuộc, chạm sao để
-/// lưu lại, mặt trước vẽ hoạt hoạ nét chữ (KanjiVG), mặt sau là Hán Việt/
-/// âm On/âm Kun/mẹo ghi nhớ/ví dụ. Bộ thẻ bắt đầu từ đúng chữ vừa bấm.
+/// Bấm vào 1 kanji mở bộ thẻ vuốt qua — giống hệt từ vựng: vuốt phải đánh
+/// dấu đã thuộc, vuốt trái đánh dấu chưa thuộc, chạm sao để lưu lại. Mỗi thẻ
+/// là 1 trang đầy đủ (không lật 2 mặt): hoạt hoạ nét chữ (KanjiVG), Hán Việt,
+/// nghĩa, âm On/Kun, mẹo ghi nhớ, ví dụ. Bộ thẻ bắt đầu từ đúng chữ vừa bấm.
 class KanjiDetailScreen extends ConsumerStatefulWidget {
   const KanjiDetailScreen({super.key, required this.kanjiId});
 
@@ -36,7 +39,10 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
       _index++;
     });
     await controller?.setKnown(k.id, true);
-    if (mounted) ref.invalidate(kanjiProgressProvider);
+    if (mounted) {
+      ref.invalidate(kanjiProgressProvider);
+      ref.invalidate(dailyMissionStatusProvider);
+    }
   }
 
   Future<void> _markUnknown(
@@ -48,7 +54,10 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
       _index++;
     });
     await controller?.setKnown(k.id, false);
-    if (mounted) ref.invalidate(kanjiProgressProvider);
+    if (mounted) {
+      ref.invalidate(kanjiProgressProvider);
+      ref.invalidate(dailyMissionStatusProvider);
+    }
   }
 
   Future<void> _toggleStar(
@@ -106,6 +115,7 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
     final kanjiAsync = ref.watch(kanjiListProvider);
     final progressAsync = ref.watch(kanjiProgressProvider);
     final controller = ref.watch(kanjiProgressControllerProvider);
+    final vocabList = ref.watch(vocabularyListProvider).valueOrNull ?? const [];
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -151,6 +161,11 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
               progressMap[kanji.id]?.starred ??
               false;
           final total = deck.length;
+          final relatedVocab = [
+            for (final v in vocabList)
+              if (v.word.contains(kanji.character)) v,
+          ].take(5).toList();
+          final hasFamily = !computeKanjiFamily(kanji, all).isEmpty;
 
           return Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -230,6 +245,8 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                       key: ValueKey(kanji.id),
                       kanji: kanji,
                       starred: starred,
+                      relatedVocab: relatedVocab,
+                      hasFamily: hasFamily,
                       onSwipeRight: () => _markKnown(kanji, controller),
                       onSwipeLeft: () => _markUnknown(kanji, controller),
                       onToggleStar: () =>
@@ -241,7 +258,7 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                 Text(
                   _unknownIds.isNotEmpty
                       ? 'Vuốt phải: đã thuộc · Vuốt trái: chưa thuộc · Chạm badge để xem/ôn ngay'
-                      : 'Vuốt phải: đã thuộc · Vuốt trái: chưa thuộc · Chạm thẻ để lật',
+                      : 'Vuốt phải: đã thuộc · Vuốt trái: chưa thuộc',
                   textAlign: TextAlign.center,
                   style:
                       const TextStyle(fontSize: 12, color: AppColors.inkFaint),
@@ -407,6 +424,8 @@ class _SwipeableKanjiCard extends StatefulWidget {
     super.key,
     required this.kanji,
     required this.starred,
+    required this.relatedVocab,
+    required this.hasFamily,
     required this.onSwipeRight,
     required this.onSwipeLeft,
     required this.onToggleStar,
@@ -414,6 +433,8 @@ class _SwipeableKanjiCard extends StatefulWidget {
 
   final Kanji kanji;
   final bool starred;
+  final List<Vocabulary> relatedVocab;
+  final bool hasFamily;
   final VoidCallback onSwipeRight;
   final VoidCallback onSwipeLeft;
   final VoidCallback onToggleStar;
@@ -482,8 +503,8 @@ class _SwipeableKanjiCardState extends State<_SwipeableKanjiCard>
     final angle = (_drag.dx / 2800).clamp(-0.25, 0.25);
 
     return GestureDetector(
-      onPanUpdate: _completing ? null : _onPanUpdate,
-      onPanEnd: _completing ? null : _onPanEnd,
+      onHorizontalDragUpdate: _completing ? null : _onPanUpdate,
+      onHorizontalDragEnd: _completing ? null : _onPanEnd,
       child: Transform.translate(
         offset: _drag,
         child: Transform.rotate(
@@ -492,9 +513,11 @@ class _SwipeableKanjiCardState extends State<_SwipeableKanjiCard>
             clipBehavior: Clip.none,
             alignment: Alignment.topCenter,
             children: [
-              FlipCard(
-                front: _KanjiFront(kanji: widget.kanji),
-                back: _KanjiBack(kanji: widget.kanji),
+              _KanjiCardContent(
+                kanji: widget.kanji,
+                relatedVocab: widget.relatedVocab,
+                hasFamily: widget.hasFamily,
+                onMarkKnown: widget.onSwipeRight,
               ),
               if (rightProgress > 0.08)
                 Positioned(
@@ -575,8 +598,532 @@ class _StampLabel extends StatelessWidget {
   }
 }
 
-class _CardShell extends StatelessWidget {
-  const _CardShell({required this.child, this.background = AppColors.card});
+/// Toàn bộ nội dung 1 chữ Hán trên MỘT trang cuộn dọc duy nhất (không lật
+/// mặt) — đúng cấu trúc thiết kế: khối minh hoạ nét chữ ở trên, các mục
+/// Nghĩa/Onyomi/Kunyomi/Mẹo ghi nhớ/Ví dụ mỗi mục 1 khối riêng bên dưới.
+class _KanjiCardContent extends StatefulWidget {
+  const _KanjiCardContent({
+    required this.kanji,
+    required this.relatedVocab,
+    required this.hasFamily,
+    required this.onMarkKnown,
+  });
+
+  final Kanji kanji;
+  final List<Vocabulary> relatedVocab;
+  final bool hasFamily;
+  final VoidCallback onMarkKnown;
+
+  @override
+  State<_KanjiCardContent> createState() => _KanjiCardContentState();
+}
+
+class _KanjiCardContentState extends State<_KanjiCardContent> {
+  final _canvasKey = GlobalKey<KanjiStrokeCanvasState>();
+
+  @override
+  Widget build(BuildContext context) {
+    final kanji = widget.kanji;
+    final strokeData = KanjiStrokeData.tryParse(kanji.strokeData);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: 420),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(24),
+                border: Border.all(color: AppColors.border),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.ink.withValues(alpha: 0.06),
+                    blurRadius: 16,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 180,
+                    height: 180,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: AppColors.canvas,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: AppColors.indigoSoft, width: 2),
+                    ),
+                    child: KanjiStrokeCanvas(
+                      key: _canvasKey,
+                      character: kanji.character,
+                      strokeData: strokeData,
+                      size: 150,
+                      strokeColor: AppColors.ink,
+                      guideColor: AppColors.ink.withValues(alpha: 0.12),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  if (strokeData != null)
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          borderRadius: BorderRadius.circular(100),
+                          onTap: () => _canvasKey.currentState?.replay(),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 9,
+                            ),
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [AppColors.indigo, Color(0xFF7B61FF)],
+                              ),
+                              borderRadius: BorderRadius.circular(100),
+                              boxShadow: [
+                                BoxShadow(
+                                  color:
+                                      AppColors.indigo.withValues(alpha: 0.3),
+                                  blurRadius: 12,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.play_arrow_rounded,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                                SizedBox(width: 5),
+                                Text(
+                                  'Xem lại nét vẽ',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        InkWell(
+                          borderRadius: BorderRadius.circular(100),
+                          onTap: () =>
+                              context.push('/kanji/${kanji.id}/practice'),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 9,
+                            ),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(100),
+                              border: Border.all(
+                                color: AppColors.indigo,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.edit_rounded,
+                                  size: 15,
+                                  color: AppColors.indigo,
+                                ),
+                                SizedBox(width: 5),
+                                Text(
+                                  'Luyện viết',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                    color: AppColors.indigo,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    const Icon(
+                      Icons.touch_app_outlined,
+                      color: AppColors.inkFaint,
+                      size: 20,
+                    ),
+                  if (kanji.hanViet.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Text(
+                      kanji.hanViet.join(' · ').toUpperCase(),
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w900,
+                        color: AppColors.indigo,
+                        letterSpacing: 1,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            _Section(
+              color: AppColors.indigo,
+              label: 'NGHĨA',
+              child: _InfoBox(
+                child: Text(
+                  kanji.meaningVi.join(', '),
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            _Section(
+              color: AppColors.indigo,
+              label: 'ONYOMI',
+              trailing: 'âm Hán',
+              child: _InfoBox(
+                background: AppColors.indigoSoft,
+                child: Text(
+                  kanji.onyomi.isEmpty ? '—' : kanji.onyomi.join('、'),
+                  style: AppFonts.zenMaruGothic(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.indigo,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            _Section(
+              color: AppColors.indigo,
+              label: 'KUNYOMI',
+              trailing: 'âm Nhật',
+              child: _InfoBox(
+                child: Text(
+                  kanji.kunyomi.isEmpty ? '—' : kanji.kunyomi.join('、'),
+                  style: AppFonts.zenMaruGothic(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                if (kanji.onyomi.isNotEmpty || kanji.kunyomi.isNotEmpty)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(100),
+                    onTap: () => context.push('/kanji/${kanji.id}/reading'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        color: AppColors.indigoSoft,
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.record_voice_over_rounded,
+                            size: 15,
+                            color: AppColors.indigo,
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'Luyện đọc',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                              color: AppColors.indigo,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                if (widget.hasFamily)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(100),
+                    onTap: () => context.push('/kanji/${kanji.id}/family'),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 9,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(100),
+                        border: Border.all(
+                          color: AppColors.indigo,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.account_tree_rounded,
+                            size: 15,
+                            color: AppColors.indigo,
+                          ),
+                          SizedBox(width: 5),
+                          Text(
+                            'Gia đình Kanji',
+                            style: TextStyle(
+                              fontWeight: FontWeight.w800,
+                              fontSize: 12,
+                              color: AppColors.indigo,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                InkWell(
+                  borderRadius: BorderRadius.circular(100),
+                  onTap: () => context.push('/kanji/${kanji.id}/tutor'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 9,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.tealSoft,
+                      borderRadius: BorderRadius.circular(100),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.auto_awesome_rounded,
+                          size: 15,
+                          color: AppColors.teal,
+                        ),
+                        SizedBox(width: 5),
+                        Text(
+                          'Hỏi AI',
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 12,
+                            color: AppColors.teal,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (kanji.mnemonic != null) ...[
+              const SizedBox(height: 14),
+              _Section(
+                color: AppColors.moss,
+                label: 'MẸO GHI NHỚ',
+                child: _InfoBox(
+                  background: AppColors.chip,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(
+                        Icons.lightbulb_rounded,
+                        color: AppColors.accent,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          kanji.mnemonic!,
+                          style: const TextStyle(
+                            fontSize: 12.5,
+                            color: AppColors.ink,
+                            height: 1.5,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            if (kanji.exampleJp != null) ...[
+              const SizedBox(height: 14),
+              _Section(
+                color: AppColors.plum,
+                label: 'VÍ DỤ',
+                child: _InfoBox(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        kanji.exampleJp!,
+                        style: AppFonts.zenMaruGothic(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w400,
+                          color: AppColors.ink,
+                        ),
+                      ),
+                      if (kanji.exampleVi != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          kanji.exampleVi!,
+                          style: const TextStyle(
+                            fontSize: 11.5,
+                            color: AppColors.inkSoft,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            if (widget.relatedVocab.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              _Section(
+                color: AppColors.moss,
+                label: 'TỪ VỰNG CHỨA CHỮ NÀY',
+                child: _InfoBox(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var i = 0; i < widget.relatedVocab.length; i++) ...[
+                        if (i > 0) const SizedBox(height: 8),
+                        RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: widget.relatedVocab[i].word,
+                                style: AppFonts.zenMaruGothic(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.ink,
+                                ),
+                              ),
+                              TextSpan(
+                                text:
+                                    '（${widget.relatedVocab[i].reading}） ${widget.relatedVocab[i].primaryMeaning}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: AppColors.inkSoft,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () => context.push('/quiz/kanji'),
+                    child: const Text('Quiz'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: widget.onMarkKnown,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.indigo,
+                      side: const BorderSide(color: AppColors.indigo, width: 2),
+                    ),
+                    icon: const Icon(Icons.check_rounded, size: 18),
+                    label: const Text('Đã thuộc'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  const _Section({
+    required this.color,
+    required this.label,
+    required this.child,
+    this.trailing,
+  });
+
+  final Color color;
+  final String label;
+  final String? trailing;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 6,
+              height: 6,
+              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            ),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+                color: AppColors.ink,
+              ),
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: 6),
+              Text(
+                trailing!,
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkFaint,
+                ),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 8),
+        child,
+      ],
+    );
+  }
+}
+
+class _InfoBox extends StatelessWidget {
+  const _InfoBox({required this.child, this.background = AppColors.card});
 
   final Widget child;
   final Color background;
@@ -585,245 +1132,15 @@ class _CardShell extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 420),
-      padding: const EdgeInsets.all(28),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border, width: 1.0),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.ink.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: background == AppColors.card
+            ? Border.all(color: AppColors.border)
+            : null,
       ),
       child: child,
-    );
-  }
-}
-
-class _KanjiFront extends StatefulWidget {
-  const _KanjiFront({required this.kanji});
-
-  final Kanji kanji;
-
-  @override
-  State<_KanjiFront> createState() => _KanjiFrontState();
-}
-
-class _KanjiFrontState extends State<_KanjiFront> {
-  final _canvasKey = GlobalKey<KanjiStrokeCanvasState>();
-
-  @override
-  Widget build(BuildContext context) {
-    final strokeData = KanjiStrokeData.tryParse(widget.kanji.strokeData);
-    return _CardShell(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: AppColors.chip,
-              borderRadius: BorderRadius.circular(100),
-            ),
-            child: Text(
-              widget.kanji.meaningVi.join(', '),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-                color: AppColors.inkFaint,
-              ),
-            ),
-          ),
-          const SizedBox(height: 18),
-          KanjiStrokeCanvas(
-            key: _canvasKey,
-            character: widget.kanji.character,
-            strokeData: strokeData,
-            strokeColor: AppColors.ink,
-            guideColor: AppColors.ink.withValues(alpha: 0.12),
-          ),
-          const SizedBox(height: 12),
-          if (strokeData != null)
-            IconButton(
-              onPressed: () => _canvasKey.currentState?.replay(),
-              icon: const Icon(Icons.replay_rounded),
-              color: AppColors.inkFaint,
-              tooltip: 'Xem lại nét vẽ',
-            )
-          else
-            const Icon(
-              Icons.touch_app_outlined,
-              color: AppColors.inkFaint,
-              size: 20,
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _KanjiBack extends StatelessWidget {
-  const _KanjiBack({required this.kanji});
-
-  final Kanji kanji;
-
-  @override
-  Widget build(BuildContext context) {
-    return _CardShell(
-      background: AppColors.indigoSoft,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          if (kanji.hanViet.isNotEmpty)
-            Text(
-              kanji.hanViet.join(' · ').toUpperCase(),
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w900,
-                color: AppColors.indigo,
-                letterSpacing: 0.5,
-              ),
-            ),
-          const SizedBox(height: 6),
-          Text(
-            kanji.meaningVi.join(', '),
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
-              color: AppColors.ink,
-            ),
-          ),
-          const SizedBox(height: 14),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _ReadingBlock(label: 'Âm On', values: kanji.onyomi),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _ReadingBlock(label: 'Âm Kun', values: kanji.kunyomi),
-              ),
-            ],
-          ),
-          if (kanji.mnemonic != null) ...[
-            const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'MẸO GHI NHỚ',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.inkFaint,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    kanji.mnemonic!,
-                    style: const TextStyle(
-                      fontSize: 12.5,
-                      color: AppColors.ink,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          if (kanji.exampleJp != null) ...[
-            const SizedBox(height: 10),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(14),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    kanji.exampleJp!,
-                    style: AppFonts.zenMaruGothic(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                      color: AppColors.ink,
-                    ),
-                  ),
-                  if (kanji.exampleVi != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      kanji.exampleVi!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: AppColors.inkSoft,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ReadingBlock extends StatelessWidget {
-  const _ReadingBlock({required this.label, required this.values});
-
-  final String label;
-  final List<String> values;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w700,
-              color: AppColors.inkFaint,
-            ),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            values.isEmpty ? '—' : values.join('、'),
-            style: AppFonts.zenMaruGothic(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w600,
-              color: AppColors.ink,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

@@ -17,7 +17,7 @@ ListeningDialogue _dialogue(
         for (var i = 0; i < turnCount; i++)
           ListeningTurn(speaker: i.isEven ? 'A' : 'B', jp: 'câu $id-$i'),
       ],
-      questionVi: 'Câu hỏi cho $id?',
+      questionJa: 'Câu hỏi cho $id?',
       options: options,
       correctIndex: correctIndex,
     );
@@ -68,7 +68,7 @@ void main() {
         id: 'bad',
         levelId: 'n5',
         turns: [],
-        questionVi: 'Câu hỏi?',
+        questionJa: 'Câu hỏi?',
         options: ['A', 'B'],
         correctIndex: 0,
       );

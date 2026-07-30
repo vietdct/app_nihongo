@@ -12,6 +12,7 @@ class Kanji {
     this.hanViet = const [],
     this.mnemonic,
     this.strokeData,
+    this.components = const [],
   });
 
   final String id;
@@ -33,6 +34,11 @@ class Kanji {
   /// KanjiStrokeData.tryParse() ở tầng UI (giữ domain layer không phụ thuộc
   /// path_drawing).
   final String? strokeData;
+
+  /// Các bộ (component) ghép trực tiếp nên chữ này — dữ liệu IDS thật, xem
+  /// migration `20260727020000_kanji_components.sql`. Rỗng nếu chữ này
+  /// không có quan hệ ghép-bộ thật với kanji khác đang có trong app.
+  final List<String> components;
 
   String get primaryMeaning => meaningVi.isEmpty ? '' : meaningVi.first;
 }

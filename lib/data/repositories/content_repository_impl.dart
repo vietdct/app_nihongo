@@ -120,6 +120,8 @@ class ContentRepositoryImpl implements ContentRepository {
         commonMistake: r.commonMistake,
         memoryTip: r.memoryTip,
         comparisonNote: r.comparisonNote,
+        practiceTokens: _decodeStringList(r.practiceTokens),
+        practiceBlankIndex: r.practiceBlankIndex,
       );
 
   Kanji _buildKanji(KanjiTableData r) => Kanji(
@@ -135,6 +137,7 @@ class ContentRepositoryImpl implements ContentRepository {
         hanViet: _decodeStringList(r.hanViet),
         mnemonic: r.mnemonic,
         strokeData: r.strokeData,
+        components: _decodeStringList(r.components),
       );
 
   static List<String> _decodeStringList(String? json) {
@@ -253,6 +256,7 @@ class ContentRepositoryImpl implements ContentRepository {
           strokeData: Value(
             r['stroke_data'] == null ? null : jsonEncode(r['stroke_data']),
           ),
+          components: Value(_encodeStringList(r['components'])),
         ),
     ]);
 
@@ -270,6 +274,8 @@ class ContentRepositoryImpl implements ContentRepository {
           commonMistake: Value(r['common_mistake'] as String?),
           memoryTip: Value(r['memory_tip'] as String?),
           comparisonNote: Value(r['comparison_note'] as String?),
+          practiceTokens: Value(_encodeStringList(r['practice_tokens'])),
+          practiceBlankIndex: Value(r['practice_blank_index'] as int?),
         ),
     ]);
 

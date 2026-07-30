@@ -4,112 +4,114 @@
 --   - Hội thoại "làm gì trước/tiếp theo" (giống Mondai 1 課題理解)
 --   - Độc thoại/thông báo 1 người nói (giống Mondai 2 dạng thông báo)
 --   - Câu ngắn + chọn phản hồi phù hợp (giống Mondai 4 即時応答)
+-- Đề bài và đáp án đều bằng tiếng Nhật (xem migration
+-- 20260728075815_listening_dialogues_question_ja.sql).
 -- Chạy: supabase db query --linked -f supabase/seed_listening_n5_more.sql
 
-insert into listening_dialogues (id, level_id, turns, question_vi, options, correct_index)
-select v.id, (select id from jlpt_levels where code = 'N5'), v.turns::jsonb, v.question_vi, v.options::jsonb, v.correct_index
+insert into listening_dialogues (id, level_id, turns, question_ja, options, correct_index)
+select v.id, (select id from jlpt_levels where code = 'N5'), v.turns::jsonb, v.question_ja, v.options::jsonb, v.correct_index
 from (values
   -- Hội thoại "làm gì trước/tiếp theo"
   ('77777777-0000-0000-0000-000000000017'::uuid,
    '[{"speaker":"A","jp":"明日旅行に行きますね。もう準備しましたか。"},{"speaker":"B","jp":"いいえ、まだです。まずかばんに服を入れます。"},{"speaker":"A","jp":"そうですか。私は先にパスポートを確認します。"},{"speaker":"B","jp":"それはいいですね。私もあとで確認します。"}]',
-   'A sẽ làm gì trước tiên?',
-   '["Kiểm tra hộ chiếu","Xếp quần áo vào vali","Mua vé máy bay","Gọi điện cho bạn"]',
+   'Aさんは最初に何をしますか。',
+   '["パスポートを確認する","かばんに服を入れる","飛行機のチケットを買う","友達に電話する"]',
    0),
 
   ('77777777-0000-0000-0000-000000000018'::uuid,
    '[{"speaker":"A","jp":"お客さんが来る前に、何をしますか。"},{"speaker":"B","jp":"先に部屋を掃除して、それから料理を作ります。"},{"speaker":"A","jp":"買い物はしましたか。"},{"speaker":"B","jp":"いいえ、まだです。掃除のあとで行きます。"}]',
-   'B sẽ làm gì đầu tiên?',
-   '["Dọn phòng","Nấu ăn","Đi mua sắm","Gọi điện thoại"]',
+   'Bさんは最初に何をしますか。',
+   '["部屋を掃除する","料理を作る","買い物に行く","電話をかける"]',
    0),
 
   ('77777777-0000-0000-0000-000000000019'::uuid,
    '[{"speaker":"A","jp":"宿題をしてから、ゲームをしてもいいですか。"},{"speaker":"B","jp":"いいですよ。でも、宿題を先にしてくださいね。"},{"speaker":"A","jp":"わかりました。今からやります。"}]',
-   'A sẽ làm gì trước khi chơi game?',
-   '["Làm bài tập về nhà","Đi ngủ","Ăn cơm","Xem tivi"]',
+   'Aさんはゲームをする前に何をしますか。',
+   '["宿題をする","寝る","ご飯を食べる","テレビを見る"]',
    0),
 
   ('77777777-0000-0000-0000-000000000020'::uuid,
    '[{"speaker":"A","jp":"会議の前に何を準備しますか。"},{"speaker":"B","jp":"資料をコピーして、それから会議室を予約します。"},{"speaker":"A","jp":"資料は何枚必要ですか。"},{"speaker":"B","jp":"十枚お願いします。"}]',
-   'B sẽ làm gì trước tiên để chuẩn bị họp?',
-   '["Photo tài liệu","Đặt phòng họp","Gọi điện cho khách","Viết báo cáo"]',
+   'Bさんは会議の準備で最初に何をしますか。',
+   '["資料をコピーする","会議室を予約する","お客さんに電話する","報告書を書く"]',
    0),
 
   ('77777777-0000-0000-0000-000000000021'::uuid,
    '[{"speaker":"A","jp":"今日は何をしますか。"},{"speaker":"B","jp":"まず買い物に行って、それから料理を作ります。洗濯はそのあとです。"},{"speaker":"A","jp":"忙しいですね。"}]',
-   'B sẽ làm gì cuối cùng trong ngày?',
-   '["Giặt đồ","Đi mua sắm","Nấu ăn","Dọn dẹp"]',
+   'Bさんが最後にすることは何ですか。',
+   '["洗濯をする","買い物に行く","料理を作る","掃除をする"]',
    0),
 
   ('77777777-0000-0000-0000-000000000022'::uuid,
    '[{"speaker":"A","jp":"病院へ行ってから、どこへ行きますか。"},{"speaker":"B","jp":"薬局へ行って、薬をもらいます。そのあと家へ帰ります。"}]',
-   'B sẽ đi đâu ngay sau khi rời bệnh viện?',
-   '["Hiệu thuốc","Về nhà ngay","Đi làm","Đi siêu thị"]',
+   'Bさんは病院を出たあと、すぐどこへ行きますか。',
+   '["薬局","まっすぐ家に帰る","仕事に行く","スーパーに行く"]',
    0),
 
   ('77777777-0000-0000-0000-000000000023'::uuid,
    '[{"speaker":"A","jp":"明日のテストの前に、何をしますか。"},{"speaker":"B","jp":"今晩勉強して、朝早く起きてもう一度復習します。"},{"speaker":"A","jp":"メールのチェックはしませんか。"},{"speaker":"B","jp":"それは勉強のあとにします。"}]',
-   'B ôn bài lại vào lúc nào?',
-   '["Sáng sớm hôm sau","Ngay bây giờ","Sau khi kiểm tra email","Buổi tối muộn"]',
+   'Bさんはいつ復習しますか。',
+   '["朝早く","今すぐ","メールを確認したあと","夜遅く"]',
    0),
 
   ('77777777-0000-0000-0000-000000000024'::uuid,
    '[{"speaker":"A","jp":"空港に着いたら、まず何をしますか。"},{"speaker":"B","jp":"チェックインカウンターに行って、荷物を預けます。それから搭乗口へ行きます。"}]',
-   'Việc đầu tiên làm ở sân bay là gì?',
-   '["Đến quầy check-in gửi hành lý","Đi thẳng ra cửa lên máy bay","Ăn ở nhà hàng sân bay","Mua đồ miễn thuế"]',
+   '空港に着いたら、最初に何をしますか。',
+   '["チェックインカウンターに行って荷物を預ける","すぐに搭乗口へ行く","空港のレストランで食べる","免税店で買い物する"]',
    0),
 
-  -- Độc thoại / thông báo 1 người nói
+  -- 独話・アナウンス
   ('77777777-0000-0000-0000-000000000025'::uuid,
    '[{"speaker":"A","jp":"天気予報をお伝えします。今日の午前中は晴れですが、午後から雨が降るでしょう。夜は風も強くなりますので、ご注意ください。"}]',
-   'Theo bản tin, chiều nay thời tiết thế nào?',
-   '["Có mưa","Nắng","Có tuyết","Nhiều mây, không mưa"]',
+   '天気予報によると、午後の天気はどうですか。',
+   '["雨が降る","晴れる","雪が降る","曇りで雨は降らない"]',
    0),
 
   ('77777777-0000-0000-0000-000000000026'::uuid,
    '[{"speaker":"A","jp":"まもなく二番線に電車が参ります。危ないですから、黄色い線の内側にお下がりください。この電車は各駅停車、東京行きです。"}]',
-   'Tàu sắp đến ở sân ga số mấy?',
-   '["Sân ga số 2","Sân ga số 1","Sân ga số 3","Sân ga số 4"]',
+   '電車は何番線に来ますか。',
+   '["二番線","一番線","三番線","四番線"]',
    0),
 
   ('77777777-0000-0000-0000-000000000027'::uuid,
    '[{"speaker":"A","jp":"はじめまして。私はグエンと申します。ベトナムから来ました。日本語学校の学生です。趣味は料理と音楽です。よろしくお願いします。"}]',
-   'Người nói đến từ đâu?',
-   '["Việt Nam","Nhật Bản","Trung Quốc","Hàn Quốc"]',
+   '話している人はどこから来ましたか。',
+   '["ベトナム","日本","中国","韓国"]',
    0),
 
   ('77777777-0000-0000-0000-000000000028'::uuid,
    '[{"speaker":"A","jp":"本日はご来店ありがとうございました。当店は午後八時に閉店いたします。あと十分でお会計をお願いいたします。"}]',
-   'Cửa hàng đóng cửa lúc mấy giờ?',
-   '["8 giờ tối","10 giờ tối","8 giờ sáng","9 giờ tối"]',
+   'この店は何時に閉まりますか。',
+   '["午後八時","午後十時","午前八時","午後九時"]',
    0),
 
-  -- Câu ngắn + chọn phản hồi phù hợp
+  -- 短文への応答
   ('77777777-0000-0000-0000-000000000029'::uuid,
    '[{"speaker":"A","jp":"コーヒーと紅茶とどちらがいいですか。"}]',
-   'Câu trả lời phù hợp nhất là gì?',
-   '["Tôi thích cà phê hơn.","Bây giờ là 3 giờ.","Nhà vệ sinh ở đằng kia.","Tôi tên là Yamada."]',
+   '一番いい返事はどれですか。',
+   '["コーヒーのほうが好きです。","今三時です。","お手洗いはあちらです。","私の名前は山田です。"]',
    0),
 
   ('77777777-0000-0000-0000-000000000030'::uuid,
    '[{"speaker":"A","jp":"明日一緒に映画を見ませんか。"}]',
-   'Câu trả lời phù hợp nhất là gì?',
-   '["Đồng ý, đi chứ!","Cái đó giá 500 yên.","Bây giờ là 5 giờ.","Đây là quyển sách của tôi."]',
+   '一番いい返事はどれですか。',
+   '["いいですよ、行きましょう。","それは五百円です。","今五時です。","これは私の本です。"]',
    0),
 
   ('77777777-0000-0000-0000-000000000031'::uuid,
    '[{"speaker":"A","jp":"すみません、今何時ですか。"}]',
-   'Câu trả lời phù hợp nhất là gì?',
-   '["Bây giờ là 3 giờ 15 phút.","Đây là quyển từ điển.","Tôi thích mùa đông.","Ga ở phía bên kia."]',
+   '一番いい返事はどれですか。',
+   '["今三時十五分です。","これは辞書です。","冬が好きです。","駅はあちらです。"]',
    0),
 
   ('77777777-0000-0000-0000-000000000032'::uuid,
    '[{"speaker":"A","jp":"お誕生日おめでとうございます。"}]',
-   'Câu trả lời phù hợp nhất là gì?',
-   '["Cảm ơn bạn rất nhiều.","Không, tôi không đi.","Cái đó rất đắt.","Trời hôm nay mưa."]',
+   '一番いい返事はどれですか。',
+   '["どうもありがとうございます。","いいえ、行きません。","それはとても高いです。","今日は雨です。"]',
    0)
-) as v(id, turns, question_vi, options, correct_index)
+) as v(id, turns, question_ja, options, correct_index)
 on conflict (id) do update set
   turns = excluded.turns,
-  question_vi = excluded.question_vi,
+  question_ja = excluded.question_ja,
   options = excluded.options,
   correct_index = excluded.correct_index;

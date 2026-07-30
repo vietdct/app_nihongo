@@ -45,6 +45,10 @@ class KanjiTable extends Table {
   TextColumn get strokeData => text().nullable()();
   TextColumn get levelId => text()();
 
+  /// Các bộ ghép trực tiếp nên chữ này (JSON của List&lt;String&gt;) — xem
+  /// migration `20260727020000_kanji_components.sql` để biết nguồn dữ liệu.
+  TextColumn get components => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -60,6 +64,12 @@ class GrammarPointsTable extends Table {
   TextColumn get memoryTip => text().nullable()();
   TextColumn get comparisonNote => text().nullable()();
   TextColumn get levelId => text()();
+
+  /// Từ/cụm tách sẵn từ example_jp, đúng thứ tự (JSON của List&lt;String&gt;) —
+  /// dùng cho Practice mở rộng, xem migration
+  /// `20260727040000_grammar_practice_tokens.sql`.
+  TextColumn get practiceTokens => text().nullable()();
+  IntColumn get practiceBlankIndex => integer().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

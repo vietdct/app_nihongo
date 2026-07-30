@@ -1,15 +1,23 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
+import 'kanji_stroke_canvas.dart';
 
-/// Bảng vẽ nét chữ Hán bằng ngón tay để tìm kiếm. Ghi lại từng nét thành
-/// danh sách điểm chạm; báo [onStrokesChanged] mỗi khi nhấc tay (hết 1 nét)
-/// để tầng trên so khớp dần — không cần vẽ xong cả chữ mới có gợi ý.
+/// Bảng vẽ nét chữ Hán bằng ngón tay. Ghi lại từng nét thành danh sách điểm
+/// chạm; báo [onStrokesChanged] mỗi khi nhấc tay (hết 1 nét) để tầng trên xử
+/// lý dần — dùng cho cả vẽ-để-tìm-kiếm (không cần vẽ xong cả chữ mới có gợi
+/// ý) và luyện viết (truyền [guideData] để hiện nét mẫu mờ làm nền).
 class KanjiDrawCanvas extends StatefulWidget {
-  const KanjiDrawCanvas({super.key, required this.onStrokesChanged, this.size = 280});
+  const KanjiDrawCanvas({
+    super.key,
+    required this.onStrokesChanged,
+    this.size = 280,
+    this.guideData,
+  });
 
   final ValueChanged<List<List<Offset>>> onStrokesChanged;
   final double size;
+  final KanjiStrokeData? guideData;
 
   @override
   State<KanjiDrawCanvas> createState() => KanjiDrawCanvasState();
@@ -62,7 +70,11 @@ class KanjiDrawCanvasState extends State<KanjiDrawCanvas> {
         ),
         clipBehavior: Clip.antiAlias,
         child: CustomPaint(
-          painter: _InkPainter(strokes: _strokes, current: _current),
+          painter: _InkPainter(
+            strokes: _strokes,
+            current: _current,
+            guideData: widget.guideData,
+          ),
           size: Size.square(widget.size),
         ),
       ),
@@ -71,10 +83,11 @@ class KanjiDrawCanvasState extends State<KanjiDrawCanvas> {
 }
 
 class _InkPainter extends CustomPainter {
-  _InkPainter({required this.strokes, required this.current});
+  _InkPainter({required this.strokes, required this.current, this.guideData});
 
   final List<List<Offset>> strokes;
   final List<Offset>? current;
+  final KanjiStrokeData? guideData;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -83,6 +96,23 @@ class _InkPainter extends CustomPainter {
       ..strokeWidth = 1;
     canvas.drawLine(Offset(size.width / 2, 0), Offset(size.width / 2, size.height), guidePaint);
     canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), guidePaint);
+
+    final data = guideData;
+    if (data != null) {
+      canvas.save();
+      final scale = size.width / data.viewBox;
+      canvas.scale(scale, scale);
+      final referencePaint = Paint()
+        ..color = AppColors.ink.withValues(alpha: 0.14)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+      for (final stroke in data.strokes) {
+        canvas.drawPath(stroke, referencePaint);
+      }
+      canvas.restore();
+    }
 
     final inkPaint = Paint()
       ..color = AppColors.ink
@@ -108,5 +138,7 @@ class _InkPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _InkPainter oldDelegate) =>
-      oldDelegate.strokes != strokes || oldDelegate.current != current;
+      oldDelegate.strokes != strokes ||
+      oldDelegate.current != current ||
+      oldDelegate.guideData != guideData;
 }

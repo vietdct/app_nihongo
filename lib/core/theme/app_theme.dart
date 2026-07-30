@@ -38,6 +38,16 @@ abstract final class AppColors {
   // Gradient header hero ở Home — cam san hô ngả hồng, theo mockup.
   static const heroGradientStart = Color(0xFFFF9C5A);
   static const heroGradientEnd = Color(0xFFD85A93);
+
+  // Màu 5 pha của Lesson Runner (Input→Understand→Practice→Apply→Review) —
+  // alias thẳng vào màu module đã có, không thêm màu mới: người học đã quen
+  // "indigo = Kanji", "teal = AI Kaiwa"... nên thấy lại đúng màu đó khi pha
+  // tương ứng xuất hiện trong 1 bài học, không cần học lại ý nghĩa màu.
+  static const phaseInput = accent;
+  static const phaseUnderstand = indigo;
+  static const phasePractice = moss;
+  static const phaseApply = teal;
+  static const phaseReview = plum;
 }
 
 /// Font chữ Nhật (器 glyph, tiêu đề 日本語) — dùng riêng, tách khỏi text theme

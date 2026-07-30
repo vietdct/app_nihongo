@@ -794,6 +794,12 @@ class $KanjiTableTable extends KanjiTable
   late final GeneratedColumn<String> levelId = GeneratedColumn<String>(
       'level_id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _componentsMeta =
+      const VerificationMeta('components');
+  @override
+  late final GeneratedColumn<String> components = GeneratedColumn<String>(
+      'components', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -807,7 +813,8 @@ class $KanjiTableTable extends KanjiTable
         hanViet,
         mnemonic,
         strokeData,
-        levelId
+        levelId,
+        components
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -876,6 +883,12 @@ class $KanjiTableTable extends KanjiTable
     } else if (isInserting) {
       context.missing(_levelIdMeta);
     }
+    if (data.containsKey('components')) {
+      context.handle(
+          _componentsMeta,
+          components.isAcceptableOrUnknown(
+              data['components']!, _componentsMeta));
+    }
     return context;
   }
 
@@ -909,6 +922,8 @@ class $KanjiTableTable extends KanjiTable
           .read(DriftSqlType.string, data['${effectivePrefix}stroke_data']),
       levelId: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}level_id'])!,
+      components: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}components']),
     );
   }
 
@@ -931,6 +946,10 @@ class KanjiTableData extends DataClass implements Insertable<KanjiTableData> {
   final String? mnemonic;
   final String? strokeData;
   final String levelId;
+
+  /// Các bộ ghép trực tiếp nên chữ này (JSON của List&lt;String&gt;) — xem
+  /// migration `20260727020000_kanji_components.sql` để biết nguồn dữ liệu.
+  final String? components;
   const KanjiTableData(
       {required this.id,
       required this.character,
@@ -943,7 +962,8 @@ class KanjiTableData extends DataClass implements Insertable<KanjiTableData> {
       this.hanViet,
       this.mnemonic,
       this.strokeData,
-      required this.levelId});
+      required this.levelId,
+      this.components});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -977,6 +997,9 @@ class KanjiTableData extends DataClass implements Insertable<KanjiTableData> {
       map['stroke_data'] = Variable<String>(strokeData);
     }
     map['level_id'] = Variable<String>(levelId);
+    if (!nullToAbsent || components != null) {
+      map['components'] = Variable<String>(components);
+    }
     return map;
   }
 
@@ -1011,6 +1034,9 @@ class KanjiTableData extends DataClass implements Insertable<KanjiTableData> {
           ? const Value.absent()
           : Value(strokeData),
       levelId: Value(levelId),
+      components: components == null && nullToAbsent
+          ? const Value.absent()
+          : Value(components),
     );
   }
 
@@ -1030,6 +1056,7 @@ class KanjiTableData extends DataClass implements Insertable<KanjiTableData> {
       mnemonic: serializer.fromJson<String?>(json['mnemonic']),
       strokeData: serializer.fromJson<String?>(json['strokeData']),
       levelId: serializer.fromJson<String>(json['levelId']),
+      components: serializer.fromJson<String?>(json['components']),
     );
   }
   @override
@@ -1048,6 +1075,7 @@ class KanjiTableData extends DataClass implements Insertable<KanjiTableData> {
       'mnemonic': serializer.toJson<String?>(mnemonic),
       'strokeData': serializer.toJson<String?>(strokeData),
       'levelId': serializer.toJson<String>(levelId),
+      'components': serializer.toJson<String?>(components),
     };
   }
 
@@ -1063,7 +1091,8 @@ class KanjiTableData extends DataClass implements Insertable<KanjiTableData> {
           Value<String?> hanViet = const Value.absent(),
           Value<String?> mnemonic = const Value.absent(),
           Value<String?> strokeData = const Value.absent(),
-          String? levelId}) =>
+          String? levelId,
+          Value<String?> components = const Value.absent()}) =>
       KanjiTableData(
         id: id ?? this.id,
         character: character ?? this.character,
@@ -1077,6 +1106,7 @@ class KanjiTableData extends DataClass implements Insertable<KanjiTableData> {
         mnemonic: mnemonic.present ? mnemonic.value : this.mnemonic,
         strokeData: strokeData.present ? strokeData.value : this.strokeData,
         levelId: levelId ?? this.levelId,
+        components: components.present ? components.value : this.components,
       );
   KanjiTableData copyWithCompanion(KanjiTableCompanion data) {
     return KanjiTableData(
@@ -1094,6 +1124,8 @@ class KanjiTableData extends DataClass implements Insertable<KanjiTableData> {
       strokeData:
           data.strokeData.present ? data.strokeData.value : this.strokeData,
       levelId: data.levelId.present ? data.levelId.value : this.levelId,
+      components:
+          data.components.present ? data.components.value : this.components,
     );
   }
 
@@ -1111,7 +1143,8 @@ class KanjiTableData extends DataClass implements Insertable<KanjiTableData> {
           ..write('hanViet: $hanViet, ')
           ..write('mnemonic: $mnemonic, ')
           ..write('strokeData: $strokeData, ')
-          ..write('levelId: $levelId')
+          ..write('levelId: $levelId, ')
+          ..write('components: $components')
           ..write(')'))
         .toString();
   }
@@ -1129,7 +1162,8 @@ class KanjiTableData extends DataClass implements Insertable<KanjiTableData> {
       hanViet,
       mnemonic,
       strokeData,
-      levelId);
+      levelId,
+      components);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1145,7 +1179,8 @@ class KanjiTableData extends DataClass implements Insertable<KanjiTableData> {
           other.hanViet == this.hanViet &&
           other.mnemonic == this.mnemonic &&
           other.strokeData == this.strokeData &&
-          other.levelId == this.levelId);
+          other.levelId == this.levelId &&
+          other.components == this.components);
 }
 
 class KanjiTableCompanion extends UpdateCompanion<KanjiTableData> {
@@ -1161,6 +1196,7 @@ class KanjiTableCompanion extends UpdateCompanion<KanjiTableData> {
   final Value<String?> mnemonic;
   final Value<String?> strokeData;
   final Value<String> levelId;
+  final Value<String?> components;
   final Value<int> rowid;
   const KanjiTableCompanion({
     this.id = const Value.absent(),
@@ -1175,6 +1211,7 @@ class KanjiTableCompanion extends UpdateCompanion<KanjiTableData> {
     this.mnemonic = const Value.absent(),
     this.strokeData = const Value.absent(),
     this.levelId = const Value.absent(),
+    this.components = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   KanjiTableCompanion.insert({
@@ -1190,6 +1227,7 @@ class KanjiTableCompanion extends UpdateCompanion<KanjiTableData> {
     this.mnemonic = const Value.absent(),
     this.strokeData = const Value.absent(),
     required String levelId,
+    this.components = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         character = Value(character),
@@ -1207,6 +1245,7 @@ class KanjiTableCompanion extends UpdateCompanion<KanjiTableData> {
     Expression<String>? mnemonic,
     Expression<String>? strokeData,
     Expression<String>? levelId,
+    Expression<String>? components,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1222,6 +1261,7 @@ class KanjiTableCompanion extends UpdateCompanion<KanjiTableData> {
       if (mnemonic != null) 'mnemonic': mnemonic,
       if (strokeData != null) 'stroke_data': strokeData,
       if (levelId != null) 'level_id': levelId,
+      if (components != null) 'components': components,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1239,6 +1279,7 @@ class KanjiTableCompanion extends UpdateCompanion<KanjiTableData> {
       Value<String?>? mnemonic,
       Value<String?>? strokeData,
       Value<String>? levelId,
+      Value<String?>? components,
       Value<int>? rowid}) {
     return KanjiTableCompanion(
       id: id ?? this.id,
@@ -1253,6 +1294,7 @@ class KanjiTableCompanion extends UpdateCompanion<KanjiTableData> {
       mnemonic: mnemonic ?? this.mnemonic,
       strokeData: strokeData ?? this.strokeData,
       levelId: levelId ?? this.levelId,
+      components: components ?? this.components,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1296,6 +1338,9 @@ class KanjiTableCompanion extends UpdateCompanion<KanjiTableData> {
     if (levelId.present) {
       map['level_id'] = Variable<String>(levelId.value);
     }
+    if (components.present) {
+      map['components'] = Variable<String>(components.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1317,6 +1362,7 @@ class KanjiTableCompanion extends UpdateCompanion<KanjiTableData> {
           ..write('mnemonic: $mnemonic, ')
           ..write('strokeData: $strokeData, ')
           ..write('levelId: $levelId, ')
+          ..write('components: $components, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1381,6 +1427,18 @@ class $GrammarPointsTableTable extends GrammarPointsTable
   late final GeneratedColumn<String> levelId = GeneratedColumn<String>(
       'level_id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _practiceTokensMeta =
+      const VerificationMeta('practiceTokens');
+  @override
+  late final GeneratedColumn<String> practiceTokens = GeneratedColumn<String>(
+      'practice_tokens', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _practiceBlankIndexMeta =
+      const VerificationMeta('practiceBlankIndex');
+  @override
+  late final GeneratedColumn<int> practiceBlankIndex = GeneratedColumn<int>(
+      'practice_blank_index', aliasedName, true,
+      type: DriftSqlType.int, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -1391,7 +1449,9 @@ class $GrammarPointsTableTable extends GrammarPointsTable
         commonMistake,
         memoryTip,
         comparisonNote,
-        levelId
+        levelId,
+        practiceTokens,
+        practiceBlankIndex
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1453,6 +1513,18 @@ class $GrammarPointsTableTable extends GrammarPointsTable
     } else if (isInserting) {
       context.missing(_levelIdMeta);
     }
+    if (data.containsKey('practice_tokens')) {
+      context.handle(
+          _practiceTokensMeta,
+          practiceTokens.isAcceptableOrUnknown(
+              data['practice_tokens']!, _practiceTokensMeta));
+    }
+    if (data.containsKey('practice_blank_index')) {
+      context.handle(
+          _practiceBlankIndexMeta,
+          practiceBlankIndex.isAcceptableOrUnknown(
+              data['practice_blank_index']!, _practiceBlankIndexMeta));
+    }
     return context;
   }
 
@@ -1480,6 +1552,10 @@ class $GrammarPointsTableTable extends GrammarPointsTable
           .read(DriftSqlType.string, data['${effectivePrefix}comparison_note']),
       levelId: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}level_id'])!,
+      practiceTokens: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}practice_tokens']),
+      practiceBlankIndex: attachedDatabase.typeMapping.read(
+          DriftSqlType.int, data['${effectivePrefix}practice_blank_index']),
     );
   }
 
@@ -1500,6 +1576,12 @@ class GrammarPointsTableData extends DataClass
   final String? memoryTip;
   final String? comparisonNote;
   final String levelId;
+
+  /// Từ/cụm tách sẵn từ example_jp, đúng thứ tự (JSON của List&lt;String&gt;) —
+  /// dùng cho Practice mở rộng, xem migration
+  /// `20260727040000_grammar_practice_tokens.sql`.
+  final String? practiceTokens;
+  final int? practiceBlankIndex;
   const GrammarPointsTableData(
       {required this.id,
       required this.title,
@@ -1509,7 +1591,9 @@ class GrammarPointsTableData extends DataClass
       this.commonMistake,
       this.memoryTip,
       this.comparisonNote,
-      required this.levelId});
+      required this.levelId,
+      this.practiceTokens,
+      this.practiceBlankIndex});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1532,6 +1616,12 @@ class GrammarPointsTableData extends DataClass
       map['comparison_note'] = Variable<String>(comparisonNote);
     }
     map['level_id'] = Variable<String>(levelId);
+    if (!nullToAbsent || practiceTokens != null) {
+      map['practice_tokens'] = Variable<String>(practiceTokens);
+    }
+    if (!nullToAbsent || practiceBlankIndex != null) {
+      map['practice_blank_index'] = Variable<int>(practiceBlankIndex);
+    }
     return map;
   }
 
@@ -1556,6 +1646,12 @@ class GrammarPointsTableData extends DataClass
           ? const Value.absent()
           : Value(comparisonNote),
       levelId: Value(levelId),
+      practiceTokens: practiceTokens == null && nullToAbsent
+          ? const Value.absent()
+          : Value(practiceTokens),
+      practiceBlankIndex: practiceBlankIndex == null && nullToAbsent
+          ? const Value.absent()
+          : Value(practiceBlankIndex),
     );
   }
 
@@ -1572,6 +1668,8 @@ class GrammarPointsTableData extends DataClass
       memoryTip: serializer.fromJson<String?>(json['memoryTip']),
       comparisonNote: serializer.fromJson<String?>(json['comparisonNote']),
       levelId: serializer.fromJson<String>(json['levelId']),
+      practiceTokens: serializer.fromJson<String?>(json['practiceTokens']),
+      practiceBlankIndex: serializer.fromJson<int?>(json['practiceBlankIndex']),
     );
   }
   @override
@@ -1587,6 +1685,8 @@ class GrammarPointsTableData extends DataClass
       'memoryTip': serializer.toJson<String?>(memoryTip),
       'comparisonNote': serializer.toJson<String?>(comparisonNote),
       'levelId': serializer.toJson<String>(levelId),
+      'practiceTokens': serializer.toJson<String?>(practiceTokens),
+      'practiceBlankIndex': serializer.toJson<int?>(practiceBlankIndex),
     };
   }
 
@@ -1599,7 +1699,9 @@ class GrammarPointsTableData extends DataClass
           Value<String?> commonMistake = const Value.absent(),
           Value<String?> memoryTip = const Value.absent(),
           Value<String?> comparisonNote = const Value.absent(),
-          String? levelId}) =>
+          String? levelId,
+          Value<String?> practiceTokens = const Value.absent(),
+          Value<int?> practiceBlankIndex = const Value.absent()}) =>
       GrammarPointsTableData(
         id: id ?? this.id,
         title: title ?? this.title,
@@ -1612,6 +1714,11 @@ class GrammarPointsTableData extends DataClass
         comparisonNote:
             comparisonNote.present ? comparisonNote.value : this.comparisonNote,
         levelId: levelId ?? this.levelId,
+        practiceTokens:
+            practiceTokens.present ? practiceTokens.value : this.practiceTokens,
+        practiceBlankIndex: practiceBlankIndex.present
+            ? practiceBlankIndex.value
+            : this.practiceBlankIndex,
       );
   GrammarPointsTableData copyWithCompanion(GrammarPointsTableCompanion data) {
     return GrammarPointsTableData(
@@ -1629,6 +1736,12 @@ class GrammarPointsTableData extends DataClass
           ? data.comparisonNote.value
           : this.comparisonNote,
       levelId: data.levelId.present ? data.levelId.value : this.levelId,
+      practiceTokens: data.practiceTokens.present
+          ? data.practiceTokens.value
+          : this.practiceTokens,
+      practiceBlankIndex: data.practiceBlankIndex.present
+          ? data.practiceBlankIndex.value
+          : this.practiceBlankIndex,
     );
   }
 
@@ -1643,14 +1756,26 @@ class GrammarPointsTableData extends DataClass
           ..write('commonMistake: $commonMistake, ')
           ..write('memoryTip: $memoryTip, ')
           ..write('comparisonNote: $comparisonNote, ')
-          ..write('levelId: $levelId')
+          ..write('levelId: $levelId, ')
+          ..write('practiceTokens: $practiceTokens, ')
+          ..write('practiceBlankIndex: $practiceBlankIndex')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, title, explanation, exampleJp, exampleVi,
-      commonMistake, memoryTip, comparisonNote, levelId);
+  int get hashCode => Object.hash(
+      id,
+      title,
+      explanation,
+      exampleJp,
+      exampleVi,
+      commonMistake,
+      memoryTip,
+      comparisonNote,
+      levelId,
+      practiceTokens,
+      practiceBlankIndex);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1663,7 +1788,9 @@ class GrammarPointsTableData extends DataClass
           other.commonMistake == this.commonMistake &&
           other.memoryTip == this.memoryTip &&
           other.comparisonNote == this.comparisonNote &&
-          other.levelId == this.levelId);
+          other.levelId == this.levelId &&
+          other.practiceTokens == this.practiceTokens &&
+          other.practiceBlankIndex == this.practiceBlankIndex);
 }
 
 class GrammarPointsTableCompanion
@@ -1677,6 +1804,8 @@ class GrammarPointsTableCompanion
   final Value<String?> memoryTip;
   final Value<String?> comparisonNote;
   final Value<String> levelId;
+  final Value<String?> practiceTokens;
+  final Value<int?> practiceBlankIndex;
   final Value<int> rowid;
   const GrammarPointsTableCompanion({
     this.id = const Value.absent(),
@@ -1688,6 +1817,8 @@ class GrammarPointsTableCompanion
     this.memoryTip = const Value.absent(),
     this.comparisonNote = const Value.absent(),
     this.levelId = const Value.absent(),
+    this.practiceTokens = const Value.absent(),
+    this.practiceBlankIndex = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   GrammarPointsTableCompanion.insert({
@@ -1700,6 +1831,8 @@ class GrammarPointsTableCompanion
     this.memoryTip = const Value.absent(),
     this.comparisonNote = const Value.absent(),
     required String levelId,
+    this.practiceTokens = const Value.absent(),
+    this.practiceBlankIndex = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         title = Value(title),
@@ -1715,6 +1848,8 @@ class GrammarPointsTableCompanion
     Expression<String>? memoryTip,
     Expression<String>? comparisonNote,
     Expression<String>? levelId,
+    Expression<String>? practiceTokens,
+    Expression<int>? practiceBlankIndex,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1727,6 +1862,9 @@ class GrammarPointsTableCompanion
       if (memoryTip != null) 'memory_tip': memoryTip,
       if (comparisonNote != null) 'comparison_note': comparisonNote,
       if (levelId != null) 'level_id': levelId,
+      if (practiceTokens != null) 'practice_tokens': practiceTokens,
+      if (practiceBlankIndex != null)
+        'practice_blank_index': practiceBlankIndex,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1741,6 +1879,8 @@ class GrammarPointsTableCompanion
       Value<String?>? memoryTip,
       Value<String?>? comparisonNote,
       Value<String>? levelId,
+      Value<String?>? practiceTokens,
+      Value<int?>? practiceBlankIndex,
       Value<int>? rowid}) {
     return GrammarPointsTableCompanion(
       id: id ?? this.id,
@@ -1752,6 +1892,8 @@ class GrammarPointsTableCompanion
       memoryTip: memoryTip ?? this.memoryTip,
       comparisonNote: comparisonNote ?? this.comparisonNote,
       levelId: levelId ?? this.levelId,
+      practiceTokens: practiceTokens ?? this.practiceTokens,
+      practiceBlankIndex: practiceBlankIndex ?? this.practiceBlankIndex,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1786,6 +1928,12 @@ class GrammarPointsTableCompanion
     if (levelId.present) {
       map['level_id'] = Variable<String>(levelId.value);
     }
+    if (practiceTokens.present) {
+      map['practice_tokens'] = Variable<String>(practiceTokens.value);
+    }
+    if (practiceBlankIndex.present) {
+      map['practice_blank_index'] = Variable<int>(practiceBlankIndex.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1804,6 +1952,8 @@ class GrammarPointsTableCompanion
           ..write('memoryTip: $memoryTip, ')
           ..write('comparisonNote: $comparisonNote, ')
           ..write('levelId: $levelId, ')
+          ..write('practiceTokens: $practiceTokens, ')
+          ..write('practiceBlankIndex: $practiceBlankIndex, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2863,6 +3013,7 @@ typedef $$KanjiTableTableCreateCompanionBuilder = KanjiTableCompanion Function({
   Value<String?> mnemonic,
   Value<String?> strokeData,
   required String levelId,
+  Value<String?> components,
   Value<int> rowid,
 });
 typedef $$KanjiTableTableUpdateCompanionBuilder = KanjiTableCompanion Function({
@@ -2878,6 +3029,7 @@ typedef $$KanjiTableTableUpdateCompanionBuilder = KanjiTableCompanion Function({
   Value<String?> mnemonic,
   Value<String?> strokeData,
   Value<String> levelId,
+  Value<String?> components,
   Value<int> rowid,
 });
 
@@ -2925,6 +3077,9 @@ class $$KanjiTableTableFilterComposer
 
   ColumnFilters<String> get levelId => $composableBuilder(
       column: $table.levelId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get components => $composableBuilder(
+      column: $table.components, builder: (column) => ColumnFilters(column));
 }
 
 class $$KanjiTableTableOrderingComposer
@@ -2971,6 +3126,9 @@ class $$KanjiTableTableOrderingComposer
 
   ColumnOrderings<String> get levelId => $composableBuilder(
       column: $table.levelId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get components => $composableBuilder(
+      column: $table.components, builder: (column) => ColumnOrderings(column));
 }
 
 class $$KanjiTableTableAnnotationComposer
@@ -3017,6 +3175,9 @@ class $$KanjiTableTableAnnotationComposer
 
   GeneratedColumn<String> get levelId =>
       $composableBuilder(column: $table.levelId, builder: (column) => column);
+
+  GeneratedColumn<String> get components => $composableBuilder(
+      column: $table.components, builder: (column) => column);
 }
 
 class $$KanjiTableTableTableManager extends RootTableManager<
@@ -3057,6 +3218,7 @@ class $$KanjiTableTableTableManager extends RootTableManager<
             Value<String?> mnemonic = const Value.absent(),
             Value<String?> strokeData = const Value.absent(),
             Value<String> levelId = const Value.absent(),
+            Value<String?> components = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               KanjiTableCompanion(
@@ -3072,6 +3234,7 @@ class $$KanjiTableTableTableManager extends RootTableManager<
             mnemonic: mnemonic,
             strokeData: strokeData,
             levelId: levelId,
+            components: components,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -3087,6 +3250,7 @@ class $$KanjiTableTableTableManager extends RootTableManager<
             Value<String?> mnemonic = const Value.absent(),
             Value<String?> strokeData = const Value.absent(),
             required String levelId,
+            Value<String?> components = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               KanjiTableCompanion.insert(
@@ -3102,6 +3266,7 @@ class $$KanjiTableTableTableManager extends RootTableManager<
             mnemonic: mnemonic,
             strokeData: strokeData,
             levelId: levelId,
+            components: components,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -3137,6 +3302,8 @@ typedef $$GrammarPointsTableTableCreateCompanionBuilder
   Value<String?> memoryTip,
   Value<String?> comparisonNote,
   required String levelId,
+  Value<String?> practiceTokens,
+  Value<int?> practiceBlankIndex,
   Value<int> rowid,
 });
 typedef $$GrammarPointsTableTableUpdateCompanionBuilder
@@ -3150,6 +3317,8 @@ typedef $$GrammarPointsTableTableUpdateCompanionBuilder
   Value<String?> memoryTip,
   Value<String?> comparisonNote,
   Value<String> levelId,
+  Value<String?> practiceTokens,
+  Value<int?> practiceBlankIndex,
   Value<int> rowid,
 });
 
@@ -3189,6 +3358,14 @@ class $$GrammarPointsTableTableFilterComposer
 
   ColumnFilters<String> get levelId => $composableBuilder(
       column: $table.levelId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get practiceTokens => $composableBuilder(
+      column: $table.practiceTokens,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get practiceBlankIndex => $composableBuilder(
+      column: $table.practiceBlankIndex,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$GrammarPointsTableTableOrderingComposer
@@ -3228,6 +3405,14 @@ class $$GrammarPointsTableTableOrderingComposer
 
   ColumnOrderings<String> get levelId => $composableBuilder(
       column: $table.levelId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get practiceTokens => $composableBuilder(
+      column: $table.practiceTokens,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get practiceBlankIndex => $composableBuilder(
+      column: $table.practiceBlankIndex,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$GrammarPointsTableTableAnnotationComposer
@@ -3265,6 +3450,12 @@ class $$GrammarPointsTableTableAnnotationComposer
 
   GeneratedColumn<String> get levelId =>
       $composableBuilder(column: $table.levelId, builder: (column) => column);
+
+  GeneratedColumn<String> get practiceTokens => $composableBuilder(
+      column: $table.practiceTokens, builder: (column) => column);
+
+  GeneratedColumn<int> get practiceBlankIndex => $composableBuilder(
+      column: $table.practiceBlankIndex, builder: (column) => column);
 }
 
 class $$GrammarPointsTableTableTableManager extends RootTableManager<
@@ -3305,6 +3496,8 @@ class $$GrammarPointsTableTableTableManager extends RootTableManager<
             Value<String?> memoryTip = const Value.absent(),
             Value<String?> comparisonNote = const Value.absent(),
             Value<String> levelId = const Value.absent(),
+            Value<String?> practiceTokens = const Value.absent(),
+            Value<int?> practiceBlankIndex = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               GrammarPointsTableCompanion(
@@ -3317,6 +3510,8 @@ class $$GrammarPointsTableTableTableManager extends RootTableManager<
             memoryTip: memoryTip,
             comparisonNote: comparisonNote,
             levelId: levelId,
+            practiceTokens: practiceTokens,
+            practiceBlankIndex: practiceBlankIndex,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -3329,6 +3524,8 @@ class $$GrammarPointsTableTableTableManager extends RootTableManager<
             Value<String?> memoryTip = const Value.absent(),
             Value<String?> comparisonNote = const Value.absent(),
             required String levelId,
+            Value<String?> practiceTokens = const Value.absent(),
+            Value<int?> practiceBlankIndex = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               GrammarPointsTableCompanion.insert(
@@ -3341,6 +3538,8 @@ class $$GrammarPointsTableTableTableManager extends RootTableManager<
             memoryTip: memoryTip,
             comparisonNote: comparisonNote,
             levelId: levelId,
+            practiceTokens: practiceTokens,
+            practiceBlankIndex: practiceBlankIndex,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

@@ -372,5 +372,47 @@ void main() {
       expect(sawReadingQuestion, isTrue,
           reason: 'không thấy câu hỏi cách đọc kanji sau 30 lần thử',);
     });
+
+    test(
+        'readingOnly: chỉ hỏi trục cách đọc khi item có cách đọc riêng biệt',
+        () {
+      final pool = [
+        LessonContentItem.kanji(_kanji('k1', '生', 'Sinh',
+            onyomi: ['セイ'], kunyomi: ['い.きる'],),),
+        LessonContentItem.vocabulary(
+            _vocab('v1', '生まれる', 'Được sinh ra', reading: 'うまれる'),),
+        LessonContentItem.vocabulary(
+            _vocab('v2', '先生', 'Giáo viên', reading: 'せんせい'),),
+      ];
+
+      const readingPrompts = {
+        'Chữ Hán này đọc là gì?',
+        'Cách đọc này là của chữ Hán nào?',
+        'Từ này đọc là gì?',
+        'Cách đọc này là của từ nào?',
+      };
+
+      for (var seed = 0; seed < 30; seed++) {
+        final questions = QuizGenerator(random: Random(seed))
+            .generate(pool: pool, readingOnly: true);
+        for (final q in questions) {
+          expect(readingPrompts, contains(q.promptVi));
+        }
+      }
+    });
+
+    test('readingOnly: item không có cách đọc riêng biệt vẫn có câu hỏi (rơi về nghĩa)',
+        () {
+      final pool = [
+        LessonContentItem.grammar(_grammar('g1', '〜てください', 'Nhờ ai đó làm gì')),
+        LessonContentItem.grammar(
+            _grammar('g2', '〜ないでください', 'Nhờ ai đó đừng làm gì'),),
+      ];
+
+      final questions =
+          const QuizGenerator().generate(pool: pool, readingOnly: true);
+
+      expect(questions.length, 2);
+    });
   });
 }

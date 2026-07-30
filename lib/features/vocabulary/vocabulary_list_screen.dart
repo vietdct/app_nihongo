@@ -58,6 +58,11 @@ class VocabularyListScreen extends ConsumerWidget {
             icon: const Icon(Icons.style_outlined),
             onPressed: () => context.push('/vocabulary/flashcards'),
           ),
+          IconButton(
+            tooltip: 'Ôn tập theo lịch SRS',
+            icon: const Icon(Icons.replay_circle_filled_outlined),
+            onPressed: () => context.push('/vocabulary/review'),
+          ),
           const LevelBadge(),
           const SizedBox(width: 12),
         ],
@@ -241,12 +246,7 @@ class _VocabTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return InkWell(
-      onTap: () => showModalBottomSheet(
-        context: context,
-        showDragHandle: true,
-        backgroundColor: AppColors.card,
-        builder: (_) => _VocabDetailSheet(vocab: vocab),
-      ),
+      onTap: () => showVocabDetailSheet(context, vocab),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
         child: Row(
@@ -306,8 +306,19 @@ class _VocabTile extends StatelessWidget {
   }
 }
 
-class _VocabDetailSheet extends StatelessWidget {
-  const _VocabDetailSheet({required this.vocab});
+/// Mở bottom sheet chi tiết 1 từ vựng — dùng chung giữa danh sách phẳng
+/// (`VocabularyListScreen`) và các mini-card trên `VocabularyHomeScreen`.
+void showVocabDetailSheet(BuildContext context, Vocabulary vocab) {
+  showModalBottomSheet(
+    context: context,
+    showDragHandle: true,
+    backgroundColor: AppColors.card,
+    builder: (_) => VocabDetailSheet(vocab: vocab),
+  );
+}
+
+class VocabDetailSheet extends StatelessWidget {
+  const VocabDetailSheet({super.key, required this.vocab});
 
   final Vocabulary vocab;
 

@@ -51,6 +51,54 @@ List<KanjiDrawMatch> matchKanjiByStrokes({
   return scored.take(topN).toList();
 }
 
+/// Kết quả chấm 1 lượt luyện viết so với ĐÚNG 1 kanji mục tiêu đã biết
+/// (khác [matchKanjiByStrokes] là tìm trong nhiều ứng viên). [accuracy] là
+/// chỉ số hình học thuần tuý (khoảng cách điểm-tới-điểm sau chuẩn hoá, quy
+/// đổi tuyến tính về 0-1) — KHÔNG phải OCR/AI chấm chữ viết tay thật, chỉ nên
+/// hiển thị như "độ khớp nét vẽ", không gọi là "AI chấm điểm" để không phóng
+/// đại độ chính xác.
+class KanjiPracticeResult {
+  const KanjiPracticeResult({
+    required this.strokeCountMatches,
+    required this.accuracy,
+  });
+
+  final bool strokeCountMatches;
+  final double accuracy;
+}
+
+// Khoảng cách chuẩn hoá trung bình quan sát được dao động ~0 (khớp gần như
+// hoàn hảo) tới ~0.4+ (lệch nhiều/sai hình dạng) — dùng làm mốc quy đổi sang
+// thang 0-1 để hiển thị phần trăm dễ hiểu, không phải số liệu tuyệt đối.
+const double _maxExpectedDistance = 0.4;
+
+/// So khớp nét vừa vẽ với dữ liệu nét chuẩn của [target]. Trả về `null` nếu
+/// [target] chưa có `strokeData` hoặc người dùng chưa vẽ nét nào.
+KanjiPracticeResult? scoreKanjiPractice({
+  required List<List<Offset>> drawnStrokes,
+  required Kanji target,
+}) {
+  final data = KanjiStrokeData.tryParse(target.strokeData);
+  if (data == null || drawnStrokes.isEmpty) return null;
+
+  final n = math.min(drawnStrokes.length, data.strokes.length);
+  var total = 0.0;
+  for (var i = 0; i < n; i++) {
+    final drawn = _normalize(_resamplePolyline(drawnStrokes[i], _resampleCount));
+    final ref = _normalize(
+      _resamplePolyline(_pathToPolyline(data.strokes[i]), _resampleCount),
+    );
+    total += _pointDistance(drawn, ref);
+  }
+  final avgDistance = total / n;
+  final accuracy = (1 - (avgDistance / _maxExpectedDistance)).clamp(0.0, 1.0);
+
+  return KanjiPracticeResult(
+    strokeCountMatches: drawnStrokes.length == data.strokes.length,
+    accuracy: accuracy,
+  );
+}
+
 List<Offset> _pathToPolyline(Path path, {int samples = 48}) {
   final metrics = path.computeMetrics().toList();
   final total = metrics.fold<double>(0, (s, m) => s + m.length);

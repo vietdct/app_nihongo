@@ -11,6 +11,8 @@ class GrammarPoint {
     this.commonMistake,
     this.memoryTip,
     this.comparisonNote,
+    this.practiceTokens = const [],
+    this.practiceBlankIndex,
   });
 
   final String id;
@@ -22,4 +24,13 @@ class GrammarPoint {
   final String? commonMistake;
   final String? memoryTip;
   final String? comparisonNote;
+
+  /// example_jp tách thành từ/cụm có nghĩa, đúng thứ tự — soạn thủ công, xem
+  /// migration `20260727040000_grammar_practice_tokens.sql`. Rỗng nếu mẫu
+  /// này chưa được soạn cho Practice mở rộng.
+  final List<String> practiceTokens;
+
+  /// Index trong [practiceTokens] là từ/trợ từ bị ẩn cho bài điền từ — null
+  /// nếu mẫu này dùng cho bài ghép câu thay vì điền từ (hoặc chưa soạn).
+  final int? practiceBlankIndex;
 }
