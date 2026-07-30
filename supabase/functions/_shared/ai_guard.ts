@@ -230,6 +230,33 @@ export async function enforceAiQuota(
   return result;
 }
 
+export interface AiUsageInfo {
+  feature: string;
+  provider: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+}
+
+// Ghi log token thật sự dùng mỗi lượt gọi AI để có dữ liệu ra quyết định
+// cắt giảm chi phí sau này (feature nào tốn nhất, provider nào rẻ hơn...).
+// Không được làm hỏng luồng chính của user — lỗi ghi log chỉ log ra console.
+export async function logAiUsage(
+  supabase: SupabaseClient,
+  usage: AiUsageInfo,
+): Promise<void> {
+  const { error } = await supabase.rpc("log_ai_usage", {
+    p_feature: usage.feature,
+    p_provider: usage.provider,
+    p_model: usage.model,
+    p_input_tokens: usage.inputTokens,
+    p_output_tokens: usage.outputTokens,
+  });
+  if (error) {
+    console.error("log_ai_usage RPC failed:", error.message ?? error);
+  }
+}
+
 export function guardErrorBody(error: AiGuardError): Record<string, unknown> {
   return {
     error: error.message,

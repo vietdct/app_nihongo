@@ -21,6 +21,7 @@ import {
   AiGuardError,
   enforceAiQuota,
   guardErrorBody,
+  logAiUsage,
   readJsonBody,
   requireEnum,
   requireString,
@@ -77,7 +78,17 @@ function jsonResponse(body: unknown, status: number): Response {
   });
 }
 
-async function callGemini(targetJp: string, audioBase64: string, mimeType: string, model: string): Promise<Record<string, unknown>> {
+interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+async function callGemini(
+  targetJp: string,
+  audioBase64: string,
+  mimeType: string,
+  model: string,
+): Promise<{ result: Record<string, unknown>; usage: TokenUsage }> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GOOGLE_AI_API_KEY}`,
     {
@@ -106,7 +117,13 @@ async function callGemini(targetJp: string, audioBase64: string, mimeType: strin
   const data = await res.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("gemini: phản hồi rỗng");
-  return JSON.parse(text);
+  return {
+    result: JSON.parse(text),
+    usage: {
+      inputTokens: data.usageMetadata?.promptTokenCount ?? 0,
+      outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
+    },
+  };
 }
 
 function friendlyError(err: unknown): string {
@@ -172,7 +189,16 @@ Deno.serve(async (req) => {
 
     await enforceAiQuota(supabase, "pronunciation");
 
-    const result = await callGemini(targetJp, audioBase64, mimeType, GEMINI_MODEL);
+    const { result, usage } = await callGemini(targetJp, audioBase64, mimeType, GEMINI_MODEL);
+
+    await logAiUsage(supabase, {
+      feature: "pronunciation",
+      provider: "gemini",
+      model: GEMINI_MODEL,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    });
+
     return jsonResponse(result, 200);
   } catch (e) {
     if (e instanceof AiGuardError) {

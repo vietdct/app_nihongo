@@ -21,6 +21,10 @@ class KanjiTutorReply {
   final List<String> suggestedQuestions;
 }
 
+// Chỉ gửi ~10 lượt gần nhất — phiên hỏi-đáp càng dài, gửi nguyên toàn bộ
+// lịch sử càng tốn token vô ích trong khi vài lượt trước đã đủ ngữ cảnh.
+const _maxHistoryTurns = 10;
+
 /// Gọi Edge Function `ai-kanji-tutor` — hỏi-đáp nhanh về 1 chữ Hán, không
 /// lưu lịch sử (khác `KaiwaChatService`, phiên hỏi-đáp mất khi thoát màn).
 /// Luôn gửi kèm dữ liệu thật của chữ (on/kun/nghĩa/mẹo nhớ/từ vựng/gia đình
@@ -39,6 +43,9 @@ class KanjiTutorService {
     required List<Map<String, String>> history,
     required String message,
   }) async {
+    final recentHistory =
+        history.length > _maxHistoryTurns ? history.sublist(history.length - _maxHistoryTurns) : history;
+
     final FunctionResponse res;
     try {
       res = await _sb.functions.invoke(
@@ -59,7 +66,7 @@ class KanjiTutorService {
             'familyParents': [for (final k in familyParents) k.character],
             'familyChildren': [for (final k in familyChildren) k.character],
           },
-          'history': history,
+          'history': recentHistory,
           'message': message,
         },
       ).timeout(

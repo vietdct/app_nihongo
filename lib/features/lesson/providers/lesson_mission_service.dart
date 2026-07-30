@@ -26,6 +26,10 @@ String? _sanitizeFurigana(String? input) {
   });
 }
 
+// Chỉ gửi ~10 lượt gần nhất — mission càng chạy dài, gửi nguyên toàn bộ lịch
+// sử càng tốn token vô ích trong khi vài lượt trước đã đủ ngữ cảnh.
+const _maxHistoryTurns = 10;
+
 int _idCounter = 0;
 
 // Mission Challenge không ghi DB (xem lớp doc bên dưới) nên id chỉ cần duy
@@ -78,8 +82,10 @@ class LessonMissionService {
     required List<KaiwaMessage> history,
     required String text,
   }) async {
+    final recentHistory =
+        history.length > _maxHistoryTurns ? history.sublist(history.length - _maxHistoryTurns) : history;
     final historyPayload = [
-      for (final m in history)
+      for (final m in recentHistory)
         {'role': m.role == KaiwaMessageRole.ai ? 'ai' : 'user', 'content': m.contentJp},
     ];
 

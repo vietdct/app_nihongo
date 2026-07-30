@@ -11,6 +11,7 @@ import {
   AiGuardError,
   enforceAiQuota,
   guardErrorBody,
+  logAiUsage,
   optionalString,
   readJsonBody,
   requireEnum,
@@ -120,7 +121,17 @@ interface ChatMessage {
   content: string;
 }
 
-async function callAnthropic(systemPrompt: string, messages: ChatMessage[]): Promise<Record<string, unknown>> {
+interface TokenUsage {
+  inputTokens: number;
+  outputTokens: number;
+}
+
+interface AiCallResult {
+  result: Record<string, unknown>;
+  usage: TokenUsage;
+}
+
+async function callAnthropic(systemPrompt: string, messages: ChatMessage[]): Promise<AiCallResult> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -148,10 +159,16 @@ async function callAnthropic(systemPrompt: string, messages: ChatMessage[]): Pro
   const data = await res.json();
   const toolUse = data.content?.find((c: { type: string }) => c.type === "tool_use");
   if (!toolUse) throw new Error("anthropic: không có tool_use trong phản hồi");
-  return toolUse.input;
+  return {
+    result: toolUse.input,
+    usage: {
+      inputTokens: data.usage?.input_tokens ?? 0,
+      outputTokens: data.usage?.output_tokens ?? 0,
+    },
+  };
 }
 
-async function callGemini(systemPrompt: string, messages: ChatMessage[]): Promise<Record<string, unknown>> {
+async function callGemini(systemPrompt: string, messages: ChatMessage[]): Promise<AiCallResult> {
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GOOGLE_AI_API_KEY}`,
     {
@@ -174,7 +191,13 @@ async function callGemini(systemPrompt: string, messages: ChatMessage[]): Promis
   const data = await res.json();
   const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error("gemini: phản hồi rỗng");
-  return JSON.parse(text);
+  return {
+    result: JSON.parse(text),
+    usage: {
+      inputTokens: data.usageMetadata?.promptTokenCount ?? 0,
+      outputTokens: data.usageMetadata?.candidatesTokenCount ?? 0,
+    },
+  };
 }
 
 function friendlyError(err: unknown): string {
@@ -244,7 +267,7 @@ Deno.serve(async (req) => {
         meaningVi: requireString(value.meaningVi, `targetGrammar[${index}].meaningVi`, 1000),
       };
     });
-    const history = validateHistory(body.history, { maxTurns: 20, maxContentLength: 1000 });
+    const history = validateHistory(body.history, { maxTurns: 10, maxContentLength: 1000 });
     const message = optionalString(body.message, "message", 1000);
     const hasUserMessage = message !== null && message.length > 0;
 
@@ -271,11 +294,15 @@ Deno.serve(async (req) => {
 
     let result: Record<string, unknown> | null = null;
     let provider = "gemini";
+    let modelUsed = GEMINI_MODEL;
+    let usage: TokenUsage = { inputTokens: 0, outputTokens: 0 };
     let geminiErr: unknown = null;
 
     if (GOOGLE_AI_API_KEY) {
       try {
-        result = await callGemini(systemPrompt, messages);
+        const r = await callGemini(systemPrompt, messages);
+        result = r.result;
+        usage = r.usage;
       } catch (e) {
         geminiErr = e;
         console.error("Gemini failed:", e);
@@ -285,7 +312,10 @@ Deno.serve(async (req) => {
     if (result === null && ANTHROPIC_API_KEY) {
       try {
         provider = "anthropic";
-        result = await callAnthropic(systemPrompt, messages);
+        modelUsed = ANTHROPIC_MODEL;
+        const r = await callAnthropic(systemPrompt, messages);
+        result = r.result;
+        usage = r.usage;
       } catch (e) {
         console.error("Anthropic fallback also failed:", e);
         return jsonResponse({ error: friendlyError(e) }, 502);
@@ -295,6 +325,14 @@ Deno.serve(async (req) => {
     if (result === null) {
       return jsonResponse({ error: friendlyError(geminiErr) }, 502);
     }
+
+    await logAiUsage(supabase, {
+      feature: "lesson_mission",
+      provider,
+      model: modelUsed,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+    });
 
     return jsonResponse({ ...result, _provider: provider }, 200);
   } catch (e) {

@@ -20,6 +20,10 @@ class KaiwaTutorReply {
   final List<String> suggestedQuestions;
 }
 
+// Chỉ gửi ~10 lượt gần nhất — phiên hỏi-đáp càng dài, gửi nguyên toàn bộ
+// lịch sử càng tốn token vô ích trong khi vài lượt trước đã đủ ngữ cảnh.
+const _maxHistoryTurns = 10;
+
 /// Gọi Edge Function `ai-kaiwa-tutor` — hỏi-đáp sâu thêm về 1 câu người học
 /// đã nói + feedback đã chấm, không lưu lịch sử (giống `KanjiTutorService`/
 /// `GrammarTutorService`, khác `KaiwaChatService` — đây không phải hội thoại
@@ -34,6 +38,9 @@ class KaiwaTutorService {
     required List<Map<String, String>> history,
     required String message,
   }) async {
+    final recentHistory =
+        history.length > _maxHistoryTurns ? history.sublist(history.length - _maxHistoryTurns) : history;
+
     final FunctionResponse res;
     try {
       res = await _sb.functions.invoke(
@@ -50,7 +57,7 @@ class KaiwaTutorService {
             'personaName': turn.personaName,
             'scenarioTitle': turn.scenarioTitle,
           },
-          'history': history,
+          'history': recentHistory,
           'message': message,
         },
       ).timeout(
