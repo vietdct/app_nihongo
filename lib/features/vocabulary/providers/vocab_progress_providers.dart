@@ -27,6 +27,7 @@ final vocabProgressProvider =
         easeFactor: (r['ease_factor'] as num?)?.toDouble() ?? 2.5,
         dueAt: DateTime.tryParse(r['due_at'] as String? ?? ''),
         reviewCount: r['review_count'] as int? ?? 0,
+        lapseCount: r['lapse_count'] as int? ?? 0,
       ),
   };
 });
@@ -89,6 +90,8 @@ class VocabProgressController {
         'ease_factor': result.easeFactor,
         'due_at': result.dueAt.toUtc().toIso8601String(),
         'review_count': (current?.reviewCount ?? 0) + 1,
+        'lapse_count': (current?.lapseCount ?? 0) +
+            (grade == SrsGrade.forgot ? 1 : 0),
       },
       onConflict: 'user_id,vocab_id',
     );

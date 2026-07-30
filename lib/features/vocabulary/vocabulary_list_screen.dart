@@ -11,14 +11,18 @@ import '../../shared/debounced_search_field.dart';
 import '../../shared/lesson_filter_dropdown.dart';
 import '../../shared/level_badge.dart';
 import '../../shared/vocab_category_filter_dropdown.dart';
+import '../../shared/vocab_status_filter_dropdown.dart';
 import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/vocab_progress_providers.dart';
+import 'providers/vocab_review_providers.dart' show weakEaseThreshold;
 
 final _vocabSearchQueryProvider = StateProvider<String>((ref) => '');
 final _showStarredOnlyProvider = StateProvider<bool>((ref) => false);
 final _selectedLessonFilterProvider = StateProvider<String?>((ref) => null);
 final _selectedCategoryFilterProvider = StateProvider<String?>((ref) => null);
+final _selectedStatusFilterProvider =
+    StateProvider<VocabStatusFilter?>((ref) => null);
 
 class VocabularyListScreen extends ConsumerWidget {
   const VocabularyListScreen({super.key});
@@ -42,6 +46,7 @@ class VocabularyListScreen extends ConsumerWidget {
         ? rawSelectedLesson
         : null;
     final selectedCategory = ref.watch(_selectedCategoryFilterProvider);
+    final selectedStatus = ref.watch(_selectedStatusFilterProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -113,6 +118,13 @@ class VocabularyListScreen extends ConsumerWidget {
                               .state = category,
                           accentColor: AppColors.indigo,
                         ),
+                        VocabStatusFilterDropdown(
+                          selected: selectedStatus,
+                          onSelected: (status) => ref
+                              .read(_selectedStatusFilterProvider.notifier)
+                              .state = status,
+                          accentColor: AppColors.plum,
+                        ),
                       ],
                     ),
                   ),
@@ -157,6 +169,39 @@ class VocabularyListScreen extends ConsumerWidget {
                   filtered = filtered
                       .where((v) => v.category == selectedCategory)
                       .toList();
+                }
+                switch (selectedStatus) {
+                  case VocabStatusFilter.mastered:
+                    filtered = filtered
+                        .where((v) => progressMap[v.id]?.isKnown == true)
+                        .toList();
+                  case VocabStatusFilter.dueForReview:
+                    filtered = filtered
+                        .where((v) => progressMap[v.id]?.isDueNow ?? true)
+                        .toList();
+                  case VocabStatusFilter.hardest:
+                    filtered = filtered
+                        .where(
+                          (v) =>
+                              progressMap[v.id] != null &&
+                              progressMap[v.id]!.reviewCount > 0 &&
+                              progressMap[v.id]!.easeFactor < weakEaseThreshold,
+                        )
+                        .toList()
+                      ..sort(
+                        (a, b) => progressMap[a.id]!.easeFactor
+                            .compareTo(progressMap[b.id]!.easeFactor),
+                      );
+                  case VocabStatusFilter.mostForgotten:
+                    filtered = filtered
+                        .where((v) => (progressMap[v.id]?.lapseCount ?? 0) > 0)
+                        .toList()
+                      ..sort(
+                        (a, b) => (progressMap[b.id]?.lapseCount ?? 0)
+                            .compareTo(progressMap[a.id]?.lapseCount ?? 0),
+                      );
+                  case null:
+                    break;
                 }
                 if (query.isNotEmpty) {
                   filtered = filtered

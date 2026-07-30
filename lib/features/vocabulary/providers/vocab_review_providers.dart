@@ -18,7 +18,9 @@ class VocabReviewItem {
 }
 
 const _overdueThresholdDays = 2;
-const _weakEaseThreshold = 2.0;
+/// Ngưỡng ease factor coi là "khó" — dùng chung cho [classifyVocabReview] và
+/// bộ lọc "Khó nhất" ở màn danh sách từ vựng.
+const weakEaseThreshold = 2.0;
 
 /// Phân loại 1 từ thành 1 trong 4 lý do due, thuần từ field SRS có sẵn trên
 /// [VocabProgress] (không cần schema mới), ưu tiên theo mức khẩn cấp:
@@ -41,7 +43,7 @@ VocabReviewReason classifyVocabReview(VocabProgress? progress, {DateTime? now}) 
     return VocabReviewReason.overdue;
   }
 
-  if (progress.easeFactor < _weakEaseThreshold) {
+  if (progress.easeFactor < weakEaseThreshold) {
     return VocabReviewReason.weak;
   }
 
