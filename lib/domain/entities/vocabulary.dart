@@ -10,6 +10,7 @@ class Vocabulary {
     required this.meanings,
     this.partOfSpeech,
     this.audioUrl,
+    this.category,
   });
 
   final String id;
@@ -21,6 +22,9 @@ class Vocabulary {
   final List<VocabMeaning> meanings;
   final String? partOfSpeech;
   final String? audioUrl;
+
+  /// Chủ đề để duyệt/lọc (VD: "Mua sắm", "Gia đình") — null nếu từ chưa được gán.
+  final String? category;
 
   /// Nghĩa chính (hiển thị ở nơi chỉ có chỗ cho 1 dòng, VD: tile danh sách).
   String get primaryMeaning => meanings.isEmpty ? '' : meanings.first.meaningVi;

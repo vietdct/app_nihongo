@@ -10,6 +10,10 @@ class VocabularyTable extends Table {
   TextColumn get audioUrl => text().nullable()();
   TextColumn get levelId => text()();
 
+  /// Chủ đề để duyệt/lọc (VD: "Mua sắm", "Gia đình") — 1 từ đúng 1 category,
+  /// có thể null cho từ chưa được gán (xem migration `vocabulary_category`).
+  TextColumn get category => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

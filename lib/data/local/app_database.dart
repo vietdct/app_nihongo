@@ -19,7 +19,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   // Đây chỉ là cache offline (nguồn sự thật là Supabase, xem
   // ContentRepositoryImpl.refreshFromRemote) nên khi đổi schema, đơn giản

@@ -10,6 +10,7 @@ import '../../domain/entities/vocabulary.dart';
 import '../../shared/debounced_search_field.dart';
 import '../../shared/lesson_filter_dropdown.dart';
 import '../../shared/level_badge.dart';
+import '../../shared/vocab_category_filter_dropdown.dart';
 import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/vocab_progress_providers.dart';
@@ -17,6 +18,7 @@ import 'providers/vocab_progress_providers.dart';
 final _vocabSearchQueryProvider = StateProvider<String>((ref) => '');
 final _showStarredOnlyProvider = StateProvider<bool>((ref) => false);
 final _selectedLessonFilterProvider = StateProvider<String?>((ref) => null);
+final _selectedCategoryFilterProvider = StateProvider<String?>((ref) => null);
 
 class VocabularyListScreen extends ConsumerWidget {
   const VocabularyListScreen({super.key});
@@ -39,6 +41,7 @@ class VocabularyListScreen extends ConsumerWidget {
             lessons.any((l) => l.id == rawSelectedLesson)
         ? rawSelectedLesson
         : null;
+    final selectedCategory = ref.watch(_selectedCategoryFilterProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -82,15 +85,35 @@ class VocabularyListScreen extends ConsumerWidget {
                 ? const SizedBox.shrink()
                 : Padding(
                     padding: const EdgeInsets.fromLTRB(20, 0, 20, 12),
-                    child: LessonFilterDropdown(
-                      lessons: lessons,
-                      selected: selectedLesson,
-                      hasUnassigned:
-                          all.any((v) => !assignments.containsKey(v.id)),
-                      onSelected: (id) => ref
-                          .read(_selectedLessonFilterProvider.notifier)
-                          .state = id,
-                      accentColor: AppColors.moss,
+                    child: Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      children: [
+                        LessonFilterDropdown(
+                          lessons: lessons,
+                          selected: selectedLesson,
+                          hasUnassigned:
+                              all.any((v) => !assignments.containsKey(v.id)),
+                          onSelected: (id) => ref
+                              .read(_selectedLessonFilterProvider.notifier)
+                              .state = id,
+                          accentColor: AppColors.moss,
+                        ),
+                        VocabCategoryFilterDropdown(
+                          categories: {
+                            for (final v in all)
+                              if (v.category != null) v.category!,
+                          }.toList()
+                            ..sort(),
+                          selected: selectedCategory,
+                          hasUncategorized:
+                              all.any((v) => v.category == null),
+                          onSelected: (category) => ref
+                              .read(_selectedCategoryFilterProvider.notifier)
+                              .state = category,
+                          accentColor: AppColors.indigo,
+                        ),
+                      ],
                     ),
                   ),
             orElse: () => const SizedBox.shrink(),
@@ -126,6 +149,14 @@ class VocabularyListScreen extends ConsumerWidget {
                       (a, b) => (assignments[a.id]?.orderIndex ?? 0)
                           .compareTo(assignments[b.id]?.orderIndex ?? 0),
                     );
+                }
+                if (selectedCategory == uncategorizedFilter) {
+                  filtered =
+                      filtered.where((v) => v.category == null).toList();
+                } else if (selectedCategory != null) {
+                  filtered = filtered
+                      .where((v) => v.category == selectedCategory)
+                      .toList();
                 }
                 if (query.isNotEmpty) {
                   filtered = filtered
@@ -375,6 +406,24 @@ class VocabDetailSheet extends StatelessWidget {
                 ),
             ],
           ),
+          if (vocab.category != null) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: AppColors.indigoSoft,
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: Text(
+                vocab.category!,
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.indigo,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           for (var i = 0; i < vocab.meanings.length; i++) ...[
             if (i > 0) const SizedBox(height: 18),

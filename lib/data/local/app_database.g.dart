@@ -43,9 +43,15 @@ class $VocabularyTableTable extends VocabularyTable
   late final GeneratedColumn<String> levelId = GeneratedColumn<String>(
       'level_id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _categoryMeta =
+      const VerificationMeta('category');
+  @override
+  late final GeneratedColumn<String> category = GeneratedColumn<String>(
+      'category', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns =>
-      [id, word, reading, partOfSpeech, audioUrl, levelId];
+      [id, word, reading, partOfSpeech, audioUrl, levelId, category];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -90,6 +96,10 @@ class $VocabularyTableTable extends VocabularyTable
     } else if (isInserting) {
       context.missing(_levelIdMeta);
     }
+    if (data.containsKey('category')) {
+      context.handle(_categoryMeta,
+          category.isAcceptableOrUnknown(data['category']!, _categoryMeta));
+    }
     return context;
   }
 
@@ -111,6 +121,8 @@ class $VocabularyTableTable extends VocabularyTable
           .read(DriftSqlType.string, data['${effectivePrefix}audio_url']),
       levelId: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}level_id'])!,
+      category: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}category']),
     );
   }
 
@@ -128,13 +140,18 @@ class VocabularyTableData extends DataClass
   final String? partOfSpeech;
   final String? audioUrl;
   final String levelId;
+
+  /// Chủ đề để duyệt/lọc (VD: "Mua sắm", "Gia đình") — 1 từ đúng 1 category,
+  /// có thể null cho từ chưa được gán (xem migration `vocabulary_category`).
+  final String? category;
   const VocabularyTableData(
       {required this.id,
       required this.word,
       required this.reading,
       this.partOfSpeech,
       this.audioUrl,
-      required this.levelId});
+      required this.levelId,
+      this.category});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -148,6 +165,9 @@ class VocabularyTableData extends DataClass
       map['audio_url'] = Variable<String>(audioUrl);
     }
     map['level_id'] = Variable<String>(levelId);
+    if (!nullToAbsent || category != null) {
+      map['category'] = Variable<String>(category);
+    }
     return map;
   }
 
@@ -163,6 +183,9 @@ class VocabularyTableData extends DataClass
           ? const Value.absent()
           : Value(audioUrl),
       levelId: Value(levelId),
+      category: category == null && nullToAbsent
+          ? const Value.absent()
+          : Value(category),
     );
   }
 
@@ -176,6 +199,7 @@ class VocabularyTableData extends DataClass
       partOfSpeech: serializer.fromJson<String?>(json['partOfSpeech']),
       audioUrl: serializer.fromJson<String?>(json['audioUrl']),
       levelId: serializer.fromJson<String>(json['levelId']),
+      category: serializer.fromJson<String?>(json['category']),
     );
   }
   @override
@@ -188,6 +212,7 @@ class VocabularyTableData extends DataClass
       'partOfSpeech': serializer.toJson<String?>(partOfSpeech),
       'audioUrl': serializer.toJson<String?>(audioUrl),
       'levelId': serializer.toJson<String>(levelId),
+      'category': serializer.toJson<String?>(category),
     };
   }
 
@@ -197,7 +222,8 @@ class VocabularyTableData extends DataClass
           String? reading,
           Value<String?> partOfSpeech = const Value.absent(),
           Value<String?> audioUrl = const Value.absent(),
-          String? levelId}) =>
+          String? levelId,
+          Value<String?> category = const Value.absent()}) =>
       VocabularyTableData(
         id: id ?? this.id,
         word: word ?? this.word,
@@ -206,6 +232,7 @@ class VocabularyTableData extends DataClass
             partOfSpeech.present ? partOfSpeech.value : this.partOfSpeech,
         audioUrl: audioUrl.present ? audioUrl.value : this.audioUrl,
         levelId: levelId ?? this.levelId,
+        category: category.present ? category.value : this.category,
       );
   VocabularyTableData copyWithCompanion(VocabularyTableCompanion data) {
     return VocabularyTableData(
@@ -217,6 +244,7 @@ class VocabularyTableData extends DataClass
           : this.partOfSpeech,
       audioUrl: data.audioUrl.present ? data.audioUrl.value : this.audioUrl,
       levelId: data.levelId.present ? data.levelId.value : this.levelId,
+      category: data.category.present ? data.category.value : this.category,
     );
   }
 
@@ -228,14 +256,15 @@ class VocabularyTableData extends DataClass
           ..write('reading: $reading, ')
           ..write('partOfSpeech: $partOfSpeech, ')
           ..write('audioUrl: $audioUrl, ')
-          ..write('levelId: $levelId')
+          ..write('levelId: $levelId, ')
+          ..write('category: $category')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode =>
-      Object.hash(id, word, reading, partOfSpeech, audioUrl, levelId);
+      Object.hash(id, word, reading, partOfSpeech, audioUrl, levelId, category);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -245,7 +274,8 @@ class VocabularyTableData extends DataClass
           other.reading == this.reading &&
           other.partOfSpeech == this.partOfSpeech &&
           other.audioUrl == this.audioUrl &&
-          other.levelId == this.levelId);
+          other.levelId == this.levelId &&
+          other.category == this.category);
 }
 
 class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
@@ -255,6 +285,7 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
   final Value<String?> partOfSpeech;
   final Value<String?> audioUrl;
   final Value<String> levelId;
+  final Value<String?> category;
   final Value<int> rowid;
   const VocabularyTableCompanion({
     this.id = const Value.absent(),
@@ -263,6 +294,7 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
     this.partOfSpeech = const Value.absent(),
     this.audioUrl = const Value.absent(),
     this.levelId = const Value.absent(),
+    this.category = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   VocabularyTableCompanion.insert({
@@ -272,6 +304,7 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
     this.partOfSpeech = const Value.absent(),
     this.audioUrl = const Value.absent(),
     required String levelId,
+    this.category = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         word = Value(word),
@@ -284,6 +317,7 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
     Expression<String>? partOfSpeech,
     Expression<String>? audioUrl,
     Expression<String>? levelId,
+    Expression<String>? category,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -293,6 +327,7 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
       if (partOfSpeech != null) 'part_of_speech': partOfSpeech,
       if (audioUrl != null) 'audio_url': audioUrl,
       if (levelId != null) 'level_id': levelId,
+      if (category != null) 'category': category,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -304,6 +339,7 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
       Value<String?>? partOfSpeech,
       Value<String?>? audioUrl,
       Value<String>? levelId,
+      Value<String?>? category,
       Value<int>? rowid}) {
     return VocabularyTableCompanion(
       id: id ?? this.id,
@@ -312,6 +348,7 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
       partOfSpeech: partOfSpeech ?? this.partOfSpeech,
       audioUrl: audioUrl ?? this.audioUrl,
       levelId: levelId ?? this.levelId,
+      category: category ?? this.category,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -337,6 +374,9 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
     if (levelId.present) {
       map['level_id'] = Variable<String>(levelId.value);
     }
+    if (category.present) {
+      map['category'] = Variable<String>(category.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -352,6 +392,7 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
           ..write('partOfSpeech: $partOfSpeech, ')
           ..write('audioUrl: $audioUrl, ')
           ..write('levelId: $levelId, ')
+          ..write('category: $category, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2622,6 +2663,7 @@ typedef $$VocabularyTableTableCreateCompanionBuilder = VocabularyTableCompanion
   Value<String?> partOfSpeech,
   Value<String?> audioUrl,
   required String levelId,
+  Value<String?> category,
   Value<int> rowid,
 });
 typedef $$VocabularyTableTableUpdateCompanionBuilder = VocabularyTableCompanion
@@ -2632,6 +2674,7 @@ typedef $$VocabularyTableTableUpdateCompanionBuilder = VocabularyTableCompanion
   Value<String?> partOfSpeech,
   Value<String?> audioUrl,
   Value<String> levelId,
+  Value<String?> category,
   Value<int> rowid,
 });
 
@@ -2661,6 +2704,9 @@ class $$VocabularyTableTableFilterComposer
 
   ColumnFilters<String> get levelId => $composableBuilder(
       column: $table.levelId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get category => $composableBuilder(
+      column: $table.category, builder: (column) => ColumnFilters(column));
 }
 
 class $$VocabularyTableTableOrderingComposer
@@ -2690,6 +2736,9 @@ class $$VocabularyTableTableOrderingComposer
 
   ColumnOrderings<String> get levelId => $composableBuilder(
       column: $table.levelId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get category => $composableBuilder(
+      column: $table.category, builder: (column) => ColumnOrderings(column));
 }
 
 class $$VocabularyTableTableAnnotationComposer
@@ -2718,6 +2767,9 @@ class $$VocabularyTableTableAnnotationComposer
 
   GeneratedColumn<String> get levelId =>
       $composableBuilder(column: $table.levelId, builder: (column) => column);
+
+  GeneratedColumn<String> get category =>
+      $composableBuilder(column: $table.category, builder: (column) => column);
 }
 
 class $$VocabularyTableTableTableManager extends RootTableManager<
@@ -2753,6 +2805,7 @@ class $$VocabularyTableTableTableManager extends RootTableManager<
             Value<String?> partOfSpeech = const Value.absent(),
             Value<String?> audioUrl = const Value.absent(),
             Value<String> levelId = const Value.absent(),
+            Value<String?> category = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               VocabularyTableCompanion(
@@ -2762,6 +2815,7 @@ class $$VocabularyTableTableTableManager extends RootTableManager<
             partOfSpeech: partOfSpeech,
             audioUrl: audioUrl,
             levelId: levelId,
+            category: category,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -2771,6 +2825,7 @@ class $$VocabularyTableTableTableManager extends RootTableManager<
             Value<String?> partOfSpeech = const Value.absent(),
             Value<String?> audioUrl = const Value.absent(),
             required String levelId,
+            Value<String?> category = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               VocabularyTableCompanion.insert(
@@ -2780,6 +2835,7 @@ class $$VocabularyTableTableTableManager extends RootTableManager<
             partOfSpeech: partOfSpeech,
             audioUrl: audioUrl,
             levelId: levelId,
+            category: category,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0

@@ -190,6 +190,7 @@ class ContentRepositoryImpl implements ContentRepository {
       levelId: r.levelId,
       partOfSpeech: r.partOfSpeech,
       audioUrl: r.audioUrl,
+      category: r.category,
       meanings: meaningRows
           .map(
             (m) => VocabMeaning(
@@ -215,6 +216,7 @@ class ContentRepositoryImpl implements ContentRepository {
           levelId: r['level_id'] as String,
           partOfSpeech: Value(r['part_of_speech'] as String?),
           audioUrl: Value(r['audio_url'] as String?),
+          category: Value(r['category'] as String?),
         ),
     ]);
 
