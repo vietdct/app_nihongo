@@ -1,0 +1,9 @@
+project_id = "app_nihongo"
+
+# Function đăng nhập bằng username phải gọi được khi client CHƯA đăng nhập
+# (chưa có JWT), nên tắt xác thực JWT ở gateway cho riêng function này.
+# Xác thực thật sự (username + password) nằm trong code của function.
+# Các function AI khác giữ mặc định verify_jwt = true vì chúng chỉ phục vụ
+# user đã đăng nhập.
+[functions.auth-login-username]
+verify_jwt = false

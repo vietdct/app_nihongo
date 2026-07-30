@@ -109,12 +109,12 @@ export function requireString(
   value: unknown,
   field: string,
   maxLength: number,
-  options: { allowEmpty?: boolean } = {},
+  options: { allowEmpty?: boolean; trim?: boolean } = {},
 ): string {
   if (typeof value !== "string") {
     throw invalidField(field, "phải là chuỗi");
   }
-  const result = value.trim();
+  const result = options.trim === false ? value : value.trim();
   if (!options.allowEmpty && result.length === 0) {
     throw invalidField(field, "không được để trống");
   }
