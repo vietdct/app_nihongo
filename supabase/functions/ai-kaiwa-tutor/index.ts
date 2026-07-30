@@ -7,6 +7,17 @@
 // những gì app đã hiển thị cho người học.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import {
+  AiGuardError,
+  enforceAiQuota,
+  guardErrorBody,
+  optionalString,
+  readJsonBody,
+  requireObject,
+  requireString,
+  validateHistory,
+} from "../_shared/ai_guard.ts";
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
@@ -14,11 +25,6 @@ const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
 const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.1-flash-lite";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 const RESPONSE_SCHEMA = {
   type: "object",
@@ -173,8 +179,23 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Server chưa cấu hình ANTHROPIC_API_KEY hoặc GOOGLE_AI_API_KEY" }, 500);
     }
 
-    const body = await req.json();
-    const { turn, history, message } = body as { turn: TurnContext; history: ChatMessage[]; message: string };
+    const body = await readJsonBody(req);
+    const turnBody = requireObject(body.turn, "turn");
+    const turn: TurnContext = {
+      originalSentence: requireString(turnBody.originalSentence, "turn.originalSentence", 1000),
+      betterPhrasing: optionalString(turnBody.betterPhrasing, "turn.betterPhrasing", 1000),
+      explanation: optionalString(turnBody.explanation, "turn.explanation", 2000),
+      commonMistake: optionalString(turnBody.commonMistake, "turn.commonMistake", 1500),
+      grammarNote: optionalString(turnBody.grammarNote, "turn.grammarNote", 1500),
+      vocabularyNote: optionalString(turnBody.vocabularyNote, "turn.vocabularyNote", 1500),
+      politenessNote: optionalString(turnBody.politenessNote, "turn.politenessNote", 1500),
+      personaName: requireString(turnBody.personaName, "turn.personaName", 64),
+      scenarioTitle: requireString(turnBody.scenarioTitle, "turn.scenarioTitle", 120),
+    };
+    const history = validateHistory(body.history, { maxTurns: 20, maxContentLength: 1000 });
+    const message = requireString(body.message, "message", 1000);
+
+    await enforceAiQuota(supabase, "kaiwa_tutor");
 
     const systemPrompt = buildSystemPrompt(turn);
 
@@ -213,6 +234,9 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ ...result, _provider: provider }, 200);
   } catch (e) {
+    if (e instanceof AiGuardError) {
+      return jsonResponse(guardErrorBody(e), e.status);
+    }
     console.error(e);
     return jsonResponse({ error: "Lỗi không xác định." }, 500);
   }

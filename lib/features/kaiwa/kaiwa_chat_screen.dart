@@ -7,6 +7,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import '../../core/network/ai_exception.dart';
 import '../../core/services/jp_voice_prefs.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/kaiwa_feedback_context.dart';
@@ -38,6 +39,13 @@ const _voiceProfiles = <String, ({double pitch, double rate})>{
   'male_stern': (pitch: 0.78, rate: 0.37),
 };
 const _defaultVoiceProfile = (pitch: 1.0, rate: 0.42);
+
+// AiException đã mang sẵn câu tiếng Việt server soạn cho người dùng (VD "Bạn
+// đã dùng hết lượt AI hôm nay.") — ghép thêm tiền tố "Lỗi ...: " chỉ làm rối,
+// nên hiện thẳng message đó; các lỗi khác (mất mạng, timeout...) vẫn giữ tiền
+// tố để phân biệt bước nào đang thất bại.
+String _aiErrorMessage(String prefix, Object e) =>
+    e is AiException ? e.message : '$prefix: $e';
 
 class KaiwaChatScreen extends ConsumerStatefulWidget {
   const KaiwaChatScreen({
@@ -410,7 +418,7 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
       if (!mounted) return;
       setState(() {
         _starting = false;
-        _error = 'Không mở được hội thoại: $e';
+        _error = _aiErrorMessage('Không mở được hội thoại', e);
       });
     }
   }
@@ -438,7 +446,7 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
       if (!mounted) return;
       setState(() {
         _starting = false;
-        _error = 'Không mở lại được hội thoại: $e';
+        _error = _aiErrorMessage('Không mở lại được hội thoại', e);
       });
     }
   }
@@ -503,7 +511,7 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
       });
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text('Lỗi gửi tin nhắn: $e')));
+        ..showSnackBar(SnackBar(content: Text(_aiErrorMessage('Lỗi gửi tin nhắn', e))));
     }
   }
 

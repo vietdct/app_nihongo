@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/network/ai_exception.dart';
 import '../../../core/network/supabase_providers.dart';
 import '../../../domain/entities/kanji.dart';
 import '../../../domain/entities/vocabulary.dart';
@@ -38,36 +39,40 @@ class KanjiTutorService {
     required List<Map<String, String>> history,
     required String message,
   }) async {
-    final res = await _sb.functions.invoke(
-      'ai-kanji-tutor',
-      body: {
-        'kanji': {
-          'character': kanji.character,
-          'hanViet': kanji.hanViet,
-          'meaningVi': kanji.meaningVi,
-          'onyomi': kanji.onyomi,
-          'kunyomi': kanji.kunyomi,
-          'mnemonic': kanji.mnemonic,
-          'exampleJp': kanji.exampleJp,
-          'exampleVi': kanji.exampleVi,
-          'relatedVocab': [
-            for (final v in relatedVocab) '${v.word}（${v.reading}）',
-          ],
-          'familyParents': [for (final k in familyParents) k.character],
-          'familyChildren': [for (final k in familyChildren) k.character],
+    final FunctionResponse res;
+    try {
+      res = await _sb.functions.invoke(
+        'ai-kanji-tutor',
+        body: {
+          'kanji': {
+            'character': kanji.character,
+            'hanViet': kanji.hanViet,
+            'meaningVi': kanji.meaningVi,
+            'onyomi': kanji.onyomi,
+            'kunyomi': kanji.kunyomi,
+            'mnemonic': kanji.mnemonic,
+            'exampleJp': kanji.exampleJp,
+            'exampleVi': kanji.exampleVi,
+            'relatedVocab': [
+              for (final v in relatedVocab) '${v.word}（${v.reading}）',
+            ],
+            'familyParents': [for (final k in familyParents) k.character],
+            'familyChildren': [for (final k in familyChildren) k.character],
+          },
+          'history': history,
+          'message': message,
         },
-        'history': history,
-        'message': message,
-      },
-    ).timeout(
-      const Duration(seconds: 30),
-      onTimeout: () => throw Exception('AI phản hồi quá lâu, vui lòng thử lại.'),
-    );
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw Exception('AI phản hồi quá lâu, vui lòng thử lại.'),
+      );
+    } on FunctionException catch (e) {
+      throw mapAiFunctionException(e);
+    }
 
     final data = res.data;
-    if (res.status != 200 || data is! Map) {
-      final err = data is Map ? data['error'] as String? : null;
-      throw Exception(err ?? 'Lỗi gọi AI, vui lòng thử lại.');
+    if (data is! Map) {
+      throw const AiException('Lỗi gọi AI, vui lòng thử lại.', code: 'UNKNOWN');
     }
     return KanjiTutorReply(
       reply: data['reply'] as String? ?? '',

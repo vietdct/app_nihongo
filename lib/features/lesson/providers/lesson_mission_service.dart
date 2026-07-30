@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/network/ai_exception.dart';
 import '../../../core/network/supabase_providers.dart';
 import '../../../domain/entities/kaiwa_message.dart';
 import '../../../domain/services/lesson_mission_generator.dart';
@@ -117,30 +118,34 @@ class LessonMissionService {
     required List<Map<String, String>> history,
     String? message,
   }) async {
-    final res = await _sb.functions
-        .invoke(
-          'ai-lesson-mission',
-          body: {
-            'lessonTitle': mission.lessonTitle,
-            'jlptLevel': jlptLevel,
-            'targetVocab': [
-              for (final v in mission.targetVocab) {'jp': v.word, 'meaningVi': v.primaryMeaning},
-            ],
-            'targetGrammar': [
-              for (final g in mission.targetGrammar) {'title': g.title, 'meaningVi': g.explanation},
-            ],
-            'history': history,
-            'message': message,
-          },
-        )
-        .timeout(
-          const Duration(seconds: 30),
-          onTimeout: () => throw Exception('AI phản hồi quá lâu, vui lòng thử lại.'),
-        );
+    final FunctionResponse res;
+    try {
+      res = await _sb.functions
+          .invoke(
+            'ai-lesson-mission',
+            body: {
+              'lessonTitle': mission.lessonTitle,
+              'jlptLevel': jlptLevel,
+              'targetVocab': [
+                for (final v in mission.targetVocab) {'jp': v.word, 'meaningVi': v.primaryMeaning},
+              ],
+              'targetGrammar': [
+                for (final g in mission.targetGrammar) {'title': g.title, 'meaningVi': g.explanation},
+              ],
+              'history': history,
+              'message': message,
+            },
+          )
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => throw Exception('AI phản hồi quá lâu, vui lòng thử lại.'),
+          );
+    } on FunctionException catch (e) {
+      throw mapAiFunctionException(e);
+    }
     final data = res.data;
-    if (res.status != 200 || data is! Map) {
-      final err = data is Map ? data['error'] as String? : null;
-      throw Exception(err ?? 'Lỗi gọi AI, vui lòng thử lại.');
+    if (data is! Map) {
+      throw const AiException('Lỗi gọi AI, vui lòng thử lại.', code: 'UNKNOWN');
     }
     return data.cast<String, dynamic>();
   }

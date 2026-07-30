@@ -6,6 +6,18 @@
 // sang cách đọc khác dù "biết" cách đọc khác, tránh bịa thông tin sai.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import {
+  AiGuardError,
+  enforceAiQuota,
+  guardErrorBody,
+  optionalString,
+  readJsonBody,
+  requireObject,
+  requireString,
+  validateHistory,
+  validateStringArray,
+} from "../_shared/ai_guard.ts";
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
@@ -13,11 +25,6 @@ const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
 const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.1-flash-lite";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 const RESPONSE_SCHEMA = {
   type: "object",
@@ -175,8 +182,25 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Server chưa cấu hình ANTHROPIC_API_KEY hoặc GOOGLE_AI_API_KEY" }, 500);
     }
 
-    const body = await req.json();
-    const { kanji, history, message } = body as { kanji: KanjiContext; history: ChatMessage[]; message: string };
+    const body = await readJsonBody(req);
+    const kanjiBody = requireObject(body.kanji, "kanji");
+    const kanji: KanjiContext = {
+      character: requireString(kanjiBody.character, "kanji.character", 8),
+      hanViet: validateStringArray(kanjiBody.hanViet ?? [], "kanji.hanViet", 12, 64),
+      meaningVi: validateStringArray(kanjiBody.meaningVi ?? [], "kanji.meaningVi", 20, 160),
+      onyomi: validateStringArray(kanjiBody.onyomi ?? [], "kanji.onyomi", 20, 80),
+      kunyomi: validateStringArray(kanjiBody.kunyomi ?? [], "kanji.kunyomi", 20, 80),
+      mnemonic: optionalString(kanjiBody.mnemonic, "kanji.mnemonic", 2000),
+      exampleJp: optionalString(kanjiBody.exampleJp, "kanji.exampleJp", 1000),
+      exampleVi: optionalString(kanjiBody.exampleVi, "kanji.exampleVi", 1000),
+      relatedVocab: validateStringArray(kanjiBody.relatedVocab ?? [], "kanji.relatedVocab", 30, 160),
+      familyParents: validateStringArray(kanjiBody.familyParents ?? [], "kanji.familyParents", 20, 8),
+      familyChildren: validateStringArray(kanjiBody.familyChildren ?? [], "kanji.familyChildren", 20, 8),
+    };
+    const history = validateHistory(body.history, { maxTurns: 20, maxContentLength: 1000 });
+    const message = requireString(body.message, "message", 1000);
+
+    await enforceAiQuota(supabase, "kanji_tutor");
 
     const systemPrompt = buildSystemPrompt(kanji);
 
@@ -215,6 +239,9 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ ...result, _provider: provider }, 200);
   } catch (e) {
+    if (e instanceof AiGuardError) {
+      return jsonResponse(guardErrorBody(e), e.status);
+    }
     console.error(e);
     return jsonResponse({ error: "Lỗi không xác định." }, 500);
   }

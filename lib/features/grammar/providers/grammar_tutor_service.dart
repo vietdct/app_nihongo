@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/network/ai_exception.dart';
 import '../../../core/network/supabase_providers.dart';
 import '../../../domain/entities/grammar_point.dart';
 
@@ -35,31 +36,35 @@ class GrammarTutorService {
     required List<Map<String, String>> history,
     required String message,
   }) async {
-    final res = await _sb.functions.invoke(
-      'ai-grammar-tutor',
-      body: {
-        'grammar': {
-          'title': grammar.title,
-          'explanation': grammar.explanation,
-          'exampleJp': grammar.exampleJp,
-          'exampleVi': grammar.exampleVi,
-          'commonMistake': grammar.commonMistake,
-          'memoryTip': grammar.memoryTip,
-          'comparisonNote': grammar.comparisonNote,
-          'comparedWith': [for (final g in comparedWith) g.title],
+    final FunctionResponse res;
+    try {
+      res = await _sb.functions.invoke(
+        'ai-grammar-tutor',
+        body: {
+          'grammar': {
+            'title': grammar.title,
+            'explanation': grammar.explanation,
+            'exampleJp': grammar.exampleJp,
+            'exampleVi': grammar.exampleVi,
+            'commonMistake': grammar.commonMistake,
+            'memoryTip': grammar.memoryTip,
+            'comparisonNote': grammar.comparisonNote,
+            'comparedWith': [for (final g in comparedWith) g.title],
+          },
+          'history': history,
+          'message': message,
         },
-        'history': history,
-        'message': message,
-      },
-    ).timeout(
-      const Duration(seconds: 30),
-      onTimeout: () => throw Exception('AI phản hồi quá lâu, vui lòng thử lại.'),
-    );
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw Exception('AI phản hồi quá lâu, vui lòng thử lại.'),
+      );
+    } on FunctionException catch (e) {
+      throw mapAiFunctionException(e);
+    }
 
     final data = res.data;
-    if (res.status != 200 || data is! Map) {
-      final err = data is Map ? data['error'] as String? : null;
-      throw Exception(err ?? 'Lỗi gọi AI, vui lòng thử lại.');
+    if (data is! Map) {
+      throw const AiException('Lỗi gọi AI, vui lòng thử lại.', code: 'UNKNOWN');
     }
     return GrammarTutorReply(
       reply: data['reply'] as String? ?? '',

@@ -7,6 +7,18 @@
 // "hoàn thành" bằng 1 lệnh gọi AI riêng — cộng dồn từ dữ liệu thật từng lượt).
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import {
+  AiGuardError,
+  enforceAiQuota,
+  guardErrorBody,
+  optionalString,
+  readJsonBody,
+  requireEnum,
+  requireObject,
+  requireString,
+  validateHistory,
+} from "../_shared/ai_guard.ts";
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
@@ -14,11 +26,6 @@ const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
 const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.1-flash-lite";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 const RESPONSE_SCHEMA = {
   type: "object",
@@ -204,18 +211,50 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Server chưa cấu hình ANTHROPIC_API_KEY hoặc GOOGLE_AI_API_KEY" }, 500);
     }
 
-    const body = await req.json();
-    const {
-      lessonTitle, jlptLevel, targetVocab, targetGrammar, history, message,
-    } = body;
+    const body = await readJsonBody(req);
+    const lessonTitle = requireString(body.lessonTitle, "lessonTitle", 160);
+    const jlptLevel = requireEnum(body.jlptLevel, "jlptLevel", ["N5", "N4", "N3", "N2", "N1"]);
+    if (!Array.isArray(body.targetVocab) || body.targetVocab.length > 30) {
+      throw new AiGuardError(
+        "Trường targetVocab phải là mảng tối đa 30 phần tử.",
+        400,
+        "INVALID_REQUEST",
+        { field: "targetVocab" },
+      );
+    }
+    const targetVocab: TargetVocab[] = body.targetVocab.map((item, index) => {
+      const value = requireObject(item, `targetVocab[${index}]`);
+      return {
+        jp: requireString(value.jp, `targetVocab[${index}].jp`, 120),
+        meaningVi: requireString(value.meaningVi, `targetVocab[${index}].meaningVi`, 300),
+      };
+    });
+    if (!Array.isArray(body.targetGrammar) || body.targetGrammar.length > 20) {
+      throw new AiGuardError(
+        "Trường targetGrammar phải là mảng tối đa 20 phần tử.",
+        400,
+        "INVALID_REQUEST",
+        { field: "targetGrammar" },
+      );
+    }
+    const targetGrammar: TargetGrammar[] = body.targetGrammar.map((item, index) => {
+      const value = requireObject(item, `targetGrammar[${index}]`);
+      return {
+        title: requireString(value.title, `targetGrammar[${index}].title`, 160),
+        meaningVi: requireString(value.meaningVi, `targetGrammar[${index}].meaningVi`, 1000),
+      };
+    });
+    const history = validateHistory(body.history, { maxTurns: 20, maxContentLength: 1000 });
+    const message = optionalString(body.message, "message", 1000);
+    const hasUserMessage = message !== null && message.length > 0;
 
-    const hasUserMessage = typeof message === "string" && message.trim().length > 0;
+    await enforceAiQuota(supabase, "lesson_mission");
 
     const systemPrompt = buildSystemPrompt({
       lessonTitle,
       jlptLevel,
-      targetVocab: (targetVocab ?? []) as TargetVocab[],
-      targetGrammar: (targetGrammar ?? []) as TargetGrammar[],
+      targetVocab,
+      targetGrammar,
       hasUserMessage,
     });
 
@@ -226,7 +265,7 @@ Deno.serve(async (req) => {
     messages.push({
       role: "user",
       content: hasUserMessage
-        ? message
+        ? message ?? ""
         : "(Hãy bắt đầu cuộc hội thoại bằng một câu chào/dẫn dắt tự nhiên vào chủ đề bài học.)",
     });
 
@@ -259,6 +298,9 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ ...result, _provider: provider }, 200);
   } catch (e) {
+    if (e instanceof AiGuardError) {
+      return jsonResponse(guardErrorBody(e), e.status);
+    }
     console.error(e);
     return jsonResponse({ error: "Lỗi không xác định." }, 500);
   }

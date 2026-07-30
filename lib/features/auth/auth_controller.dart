@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../core/network/ai_exception.dart';
 import '../../core/network/supabase_providers.dart';
 
 /// Điều phối các hành động xác thực. State là AsyncValue<void>:
@@ -18,23 +19,36 @@ class AuthController extends AsyncNotifier<void> {
   SupabaseClient get _sb => ref.read(supabaseProvider);
 
   /// Đăng nhập bằng email HOẶC tên đăng nhập — Supabase Auth chỉ nhận
-  /// email/phone, nên nếu [identifier] không chứa '@' thì tra ngược ra
-  /// email qua RPC `get_email_by_username` (xem migration Pha 3a) trước.
+  /// email/phone, nên nếu [identifier] không chứa '@' thì gọi Edge Function
+  /// `auth-login-username` (tra email + xác thực mật khẩu ở server bằng
+  /// service role key) thay vì tự tra email qua RPC ở client — tránh lộ
+  /// email ứng với 1 username cho người chưa đăng nhập (xem migration
+  /// Pha 3b `username_login_email_leak_fix`).
   Future<void> signInWithIdentifier(String identifier, String password) async {
     state = const AsyncLoading();
     state = await AsyncValue.guard(() async {
       final trimmed = identifier.trim();
-      String email;
       if (trimmed.contains('@')) {
-        email = trimmed;
-      } else {
-        final resolved = await _sb.rpc('get_email_by_username', params: {'p_username': trimmed}) as String?;
-        if (resolved == null) {
-          throw Exception('Không tìm thấy tài khoản với tên đăng nhập "$trimmed".');
-        }
-        email = resolved;
+        await _sb.auth.signInWithPassword(email: trimmed, password: password);
+        return;
       }
-      await _sb.auth.signInWithPassword(email: email, password: password);
+
+      final FunctionResponse res;
+      try {
+        res = await _sb.functions.invoke(
+          'auth-login-username',
+          body: {'username': trimmed, 'password': password},
+        );
+      } on FunctionException catch (e) {
+        throw mapAiFunctionException(e);
+      }
+
+      final data = res.data;
+      final refreshToken = data is Map ? data['refreshToken'] : null;
+      if (refreshToken is! String) {
+        throw const AiException('Đăng nhập thất bại, vui lòng thử lại.', code: 'UNKNOWN');
+      }
+      await _sb.auth.setSession(refreshToken);
     });
   }
 

@@ -5,6 +5,17 @@
 // cấu hình ANTHROPIC_API_KEY, tự động thử lại bằng Anthropic trước khi báo lỗi.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import {
+  AiGuardError,
+  enforceAiQuota,
+  guardErrorBody,
+  optionalString,
+  readJsonBody,
+  requireEnum,
+  requireString,
+  validateHistory,
+} from "../_shared/ai_guard.ts";
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY");
 const ANTHROPIC_MODEL = Deno.env.get("ANTHROPIC_MODEL") ?? "claude-haiku-4-5-20251001";
@@ -14,11 +25,6 @@ const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
 const GEMINI_MODEL = Deno.env.get("GEMINI_MODEL") ?? "gemini-3.1-flash-lite";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 // Dùng chung cho cả Anthropic (bọc trong tool) và Gemini (responseSchema trực tiếp).
 const RESPONSE_SCHEMA = {
@@ -192,18 +198,29 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Server chưa cấu hình ANTHROPIC_API_KEY hoặc GOOGLE_AI_API_KEY" }, 500);
     }
 
-    const body = await req.json();
-    const {
-      personaName, personaRole, personaPersonality, politenessLevel,
-      scenarioTitle, scenarioContext, jlptLevel, history, message, seedWord,
-    } = body;
+    const body = await readJsonBody(req);
+    const personaName = requireString(body.personaName, "personaName", 64);
+    const personaRole = requireString(body.personaRole, "personaRole", 120);
+    const personaPersonality = requireString(body.personaPersonality, "personaPersonality", 1000);
+    const politenessLevel = requireEnum(
+      body.politenessLevel,
+      "politenessLevel",
+      ["casual", "polite", "keigo"],
+    );
+    const scenarioTitle = requireString(body.scenarioTitle, "scenarioTitle", 120);
+    const scenarioContext = requireString(body.scenarioContext, "scenarioContext", 2000);
+    const jlptLevel = requireEnum(body.jlptLevel, "jlptLevel", ["N5", "N4", "N3", "N2", "N1"]);
+    const history = validateHistory(body.history, { maxTurns: 20, maxContentLength: 1000 });
+    const message = optionalString(body.message, "message", 1000);
+    const seedWord = optionalString(body.seedWord, "seedWord", 120);
+    const hasUserMessage = message !== null && message.length > 0;
 
-    const hasUserMessage = typeof message === "string" && message.trim().length > 0;
+    await enforceAiQuota(supabase, "kaiwa_chat");
 
     const systemPrompt = buildSystemPrompt({
       personaName, personaRole, personaPersonality, politenessLevel,
       scenarioTitle, scenarioContext, jlptLevel, hasUserMessage,
-      seedWord: typeof seedWord === "string" && seedWord.trim().length > 0 ? seedWord.trim() : undefined,
+      seedWord: seedWord && seedWord.length > 0 ? seedWord : undefined,
     });
 
     const messages: ChatMessage[] = [];
@@ -213,7 +230,7 @@ Deno.serve(async (req) => {
     messages.push({
       role: "user",
       content: hasUserMessage
-        ? message
+        ? message ?? ""
         : "(Hãy bắt đầu cuộc hội thoại bằng cách chào hỏi theo đúng vai của bạn.)",
     });
 
@@ -246,6 +263,9 @@ Deno.serve(async (req) => {
 
     return jsonResponse({ ...result, _provider: provider }, 200);
   } catch (e) {
+    if (e instanceof AiGuardError) {
+      return jsonResponse(guardErrorBody(e), e.status);
+    }
     console.error(e);
     return jsonResponse({ error: "Lỗi không xác định." }, 500);
   }

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/network/ai_exception.dart';
 import '../../../core/network/supabase_providers.dart';
 
 final kaiwaPronunciationServiceProvider = Provider.autoDispose<KaiwaPronunciationService?>((ref) {
@@ -63,22 +64,26 @@ class KaiwaPronunciationService {
     required Uint8List audioBytes,
     required String mimeType,
   }) async {
-    final res = await _sb.functions.invoke(
-      'ai-pronunciation-feedback',
-      body: {
-        'targetJp': targetJp,
-        'audioBase64': base64Encode(audioBytes),
-        'mimeType': mimeType,
-      },
-    ).timeout(
-      const Duration(seconds: 30),
-      onTimeout: () => throw Exception('AI phản hồi quá lâu, vui lòng thử lại.'),
-    );
+    final FunctionResponse res;
+    try {
+      res = await _sb.functions.invoke(
+        'ai-pronunciation-feedback',
+        body: {
+          'targetJp': targetJp,
+          'audioBase64': base64Encode(audioBytes),
+          'mimeType': mimeType,
+        },
+      ).timeout(
+        const Duration(seconds: 30),
+        onTimeout: () => throw Exception('AI phản hồi quá lâu, vui lòng thử lại.'),
+      );
+    } on FunctionException catch (e) {
+      throw mapAiFunctionException(e);
+    }
 
     final data = res.data;
-    if (res.status != 200 || data is! Map) {
-      final err = data is Map ? data['error'] as String? : null;
-      throw Exception(err ?? 'Lỗi gọi AI, vui lòng thử lại.');
+    if (data is! Map) {
+      throw const AiException('Lỗi gọi AI, vui lòng thử lại.', code: 'UNKNOWN');
     }
     return PronunciationFeedback(
       heardText: data['heardText'] as String? ?? '',

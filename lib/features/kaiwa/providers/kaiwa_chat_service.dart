@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/network/ai_exception.dart';
 import '../../../core/network/supabase_providers.dart';
 import '../../../domain/entities/kaiwa_message.dart';
 import '../../../domain/entities/kaiwa_persona.dart';
@@ -245,30 +246,34 @@ class KaiwaChatService {
     // (edge function còn thử fallback tuần tự 2 lượt), màn hình sẽ đứng chờ
     // vô thời hạn ở spinner "đang mở hội thoại" — không báo lỗi, không có
     // cách nào thoát ra ngoài trừ thoát hẳn màn hình.
-    final res = await _sb.functions
-        .invoke(
-          'ai-kaiwa-chat',
-          body: {
-            'personaName': persona.name,
-            'personaRole': persona.role,
-            'personaPersonality': persona.personality,
-            'politenessLevel': persona.politenessLevel,
-            'scenarioTitle': scenario.title,
-            'scenarioContext': scenario.systemContext,
-            'jlptLevel': levelCode,
-            'history': history,
-            'message': message,
-            if (seedWord != null) 'seedWord': seedWord,
-          },
-        )
-        .timeout(
-          const Duration(seconds: 30),
-          onTimeout: () => throw Exception('AI phản hồi quá lâu, vui lòng thử lại.'),
-        );
+    final FunctionResponse res;
+    try {
+      res = await _sb.functions
+          .invoke(
+            'ai-kaiwa-chat',
+            body: {
+              'personaName': persona.name,
+              'personaRole': persona.role,
+              'personaPersonality': persona.personality,
+              'politenessLevel': persona.politenessLevel,
+              'scenarioTitle': scenario.title,
+              'scenarioContext': scenario.systemContext,
+              'jlptLevel': levelCode,
+              'history': history,
+              'message': message,
+              if (seedWord != null) 'seedWord': seedWord,
+            },
+          )
+          .timeout(
+            const Duration(seconds: 30),
+            onTimeout: () => throw Exception('AI phản hồi quá lâu, vui lòng thử lại.'),
+          );
+    } on FunctionException catch (e) {
+      throw mapAiFunctionException(e);
+    }
     final data = res.data;
-    if (res.status != 200 || data is! Map) {
-      final err = data is Map ? data['error'] as String? : null;
-      throw Exception(err ?? 'Lỗi gọi AI, vui lòng thử lại.');
+    if (data is! Map) {
+      throw const AiException('Lỗi gọi AI, vui lòng thử lại.', code: 'UNKNOWN');
     }
     return data.cast<String, dynamic>();
   }

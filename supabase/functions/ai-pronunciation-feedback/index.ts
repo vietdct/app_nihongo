@@ -17,16 +17,20 @@
 // vô tình đổi luôn model (và chi phí) của các tính năng AI khác đang ổn định.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.4";
+import {
+  AiGuardError,
+  enforceAiQuota,
+  guardErrorBody,
+  readJsonBody,
+  requireEnum,
+  requireString,
+} from "../_shared/ai_guard.ts";
+import { CORS_HEADERS } from "../_shared/cors.ts";
 
 const GOOGLE_AI_API_KEY = Deno.env.get("GOOGLE_AI_API_KEY");
 const GEMINI_MODEL = Deno.env.get("PRONUNCIATION_GEMINI_MODEL") ?? "gemini-3.1-pro-preview";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-const CORS_HEADERS = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
 
 // Giới hạn kích thước audio nhận vào — 1 câu shadowing chỉ vài giây, chặn
 // request bất thường để tránh tốn token audio ngoài ý muốn.
@@ -139,24 +143,41 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Server chưa cấu hình GOOGLE_AI_API_KEY" }, 500);
     }
 
-    const body = await req.json();
-    const { targetJp, audioBase64, mimeType } = body as {
-      targetJp: string;
-      audioBase64: string;
-      mimeType: string;
-    };
+    const body = await readJsonBody(req, 9 * 1024 * 1024);
+    const targetJp = requireString(body.targetJp, "targetJp", 1000);
+    const mimeType = requireEnum(body.mimeType, "mimeType", ["audio/wav"]);
+    const audioBase64 = requireString(
+      body.audioBase64,
+      "audioBase64",
+      Math.ceil(MAX_AUDIO_BYTES * 4 / 3) + 4,
+    );
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(audioBase64) || audioBase64.length % 4 !== 0) {
+      throw new AiGuardError(
+        "Dữ liệu audio base64 không hợp lệ.",
+        400,
+        "INVALID_REQUEST",
+        { field: "audioBase64" },
+      );
+    }
+    const padding = audioBase64.endsWith("==") ? 2 : audioBase64.endsWith("=") ? 1 : 0;
+    const decodedBytes = audioBase64.length * 3 / 4 - padding;
+    if (decodedBytes > MAX_AUDIO_BYTES) {
+      throw new AiGuardError(
+        "File audio quá lớn.",
+        413,
+        "REQUEST_TOO_LARGE",
+        { maxBytes: MAX_AUDIO_BYTES },
+      );
+    }
 
-    if (!targetJp || !audioBase64 || !mimeType) {
-      return jsonResponse({ error: "Thiếu targetJp/audioBase64/mimeType" }, 400);
-    }
-    if (audioBase64.length > MAX_AUDIO_BYTES * 1.4) {
-      // base64 phình ~1.37x so với bytes gốc — ước lượng nhanh không cần decode.
-      return jsonResponse({ error: "File audio quá lớn." }, 400);
-    }
+    await enforceAiQuota(supabase, "pronunciation");
 
     const result = await callGemini(targetJp, audioBase64, mimeType, GEMINI_MODEL);
     return jsonResponse(result, 200);
   } catch (e) {
+    if (e instanceof AiGuardError) {
+      return jsonResponse(guardErrorBody(e), e.status);
+    }
     console.error(e);
     return jsonResponse({ error: friendlyError(e) }, 502);
   }
