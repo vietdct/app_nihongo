@@ -34,6 +34,7 @@ import '../../features/lesson/lesson_runner_screen.dart';
 import '../../features/lesson/providers/level_providers.dart';
 import '../../features/premium/premium_screen.dart';
 import '../../features/quiz/providers/quiz_providers.dart';
+import '../../features/review/review_coach_screen.dart';
 import '../../features/review/review_mistakes_screen.dart';
 import '../../features/review/review_smart_screen.dart';
 import '../../features/review/review_today_screen.dart';
@@ -170,6 +171,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/review/smart',
         builder: (_, __) => const ReviewSmartScreen(),
+      ),
+      GoRoute(
+        path: '/review/coach',
+        builder: (_, __) => const ReviewCoachScreen(),
       ),
       GoRoute(
         path: '/vocabulary',

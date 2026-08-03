@@ -146,6 +146,15 @@ class ReviewScreen extends ConsumerWidget {
             onTap: () => context.push('/review/mistakes'),
           ),
           const SizedBox(height: 10),
+          _ReviewRow(
+            icon: Icons.psychology_alt_outlined,
+            iconBg: AppColors.accentSoft,
+            iconColor: AppColors.accentStrong,
+            title: 'AI Review Coach',
+            subtitle: 'Hỏi AI vì sao bạn hay sai, xin ví dụ hoặc quiz',
+            onTap: () => context.push('/review/coach'),
+          ),
+          const SizedBox(height: 10),
           const _ReviewRow(
             icon: Icons.quiz_outlined,
             iconBg: AppColors.chip,
