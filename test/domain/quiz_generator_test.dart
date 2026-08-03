@@ -2,8 +2,10 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nihongo/domain/entities/grammar_point.dart';
+import 'package:nihongo/domain/entities/kaiwa_message.dart';
 import 'package:nihongo/domain/entities/kanji.dart';
 import 'package:nihongo/domain/entities/lesson.dart';
+import 'package:nihongo/domain/entities/review_mistake.dart';
 import 'package:nihongo/domain/entities/vocab_meaning.dart';
 import 'package:nihongo/domain/entities/vocabulary.dart';
 import 'package:nihongo/domain/services/quiz_generator.dart';
@@ -35,6 +37,82 @@ GrammarPoint _grammar(String id, String title, String explanation) =>
       title: title,
       explanation: explanation,
       levelId: 'n5',
+    );
+
+GrammarPoint _grammarFillBlank(
+  String id,
+  List<String> practiceTokens,
+  int practiceBlankIndex,
+) =>
+    GrammarPoint(
+      id: id,
+      title: id,
+      explanation: 'giải thích',
+      levelId: 'n5',
+      practiceTokens: practiceTokens,
+      practiceBlankIndex: practiceBlankIndex,
+    );
+
+GrammarPoint _grammarWithExample(String id, String exampleJp, String exampleVi) =>
+    GrammarPoint(
+      id: id,
+      title: id,
+      explanation: 'giải thích',
+      levelId: 'n5',
+      exampleJp: exampleJp,
+      exampleVi: exampleVi,
+    );
+
+ReviewMistake _mistake(
+  String id,
+  String sourceType,
+  String correctAnswer, {
+  String? originalAnswer,
+}) =>
+    ReviewMistake(
+      id: id,
+      sourceType: sourceType,
+      sourceId: 'src-$id',
+      correctAnswer: correctAnswer,
+      occurrenceCount: 1,
+      bookmarked: false,
+      updatedAt: DateTime(2026, 8, 4),
+      originalAnswer: originalAnswer,
+    );
+
+KaiwaMessage _kaiwaReviewable(String id, String contentJp, String betterPhrasing) =>
+    KaiwaMessage(
+      id: id,
+      role: KaiwaMessageRole.user,
+      contentJp: contentJp,
+      feedback: KaiwaFeedback(
+        rating: 3,
+        naturalness: 'ổn',
+        grammar: 'ổn',
+        vocabulary: 'ổn',
+        politeness: 'ổn',
+        nativeLikeness: 'ổn',
+        explanation: 'giải thích',
+        commonMistake: 'lỗi thường gặp',
+        betterPhrasing: betterPhrasing,
+      ),
+    );
+
+GrammarPoint _grammarFull(
+  String id,
+  String title, {
+  String? exampleJp,
+  String? exampleVi,
+  List<String> practiceTokens = const [],
+}) =>
+    GrammarPoint(
+      id: id,
+      title: title,
+      explanation: 'giải thích',
+      levelId: 'n5',
+      exampleJp: exampleJp,
+      exampleVi: exampleVi,
+      practiceTokens: practiceTokens,
     );
 
 /// Tập hợp mọi giá trị trục (term/nghĩa/cách đọc) có thể xuất hiện trong 1
@@ -413,6 +491,430 @@ void main() {
           const QuizGenerator().generate(pool: pool, readingOnly: true);
 
       expect(questions.length, 2);
+    });
+  });
+
+  group('QuizGenerator.generateGrammarFillBlank', () {
+    test('honest-empty-state khi pool có ít hơn 2 mẫu hợp lệ', () {
+      final pool = [
+        _grammarFillBlank('g1', ['わたし', 'は', '学生', 'です'], 1),
+      ];
+
+      final questions =
+          const QuizGenerator().generateGrammarFillBlank(pool: pool);
+
+      expect(questions, isEmpty);
+    });
+
+    test('blankPrompt chứa "___" và đáp án đúng đúng bằng token bị ẩn', () {
+      final pool = [
+        _grammarFillBlank('g1', ['わたし', 'は', '学生', 'です'], 1),
+        _grammarFillBlank('g2', ['かれ', 'も', '先生', 'です'], 1),
+      ];
+      const expectedByPrompt = {
+        'わたし___学生です': 'は',
+        'かれ___先生です': 'も',
+      };
+
+      for (var seed = 0; seed < 10; seed++) {
+        final questions = QuizGenerator(random: Random(seed))
+            .generateGrammarFillBlank(pool: pool);
+        for (final q in questions) {
+          expect(q.displayJp, contains('___'));
+          expect(q.sourceType, LessonItemType.grammar);
+          expect(q.options[q.correctIndex], expectedByPrompt[q.displayJp]);
+        }
+      }
+    });
+
+    test('nhiễu lấy từ token cùng vị trí của mẫu khác, không bịa từ mới', () {
+      final pool = [
+        _grammarFillBlank('g1', ['わたし', 'は', '学生', 'です'], 1),
+        _grammarFillBlank('g2', ['わたし', 'も', '学生', 'です'], 1),
+        _grammarFillBlank('g3', ['かれ', 'が', '先生', 'です'], 1),
+      ];
+      const knownTokens = {'は', 'も', 'が'};
+
+      for (var seed = 0; seed < 10; seed++) {
+        final questions = QuizGenerator(random: Random(seed))
+            .generateGrammarFillBlank(pool: pool);
+        for (final q in questions) {
+          for (final option in q.options) {
+            expect(knownTokens, contains(option));
+          }
+          final normalized =
+              q.options.map((o) => o.trim().toLowerCase()).toList();
+          expect(normalized.toSet().length, normalized.length,
+              reason: 'options bị trùng: ${q.options}',);
+        }
+      }
+    });
+
+    test('sinh đúng số câu hỏi tối đa questionCount', () {
+      final pool = [
+        _grammarFillBlank('g1', ['わたし', 'は', '学生', 'です'], 1),
+        _grammarFillBlank('g2', ['わたし', 'も', '学生', 'です'], 1),
+        _grammarFillBlank('g3', ['かれ', 'が', '先生', 'です'], 1),
+      ];
+
+      final questions = const QuizGenerator()
+          .generateGrammarFillBlank(pool: pool, questionCount: 2);
+
+      expect(questions.length, 2);
+    });
+  });
+
+  group('isTypedAnswerCorrect', () {
+    test('exact: khớp sau khi trim/lowercase, khác chuỗi thì sai', () {
+      expect(isTypedAnswerCorrect('  たべる  ', ['たべる'], TypedAnswerMode.exact),
+          isTrue,);
+      expect(isTypedAnswerCorrect('タベル', ['たべる'], TypedAnswerMode.exact),
+          isFalse,);
+      expect(isTypedAnswerCorrect('', ['たべる'], TypedAnswerMode.exact), isFalse);
+    });
+
+    test('exact: bỏ dấu chấm ngăn okurigana khi so khớp kunyomi từ điển', () {
+      expect(
+          isTypedAnswerCorrect('いきる', ['い.きる'], TypedAnswerMode.exact), isTrue,);
+    });
+
+    test('exact: đúng nếu khớp bất kỳ 1 trong nhiều đáp án chấp nhận', () {
+      expect(
+          isTypedAnswerCorrect('しょう', ['せい', 'しょう'], TypedAnswerMode.exact),
+          isTrue,);
+    });
+
+    test('lenient: đúng khi 1 trong 2 chuỗi (đã chuẩn hoá) chứa chuỗi còn lại',
+        () {
+      expect(isTypedAnswerCorrect('Mua sắm', ['mua sắm'], TypedAnswerMode.lenient),
+          isTrue,);
+      expect(
+          isTypedAnswerCorrect('đi mua sắm', ['mua sắm'], TypedAnswerMode.lenient),
+          isTrue,);
+      expect(
+          isTypedAnswerCorrect('mua', ['mua sắm'], TypedAnswerMode.lenient),
+          isTrue,);
+      expect(
+          isTypedAnswerCorrect('bán', ['mua sắm'], TypedAnswerMode.lenient),
+          isFalse,);
+    });
+  });
+
+  group('QuizGenerator.generateTyping', () {
+    test('vocab: chỉ nhận item có reading thật, gõ đúng reading là đúng', () {
+      final pool = [
+        LessonContentItem.vocabulary(
+            _vocab('v1', '食べる', 'Ăn', reading: 'たべる'),),
+        LessonContentItem.vocabulary(
+            _vocab('v2', '飲む', 'Uống', reading: 'のむ'),),
+      ];
+
+      final questions = const QuizGenerator().generateTyping(pool: pool);
+
+      expect(questions.length, 2);
+      for (final q in questions) {
+        expect(q.typedAnswerMode, TypedAnswerMode.exact);
+        expect(q.sourceType, LessonItemType.vocabulary);
+        expect(
+            isTypedAnswerCorrect(
+                q.typedAcceptedAnswers.first, q.typedAcceptedAnswers, TypedAnswerMode.exact,),
+            isTrue,);
+      }
+    });
+
+    test('kanji: mọi âm on/kun đều là đáp án chấp nhận riêng lẻ, không gộp "・"',
+        () {
+      final pool = [
+        LessonContentItem.kanji(_kanji('k1', '生', 'Sinh',
+            onyomi: ['セイ', 'ショウ'], kunyomi: ['い.きる', 'う.まれる'],),),
+      ];
+
+      final questions = const QuizGenerator().generateTyping(pool: pool);
+
+      expect(questions.length, 1);
+      expect(
+        questions.first.typedAcceptedAnswers,
+        containsAll(['セイ', 'ショウ', 'い.きる', 'う.まれる']),
+      );
+      expect(isTypedAnswerCorrect('いきる', questions.first.typedAcceptedAnswers,
+          TypedAnswerMode.exact,), isTrue,);
+    });
+
+    test('bỏ qua item không có cách đọc (VD ngữ pháp, hoặc kanji chưa có on/kun)',
+        () {
+      final pool = [
+        LessonContentItem.grammar(_grammar('g1', '〜てください', 'Nhờ ai đó làm gì')),
+        LessonContentItem.kanji(_kanji('k1', '謎', 'Bí ẩn')),
+      ];
+
+      final questions = const QuizGenerator().generateTyping(pool: pool);
+
+      expect(questions, isEmpty);
+    });
+  });
+
+  group('QuizGenerator.generateTranslation', () {
+    test('vocab: hiện từ, đáp án chấp nhận là primaryMeaning thật', () {
+      final pool = [
+        LessonContentItem.vocabulary(_vocab('v1', '買い物', 'Mua sắm')),
+      ];
+
+      final questions = const QuizGenerator().generateTranslation(pool: pool);
+
+      expect(questions.length, 1);
+      expect(questions.first.displayJp, '買い物');
+      expect(questions.first.typedAnswerMode, TypedAnswerMode.lenient);
+      expect(questions.first.typedAcceptedAnswers, ['Mua sắm']);
+    });
+
+    test('grammar: chỉ nhận mẫu có đủ cả exampleJp lẫn exampleVi thật', () {
+      final pool = [
+        LessonContentItem.grammar(
+            _grammarWithExample('g1', 'わたしは学生です。', 'Tôi là học sinh.'),),
+        LessonContentItem.grammar(_grammar('g2', '〜てください', 'Nhờ ai đó làm gì')),
+      ];
+
+      final questions = const QuizGenerator().generateTranslation(pool: pool);
+
+      expect(questions.length, 1);
+      expect(questions.first.displayJp, 'わたしは学生です。');
+      expect(questions.first.typedAcceptedAnswers, ['Tôi là học sinh.']);
+    });
+
+    test('kanji không có câu hỏi Translation (ngoài phạm vi thiết kế)', () {
+      final pool = [
+        LessonContentItem.kanji(_kanji('k1', '買', 'Mua')),
+      ];
+
+      final questions = const QuizGenerator().generateTranslation(pool: pool);
+
+      expect(questions, isEmpty);
+    });
+  });
+
+  group('isOrderCorrect', () {
+    test('đúng khi thứ tự và nội dung khớp hệt', () {
+      expect(isOrderCorrect(['わたし', 'は', '学生'], ['わたし', 'は', '学生']), isTrue);
+    });
+
+    test('sai khi thứ tự khác dù nội dung giống', () {
+      expect(isOrderCorrect(['は', 'わたし', '学生'], ['わたし', 'は', '学生']), isFalse);
+    });
+
+    test('sai khi số lượng khác', () {
+      expect(isOrderCorrect(['わたし', 'は'], ['わたし', 'は', '学生']), isFalse);
+    });
+  });
+
+  group('QuizGenerator.generateSentenceOrdering', () {
+    test('chỉ nhận mẫu có ≥3 practiceTokens và exampleVi thật', () {
+      final pool = [
+        _grammarFull('g1', 'A',
+            exampleVi: 'Tôi là học sinh.',
+            practiceTokens: ['わたし', 'は', '学生', 'です'],),
+        _grammarFull('g2', 'B', practiceTokens: ['a', 'b', 'c']), // thiếu exampleVi
+        _grammarFull('g3', 'C', exampleVi: 'thiếu token'), // thiếu practiceTokens
+      ];
+
+      final questions = const QuizGenerator().generateSentenceOrdering(pool: pool);
+
+      expect(questions.length, 1);
+      expect(questions.first.displayJp, 'Tôi là học sinh.');
+      expect(questions.first.displayIsJapanese, isFalse);
+    });
+
+    test('orderTiles là hoán vị của orderCorrectSequence, luôn khác thứ tự gốc',
+        () {
+      final pool = [
+        _grammarFull('g1', 'A',
+            exampleVi: 'Tôi là học sinh.',
+            practiceTokens: ['わたし', 'は', '学生', 'です'],),
+      ];
+
+      for (var seed = 0; seed < 20; seed++) {
+        final questions = QuizGenerator(random: Random(seed))
+            .generateSentenceOrdering(pool: pool);
+        final q = questions.first;
+        expect(q.orderCorrectSequence, ['わたし', 'は', '学生', 'です']);
+        expect(
+          [...q.orderTiles!]..sort(),
+          [...q.orderCorrectSequence]..sort(),
+          reason: 'orderTiles phải là hoán vị đúng của orderCorrectSequence',
+        );
+        expect(isOrderCorrect(q.orderTiles!, q.orderCorrectSequence), isFalse,
+            reason: 'đề bài không được trùng sẵn đáp án đúng',);
+      }
+    });
+  });
+
+  group('QuizGenerator.generateGrammarSelection', () {
+    test('hiện exampleJp, đáp án đúng là title thật của chính mẫu đó', () {
+      final pool = [
+        _grammarFull('g1', '〜てください', exampleJp: '食べてください。'),
+        _grammarFull('g2', '〜ないでください', exampleJp: '食べないでください。'),
+      ];
+
+      final questions = const QuizGenerator().generateGrammarSelection(pool: pool);
+
+      expect(questions.length, 2);
+      for (final q in questions) {
+        final expectedTitle =
+            q.displayJp == '食べてください。' ? '〜てください' : '〜ないでください';
+        expect(q.options[q.correctIndex], expectedTitle);
+      }
+    });
+
+    test('honest-empty-state khi không đủ 2 title khác nhau để làm nhiễu', () {
+      final pool = [
+        _grammarFull('g1', 'A', exampleJp: '例文1'),
+      ];
+
+      final questions = const QuizGenerator().generateGrammarSelection(pool: pool);
+
+      expect(questions, isEmpty);
+    });
+  });
+
+  group('QuizGenerator.generateParticleSelection', () {
+    test('chỉ ẩn đúng token là trợ từ thật, không phải token bất kỳ', () {
+      final pool = [
+        _grammarFull('g1', 'A', practiceTokens: ['わたし', 'は', '学生', 'です']),
+        _grammarFull('g2', 'B', practiceTokens: ['かれ', 'も', '先生', 'です']),
+      ];
+
+      for (var seed = 0; seed < 10; seed++) {
+        final questions = QuizGenerator(random: Random(seed))
+            .generateParticleSelection(pool: pool);
+        for (final q in questions) {
+          expect(q.displayJp, contains('___'));
+          expect(const {'は', 'も'}, contains(q.options[q.correctIndex]));
+        }
+      }
+    });
+
+    test('honest-empty-state khi không có mẫu nào chứa trợ từ nhận diện được',
+        () {
+      final pool = [
+        _grammarFull('g1', 'A', practiceTokens: ['わたし', '学生', 'です']),
+      ];
+
+      final questions = const QuizGenerator().generateParticleSelection(pool: pool);
+
+      expect(questions, isEmpty);
+    });
+  });
+
+  group('QuizGenerator.generateErrorCorrectionFromMistakes', () {
+    test('hiện originalAnswer, đáp án đúng là correctAnswer thật', () {
+      final pool = [
+        _mistake('m1', 'vocab', 'Mua sắm', originalAnswer: 'Mua đồ'),
+        _mistake('m2', 'kanji', 'Ăn uống', originalAnswer: 'Ẩm thực'),
+      ];
+
+      final questions =
+          const QuizGenerator().generateErrorCorrectionFromMistakes(pool: pool);
+
+      expect(questions.length, 2);
+      for (final q in questions) {
+        expect(q.displayIsJapanese, isFalse);
+        final expected = q.displayJp == 'Mua đồ' ? 'Mua sắm' : 'Ăn uống';
+        expect(q.options[q.correctIndex], expected);
+      }
+    });
+
+    test('bỏ qua mục không có originalAnswer (field có thể null)', () {
+      final pool = [
+        _mistake('m1', 'vocab', 'Mua sắm'), // originalAnswer null
+        _mistake('m2', 'kanji', 'Ăn uống', originalAnswer: 'Ẩm thực'),
+      ];
+
+      final questions =
+          const QuizGenerator().generateErrorCorrectionFromMistakes(pool: pool);
+
+      expect(questions, isEmpty); // còn lại 1 mục hợp lệ, không đủ 2 để chấm
+    });
+
+    test('sourceType suy đúng từ chuỗi thật trong entity (vocab/kanji/grammar)',
+        () {
+      final pool = [
+        _mistake('m1', 'vocab', 'A', originalAnswer: 'a'),
+        _mistake('m2', 'kanji', 'B', originalAnswer: 'b'),
+        _mistake('m3', 'grammar', 'C', originalAnswer: 'c'),
+      ];
+
+      final questions =
+          const QuizGenerator().generateErrorCorrectionFromMistakes(pool: pool);
+
+      final bySource = {for (final q in questions) q.displayJp: q.sourceType};
+      expect(bySource['a'], LessonItemType.vocabulary);
+      expect(bySource['b'], LessonItemType.kanji);
+      expect(bySource['c'], LessonItemType.grammar);
+    });
+  });
+
+  group('QuizGenerator.generateErrorCorrectionFromKaiwa', () {
+    test('hiện contentJp, đáp án đúng là betterPhrasing thật', () {
+      final pool = [
+        _kaiwaReviewable('k1', '私は学生。', '私は学生です。'),
+        _kaiwaReviewable('k2', '食べます、明日。', '明日食べます。'),
+      ];
+
+      final questions =
+          const QuizGenerator().generateErrorCorrectionFromKaiwa(pool: pool);
+
+      expect(questions.length, 2);
+      for (final q in questions) {
+        final expected =
+            q.displayJp == '私は学生。' ? '私は学生です。' : '明日食べます。';
+        expect(q.options[q.correctIndex], expected);
+        expect(q.sourceType, isNull);
+      }
+    });
+
+    test('honest-empty-state khi không đủ 2 mục isReviewable', () {
+      final pool = [
+        _kaiwaReviewable('k1', '私は学生。', '私は学生です。'),
+        const KaiwaMessage(
+            id: 'k2', role: KaiwaMessageRole.user, contentJp: 'ok',), // không reviewable
+      ];
+
+      final questions =
+          const QuizGenerator().generateErrorCorrectionFromKaiwa(pool: pool);
+
+      expect(questions, isEmpty);
+    });
+  });
+
+  group('QuizGenerator.generateConversationCompletion', () {
+    test('hiện promptContextJp, đáp án đúng là nextAiReplyJp thật', () {
+      const pool = [
+        ConversationTurn(
+            promptContextJp: '初めまして。', nextAiReplyJp: 'よろしくお願いします。',),
+        ConversationTurn(
+            promptContextJp: 'お元気ですか。', nextAiReplyJp: '元気です、ありがとう。',),
+      ];
+
+      final questions =
+          const QuizGenerator().generateConversationCompletion(pool: pool);
+
+      expect(questions.length, 2);
+      for (final q in questions) {
+        final expected = q.displayJp == '初めまして。'
+            ? 'よろしくお願いします。'
+            : '元気です、ありがとう。';
+        expect(q.options[q.correctIndex], expected);
+      }
+    });
+
+    test('honest-empty-state khi không đủ 2 câu trả lời AI khác nhau', () {
+      const pool = [
+        ConversationTurn(promptContextJp: 'A', nextAiReplyJp: 'B'),
+      ];
+
+      final questions =
+          const QuizGenerator().generateConversationCompletion(pool: pool);
+
+      expect(questions, isEmpty);
     });
   });
 }

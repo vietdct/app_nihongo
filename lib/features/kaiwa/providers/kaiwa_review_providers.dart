@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/network/supabase_providers.dart';
 import '../../../domain/entities/kaiwa_message.dart';
+import '../../../domain/services/quiz_generator.dart' show ConversationTurn;
 import '../../../domain/services/srs_scheduler.dart';
 
 /// Hàng đợi ôn tập thật — chỉ những câu người học đã nói bị AI sửa
@@ -25,6 +26,65 @@ final kaiwaReviewQueueProvider =
 
   final messages = [for (final r in rows) parseKaiwaMessageRow(r)];
   return [for (final m in messages) if (m.isReviewable && m.isDueNow) m];
+});
+
+/// Toàn bộ tin nhắn Kaiwa THẬT SỰ có sửa lỗi ([KaiwaMessage.isReviewable]),
+/// không lọc theo hạn ôn — khác [kaiwaReviewQueueProvider] (hàng đợi SRS
+/// riêng cho `KaiwaReviewScreen`). Dùng cho câu hỏi Error Correction ở Quiz
+/// tổng hợp (`mixed_quiz_providers.dart`), nơi không có khái niệm "đến hạn".
+final kaiwaReviewableMessagesProvider =
+    FutureProvider.autoDispose<List<KaiwaMessage>>((ref) async {
+  final sb = ref.watch(supabaseProvider);
+  final userId = ref.watch(currentUserProvider)?.id;
+  if (userId == null) return [];
+
+  final rows = await sb
+      .from('kaiwa_messages')
+      .select()
+      .eq('user_id', userId)
+      .eq('role', 'user')
+      .not('feedback', 'is', null);
+
+  final messages = [for (final r in rows) parseKaiwaMessageRow(r)];
+  return [for (final m in messages) if (m.isReviewable) m];
+});
+
+/// Mọi cặp (câu người học thật đã nói → câu AI thật trả lời tiếp theo,
+/// trong đúng cùng 1 hội thoại) xuyên suốt toàn bộ Kaiwa History — nguồn cho
+/// câu hỏi Hoàn thành hội thoại ở Quiz tổng hợp
+/// (`QuizGenerator.generateConversationCompletion`). Sắp theo
+/// `conversation_id` rồi `created_at` để gom cặp liền kề cùng hội thoại
+/// bằng 1 lượt duyệt tuyến tính, không cần group-by phía SQL. Lượt AI mở
+/// đầu hội thoại (chưa có câu người học đứng trước) không tạo cặp — thiếu
+/// ngữ cảnh thật để hỏi.
+final kaiwaConversationTurnsProvider =
+    FutureProvider.autoDispose<List<ConversationTurn>>((ref) async {
+  final sb = ref.watch(supabaseProvider);
+  final userId = ref.watch(currentUserProvider)?.id;
+  if (userId == null) return [];
+
+  final rows = await sb
+      .from('kaiwa_messages')
+      .select('conversation_id, role, content_jp, created_at')
+      .eq('user_id', userId)
+      .order('conversation_id', ascending: true)
+      .order('created_at', ascending: true);
+
+  final turns = <ConversationTurn>[];
+  Map<String, dynamic>? previous;
+  for (final r in rows) {
+    if (previous != null &&
+        previous['conversation_id'] == r['conversation_id'] &&
+        previous['role'] == 'user' &&
+        r['role'] == 'ai') {
+      turns.add(ConversationTurn(
+        promptContextJp: previous['content_jp'] as String,
+        nextAiReplyJp: r['content_jp'] as String,
+      ),);
+    }
+    previous = r;
+  }
+  return turns;
 });
 
 /// Parse 1 hàng `kaiwa_messages` (kèm cột SRS) thành [KaiwaMessage] — dùng

@@ -6,8 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../grammar/providers/grammar_progress_providers.dart';
 import '../kanji/providers/kanji_progress_providers.dart';
 import '../vocabulary/providers/vocab_progress_providers.dart';
-import '../vocabulary/providers/vocab_review_providers.dart'
-    show weakEaseThreshold;
+import '../vocabulary/providers/vocab_review_providers.dart' show isSmartPick;
 
 /// Smart Review — khác Today's Review (chỉ "đến hạn theo lịch"): gộp thêm
 /// mục đang yếu (`easeFactor` thấp) dù chưa tới hạn, để AI "chọn thay bạn"
@@ -28,9 +27,6 @@ class ReviewSmartScreen extends ConsumerWidget {
         ref.watch(kanjiProgressProvider).valueOrNull ?? const {};
     final grammarProgress =
         ref.watch(grammarProgressProvider).valueOrNull ?? const {};
-
-    bool isSmartPick(int reviewCount, double easeFactor, bool isDueNow) =>
-        reviewCount > 0 && (isDueNow || easeFactor < weakEaseThreshold);
 
     final smartVocabIds = {
       for (final e in vocabProgress.entries)

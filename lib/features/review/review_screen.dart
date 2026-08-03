@@ -164,13 +164,13 @@ class ReviewScreen extends ConsumerWidget {
             onTap: () => context.push('/review/statistics'),
           ),
           const SizedBox(height: 10),
-          const _ReviewRow(
+          _ReviewRow(
             icon: Icons.quiz_outlined,
             iconBg: AppColors.chip,
-            iconColor: AppColors.inkFaint,
+            iconColor: AppColors.plum,
             title: 'Quiz tổng hợp',
-            subtitle: 'Sắp ra mắt',
-            onTap: null,
+            subtitle: 'Trắc nghiệm trộn Từ vựng/Kanji/Ngữ pháp đã học',
+            onTap: () => context.push('/review/mixed-quiz'),
           ),
           const SizedBox(height: 10),
           const _ReviewRow(

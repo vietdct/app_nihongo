@@ -9,12 +9,18 @@
 | `flutter analyze` | `No issues found!` — giới hạn quyền sandbox trước đó không còn tái hiện |
 | `flutter test test/domain/srs_scheduler_test.dart test/features/vocabulary/vocab_review_providers_test.dart` | 15/15 pass |
 
+## Đã xác nhận (chạy thành công trong phiên 2026-08-04, Mixed Quiz Task 2-9)
+
+| Lệnh | Kết quả |
+|---|---|
+| `flutter analyze` | `No issues found!` |
+| `flutter test` (toàn bộ, không giới hạn file) | 139/139 pass (sau Task 9) |
+
 ## Cần xác minh trước khi coi là đáng tin
 
 | Lệnh | Mục đích | Thay đổi dữ liệu | Cần network |
 |---|---|---|---|
 | `flutter pub get` | Cài dependency | Không | Có |
-| `flutter test` (toàn bộ, không giới hạn file) | Chạy toàn bộ test | Không | Không (trừ test cần mock network) |
 | `dart format --output=none --set-exit-if-changed lib test` | Kiểm tra format | Không | Không |
 | `flutter run --dart-define-from-file=env.json` | Chạy app dev | Không (đọc dữ liệu qua Supabase) | Có |
 | `supabase start` | Chạy Supabase local (cần Docker) | Có (local) | Không |

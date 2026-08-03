@@ -4,49 +4,33 @@
 
 ## Mục tiêu
 
-Triển khai Review Module theo thứ tự đã thống nhất (xem `docs/TASK.md`).
+Triển khai Mixed Quiz theo `docs/MIXED_QUIZ_DESIGN.md` §7 (10 task tuần tự).
 
-## Trạng thái
+## Trạng thái — 10/10 task xong (9 làm, 1 hoãn có căn cứ) — ĐÃ COMMIT
 
-- **Đã xong đủ 8/8 task**: Dashboard, Today's Review, Weak Points, Mistake Notebook, Smart Review, AI Review Coach, Review Statistics (biểu đồ), Gamification mở rộng (placeholder UI).
-- Task 8 làm theo hướng **chỉ UI giữ chỗ** (người dùng chọn) — Coins/Rương phần thưởng/League hiện "Sắp ra mắt" ở tab Hồ sơ, không có backend/công thức thưởng thật (đúng như `docs/REVIEW_DESIGN.md` §11/§16 đã tự ghi: chưa xác nhận công thức). Achievement thật (5 mốc, tính từ dữ liệu thật) đã có sẵn từ trước ở `ProfileScreen`, không cần làm lại.
-- Theo yêu cầu người dùng: **chưa commit gì** trong toàn bộ phiên này (2 commit phiên trước + việc mới task 7/8) — sẽ commit 1 lần khi đủ cả 8 task (đã đủ, chờ xác nhận commit).
+- **Task 1-6**: Quiz Engine + Multiple Choice, Fill Blank, Typing/Translation, Sentence Ordering/Grammar Selection/Particle Selection, Error Correction (Sổ tay lỗi + AI Kaiwa), Conversation Completion.
+- **Task 7**: Quiz Tuỳ chỉnh (chọn bớt 9 nhóm câu hỏi + số câu) + Timed Mode (đồng hồ toàn bài) + Survival Mode (dừng khi sai câu đầu) — thêm vào `QuizScreen` dùng chung.
+- **Task 8**: "Thử thách điểm yếu" — tái dùng `isSmartPick()` (giờ là hàm dùng chung ở `vocab_review_providers.dart`, trước là closure riêng trong `review_smart_screen.dart`).
+- **Task 9**: Result Page nâng cao — Accuracy%, Thời gian, danh sách Câu sai (đáp án đã chọn vs đáp án đúng), Điểm yếu theo nhóm (gộp theo `sourceType` + 1 câu nhận xét rule-based), nút dẫn `/review/mistakes` + `/review/smart`. Không thêm XP/Coin giả (XP hiện có là hệ thống thật đã tồn tại từ trước Mixed Quiz, không phải bịa mới).
+- **Task 10**: **Hoãn** — khảo sát `audio_url` trên bảng `vocabulary`: cột tồn tại trong schema nhưng **0% dòng có giá trị thật** (grep toàn bộ `supabase/` không có insert/update nào gán `audio_url`, trong khi seed N5 có ~308 từ vựng). Theo đúng ràng buộc tự đặt ("chỉ audioUrl thật, không TTS giả"), không có gì để làm mà không phải bịa — xem `docs/MIXED_QUIZ_DESIGN.md` §8.4.
 
-## Đã hoàn thành (task 7 — Review Statistics)
+## File đã thay đổi — đã commit (xem `git log` để biết chi tiết)
 
-- Thêm dependency `fl_chart: ^0.69.0` vào `pubspec.yaml` (đã được người dùng đồng ý trước đó), `flutter pub get` thành công.
-- `ReviewStatisticsScreen` (`/review/statistics`) — tầng tổng hợp phía trên theo `docs/REVIEW_DESIGN.md` §15.12, **không** làm Retention Rate/Study Time/JLPT theo cấp vì không có dữ liệu nguồn thật cho các mục này (không có session log, không có provider load nội dung xuyên cấp độ) — tránh bịa số liệu.
-  - 4 tile số liệu thật: Đã thuộc, Tổng lượt ôn, Chuỗi ngày, Lỗi đã ghi nhận.
-  - Biểu đồ cột "Độ thành thục theo module" (stacked bar, 4 mức Mới/Đang học/Quen/Vững, cùng ngưỡng `intervalDays` với `KanjiStatisticsScreen`).
-  - Biểu đồ cột "Lỗi theo module" (từ `review_mistakes` group theo `source_type`).
-  - Biểu đồ cột "Lỗi ghi nhận theo ngày" (14 ngày gần nhất, bucket theo `updatedAt`).
-  - Trạng thái rỗng riêng cho từng phần khi chưa có dữ liệu.
-- Route `/review/statistics` đăng ký trong `app_router.dart`; entry point "Thống kê ôn tập" thêm vào `ReviewScreen`.
-- `flutter analyze`: No issues found (đã sửa hết lint `require_trailing_commas`/`curly_braces_in_flow_control_structures`). `flutter test`: 101/101 pass.
-
-## File đã thay đổi (task 7 + 8, chưa commit)
-
-- `pubspec.yaml` (+ `fl_chart`)
-- `lib/features/review/review_statistics_screen.dart` (mới)
-- `lib/core/router/app_router.dart` (route `/review/statistics`)
-- `lib/features/review/review_screen.dart` (entry point Thống kê ôn tập)
-- `lib/features/profile/profile_screen.dart` (section "Sắp ra mắt": Coins/Rương phần thưởng/League — task 8)
+10 nhóm sinh câu hỏi (`lib/domain/services/quiz_generator.dart`), provider trộn câu hỏi + Quiz Tuỳ chỉnh + Thử thách điểm yếu (`lib/features/review/providers/mixed_quiz_providers.dart`), `QuizScreen` mở rộng 3 luồng chấm + Timed/Survival + Result Page nâng cao (`lib/features/quiz/quiz_screen.dart`), màn Quiz Tuỳ chỉnh mới, 2 provider Kaiwa mới, `isSmartPick()` dùng chung, các route mới trong `app_router.dart`, và bộ test tương ứng (139 test tổng, riêng Mixed Quiz ~53 test mới).
 
 ## Kiểm tra
 
-- `flutter analyze`/`flutter test`: sạch toàn bộ.
-- Build debug simulator: thành công (**lưu ý phải thêm `--dart-define-from-file=env.json`**, thiếu cờ này làm app crash ngay khi khởi động vì thiếu `SUPABASE_URL`/`SUPABASE_ANON_KEY` — đã xác nhận qua `xcrun simctl spawn booted log show`).
-- **Môi trường simulator: input tap KHÔNG hoạt động hoàn toàn** trong phiên này — không chỉ riêng màn mới, đã thử tap cả tab "Review" và tab "Lesson" ở Home (màn đã render đúng, xác nhận qua screenshot), không tab nào phản hồi. Đây là vấn đề tái hiện lần thứ 2 liên tiếp (đã ghi nhận ở phiên trước), giờ xác nhận là **lỗi toàn cục của input injection trên simulator này**, không phải lỗi code hay riêng của `ReviewStatisticsScreen`. Đã dừng thử lại theo đúng quy tắc "thất bại 2 lần thì dừng và đánh giá lại".
-- Vì vậy: `ReviewStatisticsScreen` **chưa được xác nhận bằng mắt/tap** trong phiên này. Cơ sở tin cậy: code tái dùng đúng pattern/màu/bố cục đã chạy ổn ở `KanjiStatisticsScreen`, `flutter analyze`/`test` sạch.
+- `flutter analyze`: No issues found (toàn repo, xuyên suốt cả phiên).
+- `flutter test` (toàn bộ): **139/139 pass**.
+- **UI Task 2-9 chưa xác nhận bằng mắt/tap thật**: simulator input tap không hoạt động trong phiên này (lỗi toàn cục môi trường, xác nhận qua tap thử cả icon Home Screen thuần iOS — không liên quan code). Task 7 (Timed/Survival Mode, đụng state machine `QuizScreen` dùng chung mọi lối vào quiz) và Task 9 (Result Page, không có widget-test infra trong repo để bù) là 2 phần rủi ro cao nhất chưa verify bằng mắt.
 
 ## Vấn đề còn lại
 
-- Simulator input tap không hoạt động (toàn cục, không riêng feature nào) — cần khắc phục ở máy/phiên sau (thử `flutter run` giữ hot-reload, hoặc test tay trên máy thật/simulator khác).
-- Chưa commit + chưa push toàn bộ việc từ 2 phiên (Weak Points/Mistake Notebook/Smart Review, AI Review Coach, Review Statistics, Gamification placeholder) — theo đúng yêu cầu người dùng "làm xong đủ 8 task rồi mới commit".
-- `ReviewCoachScreen` và `ReviewStatisticsScreen` chưa xác nhận UI bằng mắt/tap thật (vướng lỗi input simulator).
+- UI Task 2-9 cần xác nhận bằng mắt/tap thật ở máy/simulator khác không lỗi input.
+- Chưa hỏi người dùng có muốn `git push` lên remote không.
 
 ## Bước tiếp theo
 
-1. Commit toàn bộ việc còn lại (đã đủ 8/8 task) — chờ xác nhận từ người dùng.
-2. Hỏi có muốn push lên remote không.
-3. Khắc phục vấn đề input simulator rồi xác nhận UI `ReviewCoachScreen` + `ReviewStatisticsScreen` bằng mắt/tap thật.
+1. Xác nhận UI bằng mắt/tap thật khi có môi trường phù hợp — ưu tiên Task 7 (Timed/Survival) và Task 9 (Result Page).
+2. Hỏi người dùng có muốn push lên remote không.
+3. Nếu sau này có `audio_url` thật cho vocab, mở lại Task 10 (Listening) — xem `docs/MIXED_QUIZ_DESIGN.md` §8.4.

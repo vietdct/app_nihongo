@@ -22,6 +22,14 @@ const _overdueThresholdDays = 2;
 /// bộ lọc "Khó nhất" ở màn danh sách từ vựng.
 const weakEaseThreshold = 2.0;
 
+/// "AI chọn thay bạn" — đến hạn theo lịch HOẶC đang yếu (`easeFactor` thấp),
+/// miễn đã ôn ít nhất 1 lần (`reviewCount > 0`, tránh chọn mục vừa học chưa
+/// từng ôn nên chưa có dữ liệu SRS đáng tin). Dùng chung cho Smart Review
+/// (`review_smart_screen.dart`) và Quiz tổng hợp — "Thử thách điểm yếu"
+/// (`mixed_quiz_providers.dart`).
+bool isSmartPick(int reviewCount, double easeFactor, bool isDueNow) =>
+    reviewCount > 0 && (isDueNow || easeFactor < weakEaseThreshold);
+
 /// Phân loại 1 từ thành 1 trong 4 lý do due, thuần từ field SRS có sẵn trên
 /// [VocabProgress] (không cần schema mới), ưu tiên theo mức khẩn cấp:
 /// - [VocabReviewReason.forgotten]: đã ôn ít nhất 1 lần và lượt gần nhất bị

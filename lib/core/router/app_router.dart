@@ -36,6 +36,9 @@ import '../../features/premium/premium_screen.dart';
 import '../../features/quiz/providers/quiz_providers.dart';
 import '../../features/review/review_coach_screen.dart';
 import '../../features/review/review_mistakes_screen.dart';
+import '../../features/review/review_mixed_quiz_custom_screen.dart';
+import '../../features/review/review_mixed_quiz_screen.dart';
+import '../../features/review/providers/mixed_quiz_providers.dart';
 import '../../features/review/review_smart_screen.dart';
 import '../../features/review/review_statistics_screen.dart';
 import '../../features/review/review_today_screen.dart';
@@ -180,6 +183,63 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/review/statistics',
         builder: (_, __) => const ReviewStatisticsScreen(),
+      ),
+      GoRoute(
+        path: '/review/mixed-quiz',
+        builder: (_, __) => const ReviewMixedQuizScreen(),
+      ),
+      GoRoute(
+        path: '/review/mixed-quiz/:count',
+        builder: (context, state) {
+          final count = int.tryParse(state.pathParameters['count']!) ?? 10;
+          return Consumer(
+            builder: (context, ref, _) {
+              final questions = ref.watch(mixedQuizQuestionsProvider(count));
+              return QuizScreen(
+                questions: questions,
+                title: 'Quiz tổng hợp',
+              );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        path: '/review/mixed-quiz/custom',
+        builder: (_, __) => const ReviewMixedQuizCustomScreen(),
+      ),
+      GoRoute(
+        path: '/review/mixed-quiz/custom/play',
+        builder: (context, state) {
+          final config = state.extra! as MixedQuizConfig;
+          return Consumer(
+            builder: (context, ref, _) {
+              final questions =
+                  ref.watch(customMixedQuizQuestionsProvider(config));
+              return QuizScreen(
+                questions: questions,
+                title: 'Quiz Tuỳ chỉnh',
+                timedMode: config.timedMode,
+                survivalMode: config.survivalMode,
+              );
+            },
+          );
+        },
+      ),
+      GoRoute(
+        path: '/review/mixed-quiz/weak-points/:count',
+        builder: (context, state) {
+          final count = int.tryParse(state.pathParameters['count']!) ?? 10;
+          return Consumer(
+            builder: (context, ref, _) {
+              final questions =
+                  ref.watch(weakPointMixedQuizQuestionsProvider(count));
+              return QuizScreen(
+                questions: questions,
+                title: 'Thử thách điểm yếu',
+              );
+            },
+          );
+        },
       ),
       GoRoute(
         path: '/vocabulary',

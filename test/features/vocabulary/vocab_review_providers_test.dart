@@ -75,4 +75,22 @@ void main() {
       expect(classifyVocabReview(progress, now: now), VocabReviewReason.due);
     });
   });
+
+  group('isSmartPick', () {
+    test('chưa ôn lần nào (reviewCount 0) không tính là điểm yếu dù đến hạn', () {
+      expect(isSmartPick(0, 2.5, true), isFalse);
+    });
+
+    test('đã ôn ít nhất 1 lần và đến hạn là điểm yếu, dù easeFactor cao', () {
+      expect(isSmartPick(3, 2.8, true), isTrue);
+    });
+
+    test('đã ôn ít nhất 1 lần và easeFactor thấp là điểm yếu, dù chưa đến hạn', () {
+      expect(isSmartPick(3, weakEaseThreshold - 0.1, false), isTrue);
+    });
+
+    test('đã ôn, chưa đến hạn, easeFactor không thấp thì không phải điểm yếu', () {
+      expect(isSmartPick(3, weakEaseThreshold + 0.1, false), isFalse);
+    });
+  });
 }

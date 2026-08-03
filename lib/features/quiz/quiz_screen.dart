@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/services/jp_voice_prefs.dart';
 import '../../core/theme/app_theme.dart';
+import '../../domain/entities/lesson.dart' show LessonItemType;
 import '../../domain/entities/listening_dialogue.dart';
 import '../../domain/services/quiz_generator.dart';
 import '../home/providers/mission_providers.dart';
@@ -25,17 +26,29 @@ import 'widgets/countdown_ring.dart';
 ///
 /// [listeningMode]: ẩn chữ Nhật cho tới khi trả lời — biến đúng bộ câu hỏi đó
 /// thành bài luyện nghe thay vì luyện đọc.
+///
+/// [timedMode]: thêm 1 đồng hồ đếm ngược cho TOÀN BÀI (khác đồng hồ
+/// [_secondsPerQuestion] mỗi câu vốn luôn bật) — hết giờ toàn bài thì kết
+/// thúc quiz ngay dù đang ở câu nào, xem `docs/MIXED_QUIZ_DESIGN.md` §4.
+///
+/// [survivalMode]: dừng quiz ngay sau khi người dùng bấm "Tiếp tục" ở câu
+/// đầu tiên trả lời sai/hết giờ, không đợi hết tim hay hết câu — khác chế
+/// độ mặc định (chơi hết [_heartsMax] tim).
 class QuizScreen extends ConsumerStatefulWidget {
   const QuizScreen({
     super.key,
     required this.questions,
     required this.title,
     this.listeningMode = false,
+    this.timedMode = false,
+    this.survivalMode = false,
   });
 
   final List<QuizQuestion> questions;
   final String title;
   final bool listeningMode;
+  final bool timedMode;
+  final bool survivalMode;
 
   @override
   ConsumerState<QuizScreen> createState() => _QuizScreenState();
@@ -47,20 +60,45 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
   static const _secondsPerQuestion = 15;
   static const _xpPerCorrect = 10;
 
+  /// Ngân sách giây/câu khi tính giờ TOÀN BÀI ([QuizScreen.timedMode]) — rộng
+  /// rãi hơn hạn 15s/câu bắt buộc (`_secondsPerQuestion`) vì đây là tổng cho
+  /// cả bài, người chơi có thể trả lời nhanh câu này để bù giờ cho câu khó
+  /// hơn, không phải hạn cứng từng câu.
+  static const _wholeQuizSecondsPerQuestion = 20;
+
   late final AnimationController _timerController;
   late final FlutterTts _tts;
+  Timer? _wholeQuizTimer;
+  int? _wholeQuizSecondsLeft;
 
   int _index = 0;
   int _hearts = _heartsMax;
   int _correctCount = 0;
+  /// Số câu THẬT SỰ đã tới (không phải luôn bằng `questions.length`) — chế
+  /// độ sinh tồn/tính giờ toàn bài có thể kết thúc sớm giữa chừng, xem
+  /// [_finishQuiz]. Dùng làm mẫu số ở `_SummaryPanel` thay vì
+  /// `widget.questions.length` để không hiện sai kiểu "3/20" (ngầm hiểu đã
+  /// làm hết 20 câu) khi thực ra mới tới câu 3 thì dừng.
+  int _attemptedCount = 0;
   int? _selectedOption;
   bool _answered = false;
   bool _timedOut = false;
+  bool _isCorrect = false;
   int _combo = 0;
   int _bestCombo = 0;
   int? _lastXpGained;
   final Set<int> _hiddenOptions = {};
   bool _hintUsed = false;
+
+  DateTime? _startedAt;
+  Duration _elapsed = Duration.zero;
+
+  /// Câu sai/hết giờ thật trong phiên — nguồn cho phần "Câu sai"/"Điểm yếu
+  /// theo nhóm" ở `_SummaryPanel` (Task 9, `docs/MIXED_QUIZ_DESIGN.md` §5).
+  /// Chỉ sống trong bộ nhớ phiên hiện tại, không ghi vào `review_mistakes`
+  /// — Result Page chỉ hiện lại + dẫn link tới Sổ tay lỗi/Smart Review có
+  /// sẵn, không tự thêm nguồn ghi dữ liệu mới ngoài phạm vi yêu cầu.
+  final List<_QuizMistake> _mistakes = [];
 
   // Giọng đọc tiếng Nhật — dùng chung khoá lưu với AI Kaiwa (xem
   // jp_voice_prefs.dart), chọn giọng ở màn nào cũng áp dụng cho màn kia.
@@ -73,6 +111,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
   @override
   void initState() {
     super.initState();
+    _startedAt = DateTime.now();
     _timerController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: _secondsPerQuestion),
@@ -84,6 +123,27 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
       ..awaitSpeakCompletion(true);
     unawaited(_loadVoices());
     if (_hasQuestions) _startTimerForCurrentQuestion();
+    if (widget.timedMode && _hasQuestions) _startWholeQuizTimer();
+  }
+
+  void _startWholeQuizTimer() {
+    _wholeQuizSecondsLeft =
+        widget.questions.length * _wholeQuizSecondsPerQuestion;
+    _wholeQuizTimer?.cancel();
+    _wholeQuizTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted || _isDone) {
+        timer.cancel();
+        return;
+      }
+      final left = (_wholeQuizSecondsLeft ?? 1) - 1;
+      if (left <= 0) {
+        timer.cancel();
+        setState(() => _wholeQuizSecondsLeft = 0);
+        _finishQuiz();
+        return;
+      }
+      setState(() => _wholeQuizSecondsLeft = left);
+    });
   }
 
   Future<void> _loadVoices() async {
@@ -117,6 +177,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
   @override
   void dispose() {
     _timerController.dispose();
+    _wholeQuizTimer?.cancel();
     unawaited(_tts.stop());
     super.dispose();
   }
@@ -125,9 +186,16 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
   /// hiểu (`dialogueTurns` khác null): đọc lần lượt từng lượt thoại, đổi cao
   /// độ giọng theo speaker để nghe như 2 người khác nhau — không có audio
   /// thu sẵn nên TTS là cách duy nhất tạo hiệu ứng "2 giọng".
-  Future<void> _speakCurrent() async {
+  ///
+  /// [auto]: true khi gọi tự động lúc vào câu (không phải người dùng chủ
+  /// động bấm nghe) — câu Typing (`typedAnswerMode == exact`, gõ lại cách
+  /// đọc) bị chặn ở lượt tự động vì đọc to chính là lộ đáp án ngay khi câu
+  /// hiện ra; nút nghe thủ công vẫn hoạt động bình thường (người dùng tự
+  /// chọn nghe như 1 dạng gợi ý, không bị ép).
+  Future<void> _speakCurrent({bool auto = false}) async {
     if (!_hasQuestions || _isDone) return;
     final question = widget.questions[_index];
+    if (auto && question.typedAnswerMode == TypedAnswerMode.exact) return;
     final turns = question.dialogueTurns;
     // Câu đảo chiều (displayIsJapanese == false) hiện nghĩa tiếng Việt to
     // giữa màn — không đọc bằng giọng tiếng Nhật vì sẽ phát âm sai hoàn
@@ -157,13 +225,14 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
       _selectedOption = null;
       _answered = false;
       _timedOut = false;
+      _isCorrect = false;
       _lastXpGained = null;
       _hiddenOptions.clear();
       _hintUsed = false;
     });
     _timerController.value = 1.0;
     _timerController.reverse(from: 1.0);
-    unawaited(_speakCurrent());
+    unawaited(_speakCurrent(auto: true));
   }
 
   void _onSelectOption(int optionIndex) {
@@ -171,11 +240,56 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
     _timerController.stop();
     unawaited(_tts.stop());
     final question = widget.questions[_index];
-    final isCorrect = optionIndex == question.correctIndex;
+    _selectedOption = optionIndex;
+    _recordAnswer(
+      optionIndex == question.correctIndex,
+      givenAnswerLabel: question.options[optionIndex],
+    );
+  }
+
+  /// Chấm câu hỏi gõ đáp án (Typing/Translation) — song song với
+  /// [_onSelectOption] nhưng so khớp bằng [isTypedAnswerCorrect] thay vì
+  /// index, vì không có danh sách lựa chọn để chọn theo vị trí.
+  void _onSubmitTyped(String rawText) {
+    if (_answered) return;
+    final question = widget.questions[_index];
+    final mode = question.typedAnswerMode;
+    if (mode == null) return;
+    _timerController.stop();
+    unawaited(_tts.stop());
+    _recordAnswer(
+      isTypedAnswerCorrect(rawText, question.typedAcceptedAnswers, mode),
+      givenAnswerLabel: rawText.trim(),
+    );
+  }
+
+  /// Chấm câu hỏi Ghép câu (Sentence Ordering) — song song với
+  /// [_onSelectOption]/[_onSubmitTyped] nhưng so bằng [isOrderCorrect] (so
+  /// đúng thứ tự từng phần tử) thay vì index hay chuỗi gõ tay.
+  void _onSubmitOrder(List<String> sequence) {
+    if (_answered) return;
+    final question = widget.questions[_index];
+    if (question.orderTiles == null) return;
+    _timerController.stop();
+    unawaited(_tts.stop());
+    _recordAnswer(
+      isOrderCorrect(sequence, question.orderCorrectSequence),
+      givenAnswerLabel: sequence.join(''),
+    );
+  }
+
+  /// Ghi nhận kết quả 1 câu — dùng chung cho cả 3 luồng chấm (chọn/gõ/ghép)
+  /// ở trên, vì logic cập nhật điểm/tim/combo/XP giống hệt nhau, chỉ khác
+  /// cách tính [isCorrect]. Gom về 1 chỗ để [QuizScreen.survivalMode] (dừng
+  /// ngay khi sai) chỉ cần đọc đúng 1 field [_isCorrect] ở [_onContinue],
+  /// không phải lặp lại điều kiện dừng ở cả 3 nơi. [givenAnswerLabel]: đáp
+  /// án người dùng đã chọn/gõ/ghép — chỉ dùng khi sai, để hiện ở "Câu sai"
+  /// trong `_SummaryPanel` (Task 9).
+  void _recordAnswer(bool isCorrect, {String? givenAnswerLabel}) {
     setState(() {
-      _selectedOption = optionIndex;
       _answered = true;
       _timedOut = false;
+      _isCorrect = isCorrect;
       if (isCorrect) {
         _correctCount++;
         _combo++;
@@ -185,6 +299,10 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
         _hearts = max(0, _hearts - 1);
         _combo = 0;
         _lastXpGained = null;
+        _mistakes.add(_QuizMistake(
+          question: widget.questions[_index],
+          givenAnswerLabel: givenAnswerLabel ?? '(không trả lời)',
+        ),);
       }
     });
     if (isCorrect) {
@@ -215,29 +333,53 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
       _answered = true;
       _timedOut = true;
       _selectedOption = null;
+      _isCorrect = false;
       _hearts = max(0, _hearts - 1);
       _combo = 0;
       _lastXpGained = null;
+      _mistakes.add(_QuizMistake(
+        question: widget.questions[_index],
+        givenAnswerLabel: 'Hết giờ',
+      ),);
     });
   }
 
   void _onContinue() {
+    // Chế độ sinh tồn: sai/hết giờ câu đầu tiên là dừng ngay, không đợi hết
+    // tim hay hết câu — kiểm tra trước tiên vì nó có thể áp dụng bất kể còn
+    // câu nào phía sau hay không.
+    if (widget.survivalMode && !_isCorrect) {
+      _finishQuiz();
+      return;
+    }
     if (_index + 1 < widget.questions.length) {
       setState(() => _index++);
       _startTimerForCurrentQuestion();
     } else {
-      _timerController.stop();
-      setState(() => _index = widget.questions.length);
-      ref.invalidate(profileProvider);
-      // Chờ ghi xong mốc hoàn thành rồi mới invalidate mission — invalidate
-      // ngay (không chờ) sẽ đọc lại trước khi ghi xong, mission vẫn hiện chưa
-      // xong dù vừa hoàn thành quiz.
-      unawaited(
-        ref.read(quizXpControllerProvider)?.markQuizCompletedToday().then((_) {
-          if (mounted) ref.invalidate(dailyMissionStatusProvider);
-        }),
-      );
+      _finishQuiz();
     }
+  }
+
+  void _finishQuiz() {
+    _timerController.stop();
+    _wholeQuizTimer?.cancel();
+    final attempted = _index + 1;
+    final elapsed =
+        _startedAt == null ? Duration.zero : DateTime.now().difference(_startedAt!);
+    setState(() {
+      _attemptedCount = attempted;
+      _elapsed = elapsed;
+      _index = widget.questions.length;
+    });
+    ref.invalidate(profileProvider);
+    // Chờ ghi xong mốc hoàn thành rồi mới invalidate mission — invalidate
+    // ngay (không chờ) sẽ đọc lại trước khi ghi xong, mission vẫn hiện chưa
+    // xong dù vừa hoàn thành quiz.
+    unawaited(
+      ref.read(quizXpControllerProvider)?.markQuizCompletedToday().then((_) {
+        if (mounted) ref.invalidate(dailyMissionStatusProvider);
+      }),
+    );
   }
 
   void _restart() {
@@ -245,10 +387,15 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
       _index = 0;
       _hearts = _heartsMax;
       _correctCount = 0;
+      _attemptedCount = 0;
       _combo = 0;
       _bestCombo = 0;
+      _mistakes.clear();
+      _startedAt = DateTime.now();
+      _elapsed = Duration.zero;
     });
     _startTimerForCurrentQuestion();
+    if (widget.timedMode) _startWholeQuizTimer();
   }
 
   void _goHome() => context.go('/');
@@ -303,10 +450,12 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
               : _isDone
                   ? _SummaryPanel(
                       correctCount: _correctCount,
-                      total: widget.questions.length,
+                      total: _attemptedCount,
                       heartsLeft: _hearts,
                       bestCombo: _bestCombo,
                       xpEarned: _correctCount * _xpPerCorrect,
+                      elapsed: _elapsed,
+                      mistakes: _mistakes,
                       onGoHome: _goHome,
                       onRestart: _restart,
                     )
@@ -355,6 +504,10 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
                 ),
               ),
               const SizedBox(width: 10),
+              if (widget.timedMode && _wholeQuizSecondsLeft != null) ...[
+                _WholeQuizTimerChip(secondsLeft: _wholeQuizSecondsLeft!),
+                const SizedBox(width: 8),
+              ],
               _HeartsRow(hearts: _hearts, max: _heartsMax),
               InkWell(
                 borderRadius: BorderRadius.circular(100),
@@ -433,19 +586,36 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
                       ],
                     ],
                     const SizedBox(height: 26),
-                    _OptionsList(
-                      question: question,
-                      selectedOption: _selectedOption,
-                      answered: _answered,
-                      hiddenOptions: _hiddenOptions,
-                      onSelect: _onSelectOption,
-                    ),
-                    if (!_answered) ...[
-                      const SizedBox(height: 12),
-                      _HintButton(
-                        used: _hintUsed,
-                        onTap: _hintUsed ? null : _useHint,
+                    if (question.typedAnswerMode != null)
+                      _TypedAnswerField(
+                        key: ValueKey(_index),
+                        answered: _answered,
+                        isCorrect: _isCorrect,
+                        onSubmit: _onSubmitTyped,
+                      )
+                    else if (question.orderTiles != null)
+                      _TileOrderField(
+                        key: ValueKey(_index),
+                        tiles: question.orderTiles!,
+                        answered: _answered,
+                        isCorrect: _isCorrect,
+                        onSubmit: _onSubmitOrder,
+                      )
+                    else ...[
+                      _OptionsList(
+                        question: question,
+                        selectedOption: _selectedOption,
+                        answered: _answered,
+                        hiddenOptions: _hiddenOptions,
+                        onSelect: _onSelectOption,
                       ),
+                      if (!_answered) ...[
+                        const SizedBox(height: 12),
+                        _HintButton(
+                          used: _hintUsed,
+                          onTap: _hintUsed ? null : _useHint,
+                        ),
+                      ],
                     ],
                   ],
                 ),
@@ -455,7 +625,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
           if (_answered) ...[
             const SizedBox(height: 14),
             _FeedbackPanel(
-              isCorrect: !_timedOut && _selectedOption == question.correctIndex,
+              isCorrect: !_timedOut && _isCorrect,
               timedOut: _timedOut,
               xpGained: _lastXpGained,
               combo: _combo,
@@ -463,6 +633,50 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
               onContinue: _onContinue,
             ),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+/// 1 câu trả lời sai/hết giờ thật trong phiên — dữ liệu cho phần "Câu
+/// sai"/"Điểm yếu theo nhóm" ở `_SummaryPanel` (Task 9).
+class _QuizMistake {
+  const _QuizMistake({required this.question, required this.givenAnswerLabel});
+
+  final QuizQuestion question;
+  final String givenAnswerLabel;
+}
+
+/// Đồng hồ đếm ngược TOÀN BÀI ([QuizScreen.timedMode]) — hiện mm:ss, đổi màu
+/// cảnh báo khi còn dưới 30s để người dùng biết sắp hết giờ cả bài (khác
+/// [CountdownRing] vốn chỉ đếm 1 câu).
+class _WholeQuizTimerChip extends StatelessWidget {
+  const _WholeQuizTimerChip({required this.secondsLeft});
+
+  final int secondsLeft;
+
+  @override
+  Widget build(BuildContext context) {
+    final minutes = secondsLeft ~/ 60;
+    final seconds = secondsLeft % 60;
+    final label = '$minutes:${seconds.toString().padLeft(2, '0')}';
+    final urgent = secondsLeft <= 30;
+    final color = urgent ? AppColors.danger : AppColors.inkSoft;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: urgent ? AppColors.dangerSoft : AppColors.chip,
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.timer_outlined, size: 13, color: color),
+          const SizedBox(width: 3),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11.5, fontWeight: FontWeight.w800, color: color,),),
         ],
       ),
     );
@@ -789,6 +1003,231 @@ class _OptionCard extends StatelessWidget {
   }
 }
 
+/// Ô nhập chữ cho câu hỏi Typing/Translation (`typedAnswerMode != null`) —
+/// thay cho [_OptionsList] vì không có sẵn danh sách lựa chọn. `key` phía
+/// gọi luôn là `ValueKey(index câu hỏi)` để widget bị tạo lại hoàn toàn khi
+/// sang câu mới, tự xoá trắng ô nhập thay vì phải tự đồng bộ qua
+/// `didUpdateWidget`.
+class _TypedAnswerField extends StatefulWidget {
+  const _TypedAnswerField({
+    super.key,
+    required this.answered,
+    required this.isCorrect,
+    required this.onSubmit,
+  });
+
+  final bool answered;
+  final bool isCorrect;
+  final ValueChanged<String> onSubmit;
+
+  @override
+  State<_TypedAnswerField> createState() => _TypedAnswerFieldState();
+}
+
+class _TypedAnswerFieldState extends State<_TypedAnswerField> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    if (widget.answered || _controller.text.trim().isEmpty) return;
+    widget.onSubmit(_controller.text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final borderColor = !widget.answered
+        ? AppColors.border
+        : (widget.isCorrect ? AppColors.moss : AppColors.danger);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _controller,
+          enabled: !widget.answered,
+          autofocus: true,
+          textAlign: TextAlign.center,
+          textInputAction: TextInputAction.done,
+          onSubmitted: (_) => _submit(),
+          style: const TextStyle(
+              fontWeight: FontWeight.w700, fontSize: 16, color: AppColors.ink,),
+          decoration: InputDecoration(
+            hintText: 'Gõ đáp án...',
+            filled: true,
+            fillColor: AppColors.card,
+            contentPadding:
+                const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide(color: borderColor, width: 2),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide(color: borderColor, width: 2),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide(color: borderColor, width: 2),
+            ),
+            disabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(15),
+              borderSide: BorderSide(color: borderColor, width: 2),
+            ),
+          ),
+        ),
+        if (!widget.answered) ...[
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: _submit,
+            child: const Text('Kiểm tra'),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// Ô ghép câu (tap-to-order) cho câu hỏi Sentence Ordering
+/// (`orderTiles != null`) — chạm từ ở khu "Từ có sẵn" để thêm vào "Câu trả
+/// lời", chạm lại trong "Câu trả lời" để rút ra. Theo dõi bằng index vào
+/// [tiles] (không phải giá trị chuỗi) để không nhầm khi có 2 tile trùng chữ
+/// (VD trợ từ lặp lại trong 1 câu). `key` phía gọi luôn là
+/// `ValueKey(index câu hỏi)` giống [_TypedAnswerField] để tự tạo lại khi
+/// sang câu mới.
+class _TileOrderField extends StatefulWidget {
+  const _TileOrderField({
+    super.key,
+    required this.tiles,
+    required this.answered,
+    required this.isCorrect,
+    required this.onSubmit,
+  });
+
+  final List<String> tiles;
+  final bool answered;
+  final bool isCorrect;
+  final ValueChanged<List<String>> onSubmit;
+
+  @override
+  State<_TileOrderField> createState() => _TileOrderFieldState();
+}
+
+class _TileOrderFieldState extends State<_TileOrderField> {
+  final List<int> _selected = [];
+
+  void _pick(int tileIndex) {
+    if (widget.answered) return;
+    setState(() => _selected.add(tileIndex));
+  }
+
+  void _unpick(int position) {
+    if (widget.answered) return;
+    setState(() => _selected.removeAt(position));
+  }
+
+  void _submit() {
+    if (widget.answered || _selected.length != widget.tiles.length) return;
+    widget.onSubmit([for (final i in _selected) widget.tiles[i]]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final answerBorderColor = !widget.answered
+        ? AppColors.border
+        : (widget.isCorrect ? AppColors.moss : AppColors.danger);
+    final availableIndices = [
+      for (var i = 0; i < widget.tiles.length; i++)
+        if (!_selected.contains(i)) i,
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(minHeight: 56),
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: answerBorderColor, width: 2),
+          ),
+          child: _selected.isEmpty
+              ? const Text(
+                  'Chạm từ bên dưới để ghép câu...',
+                  style: TextStyle(fontSize: 13, color: AppColors.inkFaint),
+                )
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (var i = 0; i < _selected.length; i++)
+                      _Tile(
+                        label: widget.tiles[_selected[i]],
+                        onTap: widget.answered ? null : () => _unpick(i),
+                      ),
+                  ],
+                ),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final i in availableIndices)
+              _Tile(
+                label: widget.tiles[i],
+                onTap: widget.answered ? null : () => _pick(i),
+                filled: false,
+              ),
+          ],
+        ),
+        if (!widget.answered) ...[
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed:
+                _selected.length == widget.tiles.length ? _submit : null,
+            child: const Text('Kiểm tra'),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _Tile extends StatelessWidget {
+  const _Tile({required this.label, required this.onTap, this.filled = true});
+
+  final String label;
+  final VoidCallback? onTap;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: filled ? AppColors.chip : AppColors.card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.border, width: 1.4),
+        ),
+        child: Text(
+          label,
+          style: AppFonts.zenMaruGothic(
+              fontSize: 15, fontWeight: FontWeight.w700, color: AppColors.ink,),
+        ),
+      ),
+    );
+  }
+}
+
 /// Loại 1 đáp án sai — cơ chế hint thật (không có nội dung gợi ý nào trong
 /// [QuizQuestion] để hiện, nên dùng loại-trừ thay vì bịa ra 1 câu gợi ý giả).
 class _HintButton extends StatelessWidget {
@@ -1001,6 +1440,8 @@ class _SummaryPanel extends StatefulWidget {
     required this.heartsLeft,
     required this.bestCombo,
     required this.xpEarned,
+    required this.elapsed,
+    required this.mistakes,
     required this.onGoHome,
     required this.onRestart,
   });
@@ -1010,6 +1451,14 @@ class _SummaryPanel extends StatefulWidget {
   final int heartsLeft;
   final int bestCombo;
   final int xpEarned;
+  final Duration elapsed;
+
+  /// Task 9 (`docs/MIXED_QUIZ_DESIGN.md` §5) — Score/Accuracy/Time đã có sẵn
+  /// từ các field trên; [mistakes] là dữ liệu thêm cho phần "Câu sai"/"Điểm
+  /// yếu theo nhóm" + gợi ý rule-based (không AI). Rỗng thì ẩn hẳn 2 phần đó
+  /// (honest-empty, không hiện khối rỗng vô nghĩa khi làm đúng hết).
+  final List<_QuizMistake> mistakes;
+
   final VoidCallback onGoHome;
   final VoidCallback onRestart;
 
@@ -1032,13 +1481,19 @@ class _SummaryPanelState extends State<_SummaryPanel>
 
   @override
   Widget build(BuildContext context) {
+    final accuracy =
+        widget.total == 0 ? 0.0 : widget.correctCount / widget.total * 100;
+    final minutes = widget.elapsed.inSeconds ~/ 60;
+    final seconds = widget.elapsed.inSeconds % 60;
+    final timeLabel = '$minutes:${seconds.toString().padLeft(2, '0')}';
+
     return Stack(
       alignment: Alignment.center,
       children: [
         Positioned.fill(child: _ConfettiOverlay(animation: _confettiController)),
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(32),
+        SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -1064,6 +1519,16 @@ class _SummaryPanelState extends State<_SummaryPanel>
                         bg: AppColors.mossSoft,
                         fg: AppColors.moss,),
                     _StatChip(
+                        value: '${accuracy.round()}%',
+                        label: 'Độ chính xác',
+                        bg: AppColors.indigoSoft,
+                        fg: AppColors.indigo,),
+                    _StatChip(
+                        value: timeLabel,
+                        label: 'Thời gian',
+                        bg: AppColors.chip,
+                        fg: AppColors.inkSoft,),
+                    _StatChip(
                         value: '${widget.xpEarned}',
                         label: 'XP',
                         bg: const Color(0xFFFFF1CE),
@@ -1081,7 +1546,31 @@ class _SummaryPanelState extends State<_SummaryPanel>
                         fg: AppColors.danger,),
                   ],
                 ),
-                const SizedBox(height: 26),
+                if (widget.mistakes.isNotEmpty) ...[
+                  const SizedBox(height: 22),
+                  _WeakAreasSection(mistakes: widget.mistakes),
+                  const SizedBox(height: 14),
+                  _MistakesSection(mistakes: widget.mistakes),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => context.push('/review/mistakes'),
+                          child: const Text('Sổ tay lỗi'),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => context.push('/review/smart'),
+                          child: const Text('Ôn thông minh'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 22),
                 FilledButton(
                     onPressed: widget.onGoHome,
                     child: const Text('Về trang chủ'),),
@@ -1094,6 +1583,143 @@ class _SummaryPanelState extends State<_SummaryPanel>
             ),
           ),
         ),
+      ],
+    );
+  }
+}
+
+String _sourceGroupLabel(LessonItemType? type) => switch (type) {
+      LessonItemType.vocabulary => 'Từ vựng',
+      LessonItemType.kanji => 'Kanji',
+      LessonItemType.grammar => 'Ngữ pháp',
+      null => 'Khác (nghe/hội thoại)',
+    };
+
+/// "Điểm yếu theo nhóm" — gộp [mistakes] theo `sourceType`, kèm 1 câu nhận
+/// xét rule-based từ chính số liệu này (VD "sai nhiều nhất ở Ngữ pháp —
+/// 4/6 câu") thay cho văn bản AI sinh, đúng quyết định thiết kế
+/// `docs/MIXED_QUIZ_DESIGN.md` §5.
+class _WeakAreasSection extends StatelessWidget {
+  const _WeakAreasSection({required this.mistakes});
+
+  final List<_QuizMistake> mistakes;
+
+  @override
+  Widget build(BuildContext context) {
+    final counts = <LessonItemType?, int>{};
+    for (final m in mistakes) {
+      counts[m.question.sourceType] = (counts[m.question.sourceType] ?? 0) + 1;
+    }
+    final entries = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    final worst = entries.first;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('ĐIỂM YẾU THEO NHÓM',
+              style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.inkFaint,
+                  letterSpacing: 0.6,),),
+          const SizedBox(height: 8),
+          Text(
+            'Bạn sai nhiều nhất ở ${_sourceGroupLabel(worst.key)} — ${worst.value}/${mistakes.length} câu.',
+            style: const TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.ink,),
+          ),
+          const SizedBox(height: 10),
+          for (final e in entries)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(_sourceGroupLabel(e.key),
+                        style: const TextStyle(
+                            fontSize: 12.5, color: AppColors.inkSoft,),),
+                  ),
+                  Text('${e.value}',
+                      style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,),),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Danh sách "câu sai + đáp án đúng" thật (Task 9 §5) — không giới hạn số
+/// lượng hiện (trang đã cuộn được), không tóm tắt/diễn giải lại bằng AI.
+class _MistakesSection extends StatelessWidget {
+  const _MistakesSection({required this.mistakes});
+
+  final List<_QuizMistake> mistakes;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('CÂU SAI (${mistakes.length})',
+              style: const TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.inkFaint,
+                  letterSpacing: 0.6,),),
+          const SizedBox(height: 10),
+          for (var i = 0; i < mistakes.length; i++) ...[
+            if (i > 0) const Divider(height: 18, color: AppColors.border),
+            _MistakeRow(mistake: mistakes[i]),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MistakeRow extends StatelessWidget {
+  const _MistakeRow({required this.mistake});
+
+  final _QuizMistake mistake;
+
+  @override
+  Widget build(BuildContext context) {
+    final q = mistake.question;
+    final correctLabel = q.options.isNotEmpty ? q.options[q.correctIndex] : '';
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(q.displayJp,
+            textAlign: TextAlign.left,
+            style: const TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.ink,),),
+        const SizedBox(height: 4),
+        Text('Bạn: ${mistake.givenAnswerLabel}',
+            style: const TextStyle(fontSize: 12, color: AppColors.danger),),
+        Text('Đúng: $correctLabel',
+            style: const TextStyle(fontSize: 12, color: AppColors.moss),),
       ],
     );
   }
