@@ -15,10 +15,15 @@ import 'providers/kanji_progress_providers.dart';
 /// dấu đã thuộc, vuốt trái đánh dấu chưa thuộc, chạm sao để lưu lại. Mỗi thẻ
 /// là 1 trang đầy đủ (không lật 2 mặt): hoạt hoạ nét chữ (KanjiVG), Hán Việt,
 /// nghĩa, âm On/Kun, mẹo ghi nhớ, ví dụ. Bộ thẻ bắt đầu từ đúng chữ vừa bấm.
+///
+/// [filterIds] khi được truyền (vd. từ Smart Review) chỉ giới hạn bộ thẻ
+/// đúng những chữ này thay vì cả cấp độ — dùng để ôn đúng tập kanji AI đã
+/// chọn bằng thao tác vuốt thay vì màn chấm điểm SRS cũ.
 class KanjiDetailScreen extends ConsumerStatefulWidget {
-  const KanjiDetailScreen({super.key, required this.kanjiId});
+  const KanjiDetailScreen({super.key, required this.kanjiId, this.filterIds});
 
   final String kanjiId;
+  final Set<String>? filterIds;
 
   @override
   ConsumerState<KanjiDetailScreen> createState() => _KanjiDetailScreenState();
@@ -124,23 +129,30 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Lỗi: $e')),
         data: (all) {
-          if (all.isEmpty) {
-            return const Center(
+          final filterIds = widget.filterIds;
+          final source = filterIds == null
+              ? all
+              : all.where((k) => filterIds.contains(k.id)).toList();
+
+          if (source.isEmpty) {
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
-                  'Chưa có kanji nào cho cấp độ này.',
+                  filterIds == null
+                      ? 'Chưa có kanji nào cho cấp độ này.'
+                      : 'Không tìm thấy chữ nào cần ôn.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.inkSoft),
+                  style: const TextStyle(color: AppColors.inkSoft),
                 ),
               ),
             );
           }
 
-          _fullDeck ??= all;
-          _deck ??= List.of(all);
+          _fullDeck ??= source;
+          _deck ??= List.of(source);
           if (!_indexInitialized) {
-            final startIndex = all.indexWhere((k) => k.id == widget.kanjiId);
+            final startIndex = source.indexWhere((k) => k.id == widget.kanjiId);
             _index = startIndex >= 0 ? startIndex : 0;
             _indexInitialized = true;
           }

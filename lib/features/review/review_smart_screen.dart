@@ -12,8 +12,11 @@ import '../vocabulary/providers/vocab_review_providers.dart'
 /// Smart Review — khác Today's Review (chỉ "đến hạn theo lịch"): gộp thêm
 /// mục đang yếu (`easeFactor` thấp) dù chưa tới hạn, để AI "chọn thay bạn"
 /// đúng như `docs/REVIEW_DESIGN.md` §14. Không tạo session runner đa nguồn
-/// mới — mỗi mục vẫn dẫn tới màn Review SRS đã có sẵn của module đó, giống
-/// Today's Review, chỉ khác tiêu chí đưa vào danh sách.
+/// mới. Từ vựng/Kanji dẫn tới đúng bộ thẻ vuốt (`VocabularyFlashcardScreen`/
+/// `KanjiDetailScreen`) giới hạn đúng tập ID đã chọn — không dùng màn chấm
+/// điểm SRS cũ (`/vocabulary/review`, `/kanji/review`) nữa (theo yêu cầu
+/// người dùng). Ngữ pháp giữ nguyên `/grammar/review` vì không nằm trong
+/// phạm vi yêu cầu đó.
 class ReviewSmartScreen extends ConsumerWidget {
   const ReviewSmartScreen({super.key});
 
@@ -29,12 +32,26 @@ class ReviewSmartScreen extends ConsumerWidget {
     bool isSmartPick(int reviewCount, double easeFactor, bool isDueNow) =>
         reviewCount > 0 && (isDueNow || easeFactor < weakEaseThreshold);
 
-    final smartVocab = vocabProgress.values
-        .where((p) => isSmartPick(p.reviewCount, p.easeFactor, p.isDueNow))
-        .length;
-    final smartKanji = kanjiProgress.values
-        .where((p) => isSmartPick(p.reviewCount, p.easeFactor, p.isDueNow))
-        .length;
+    final smartVocabIds = {
+      for (final e in vocabProgress.entries)
+        if (isSmartPick(
+          e.value.reviewCount,
+          e.value.easeFactor,
+          e.value.isDueNow,
+        ))
+          e.key,
+    };
+    final smartKanjiIds = {
+      for (final e in kanjiProgress.entries)
+        if (isSmartPick(
+          e.value.reviewCount,
+          e.value.easeFactor,
+          e.value.isDueNow,
+        ))
+          e.key,
+    };
+    final smartVocab = smartVocabIds.length;
+    final smartKanji = smartKanjiIds.length;
     final smartGrammar = grammarProgress.values
         .where((p) => isSmartPick(p.reviewCount, p.easeFactor, p.isDueNow))
         .length;
@@ -60,7 +77,10 @@ class ReviewSmartScreen extends ConsumerWidget {
                     iconColor: AppColors.moss,
                     title: 'Từ vựng',
                     count: smartVocab,
-                    onTap: () => context.push('/vocabulary/review'),
+                    onTap: () => context.push(
+                      '/vocabulary/flashcards',
+                      extra: smartVocabIds,
+                    ),
                   ),
                 if (smartVocab > 0) const SizedBox(height: 10),
                 if (smartKanji > 0)
@@ -70,7 +90,10 @@ class ReviewSmartScreen extends ConsumerWidget {
                     iconColor: AppColors.indigo,
                     title: 'Kanji',
                     count: smartKanji,
-                    onTap: () => context.push('/kanji/review'),
+                    onTap: () => context.push(
+                      '/kanji/${smartKanjiIds.first}',
+                      extra: smartKanjiIds,
+                    ),
                   ),
                 if (smartKanji > 0) const SizedBox(height: 10),
                 if (smartGrammar > 0)

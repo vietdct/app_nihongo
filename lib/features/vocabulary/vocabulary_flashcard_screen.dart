@@ -12,8 +12,14 @@ import 'providers/vocab_progress_providers.dart';
 /// Flashcard từ vựng — vuốt phải để đánh dấu đã thuộc, vuốt trái để đánh
 /// dấu chưa thuộc (gom vào danh sách ôn lại cuối phiên). Chạm vào thẻ để
 /// lật xem nghĩa; chạm ngôi sao góc trên để lưu từ xem lại sau.
+///
+/// [filterIds] khi được truyền (vd. từ Smart Review) chỉ giới hạn bộ thẻ
+/// đúng những từ này thay vì cả cấp độ — dùng để ôn đúng tập từ AI đã chọn
+/// bằng thao tác vuốt thay vì màn chấm điểm SRS cũ.
 class VocabularyFlashcardScreen extends ConsumerStatefulWidget {
-  const VocabularyFlashcardScreen({super.key});
+  const VocabularyFlashcardScreen({super.key, this.filterIds});
+
+  final Set<String>? filterIds;
 
   @override
   ConsumerState<VocabularyFlashcardScreen> createState() =>
@@ -122,21 +128,28 @@ class _VocabularyFlashcardScreenState
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Lỗi: $e')),
         data: (all) {
-          if (all.isEmpty) {
-            return const Center(
+          final filterIds = widget.filterIds;
+          final source = filterIds == null
+              ? all
+              : all.where((v) => filterIds.contains(v.id)).toList();
+
+          if (source.isEmpty) {
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
-                  'Chưa có từ vựng nào cho cấp độ này.',
+                  filterIds == null
+                      ? 'Chưa có từ vựng nào cho cấp độ này.'
+                      : 'Không tìm thấy từ nào cần ôn.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: AppColors.inkSoft),
+                  style: const TextStyle(color: AppColors.inkSoft),
                 ),
               ),
             );
           }
 
-          _fullDeck ??= all;
-          _deck ??= List.of(all);
+          _fullDeck ??= source;
+          _deck ??= List.of(source);
           final deck = _deck!;
           final progressMap = progressAsync.valueOrNull ?? const {};
 

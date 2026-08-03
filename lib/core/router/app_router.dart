@@ -191,7 +191,9 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/vocabulary/flashcards',
-        builder: (_, __) => const VocabularyFlashcardScreen(),
+        builder: (context, state) => VocabularyFlashcardScreen(
+          filterIds: state.extra as Set<String>?,
+        ),
       ),
       GoRoute(
         path: '/vocabulary/review',
@@ -212,8 +214,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/kanji/:id',
-        builder: (context, state) =>
-            KanjiDetailScreen(kanjiId: state.pathParameters['id']!),
+        builder: (context, state) => KanjiDetailScreen(
+          kanjiId: state.pathParameters['id']!,
+          filterIds: state.extra as Set<String>?,
+        ),
       ),
       GoRoute(
         path: '/kanji/:id/practice',
