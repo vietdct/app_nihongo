@@ -57,7 +57,7 @@ class VocabProgressController {
       {
         'user_id': _userId,
         'vocab_id': vocabId,
-        'status': isKnown ? 'known' : 'unknown'
+        'status': isKnown ? 'known' : 'unknown',
       },
       onConflict: 'user_id,vocab_id',
     );
@@ -90,8 +90,8 @@ class VocabProgressController {
         'ease_factor': result.easeFactor,
         'due_at': result.dueAt.toUtc().toIso8601String(),
         'review_count': (current?.reviewCount ?? 0) + 1,
-        'lapse_count': (current?.lapseCount ?? 0) +
-            (grade == SrsGrade.forgot ? 1 : 0),
+        'lapse_count':
+            (current?.lapseCount ?? 0) + (grade == SrsGrade.forgot ? 1 : 0),
       },
       onConflict: 'user_id,vocab_id',
     );

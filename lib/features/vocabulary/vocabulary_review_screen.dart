@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../domain/entities/vocab_progress.dart';
 import '../../domain/services/srs_scheduler.dart';
 import '../home/providers/mission_providers.dart';
+import '../review/providers/review_mistakes_providers.dart';
 import '../../shared/jp_speak_button.dart';
 import 'providers/vocab_progress_providers.dart';
 import 'providers/vocab_review_providers.dart';
@@ -19,16 +20,22 @@ class VocabularyReviewScreen extends ConsumerStatefulWidget {
   const VocabularyReviewScreen({super.key});
 
   @override
-  ConsumerState<VocabularyReviewScreen> createState() => _VocabularyReviewScreenState();
+  ConsumerState<VocabularyReviewScreen> createState() =>
+      _VocabularyReviewScreenState();
 }
 
-class _VocabularyReviewScreenState extends ConsumerState<VocabularyReviewScreen> {
+class _VocabularyReviewScreenState
+    extends ConsumerState<VocabularyReviewScreen> {
   List<VocabReviewItem>? _queue;
   bool _revealed = false;
   int _reviewedCount = 0;
   int _forgotCount = 0;
 
-  Future<void> _grade(VocabReviewItem item, VocabProgress? current, SrsGrade grade) async {
+  Future<void> _grade(
+    VocabReviewItem item,
+    VocabProgress? current,
+    SrsGrade grade,
+  ) async {
     final controller = ref.read(vocabProgressControllerProvider);
     if (controller != null) {
       await controller.recordReview(item.vocab.id, current, grade);
@@ -37,6 +44,14 @@ class _VocabularyReviewScreenState extends ConsumerState<VocabularyReviewScreen>
         ref.invalidate(vocabReviewQueueProvider);
         ref.invalidate(dailyMissionStatusProvider);
       }
+    }
+    if (grade == SrsGrade.forgot) {
+      await ref.read(reviewMistakesControllerProvider)?.recordMistake(
+            sourceType: 'vocab',
+            sourceId: item.vocab.id,
+            correctAnswer:
+                item.vocab.meanings.map((m) => m.meaningVi).join(' · '),
+          );
     }
     if (!mounted) return;
     setState(() {
@@ -65,14 +80,18 @@ class _VocabularyReviewScreenState extends ConsumerState<VocabularyReviewScreen>
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Lỗi: $e')),
         data: (freshQueue) {
-          final progress = progressAsync.valueOrNull ?? const <String, VocabProgress>{};
+          final progress =
+              progressAsync.valueOrNull ?? const <String, VocabProgress>{};
 
           _queue ??= [...freshQueue];
           final queue = _queue!;
 
           if (queue.isEmpty) {
             if (_reviewedCount > 0) {
-              return _SummaryPanel(reviewedCount: _reviewedCount, forgotCount: _forgotCount);
+              return _SummaryPanel(
+                reviewedCount: _reviewedCount,
+                forgotCount: _forgotCount,
+              );
             }
             return const Center(
               child: Padding(
@@ -95,7 +114,10 @@ class _VocabularyReviewScreenState extends ConsumerState<VocabularyReviewScreen>
               children: [
                 Text(
                   'Còn ${queue.length} từ · Đã ôn $_reviewedCount',
-                  style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.inkSoft),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.inkSoft,
+                  ),
                 ),
                 const SizedBox(height: 20),
                 Expanded(
@@ -162,7 +184,12 @@ Color _reasonColor(VocabReviewReason reason) => switch (reason) {
     };
 
 class _ReviewCard extends StatelessWidget {
-  const _ReviewCard({super.key, required this.item, required this.revealed, required this.onReveal});
+  const _ReviewCard({
+    super.key,
+    required this.item,
+    required this.revealed,
+    required this.onReveal,
+  });
 
   final VocabReviewItem item;
   final bool revealed;
@@ -227,7 +254,11 @@ class _ReviewCard extends StatelessWidget {
             Text(
               vocab.meanings.map((m) => m.meaningVi).join(' · '),
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 15, color: AppColors.ink, fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                fontSize: 15,
+                color: AppColors.ink,
+                fontWeight: FontWeight.w600,
+              ),
             ),
         ],
       ),
@@ -236,7 +267,11 @@ class _ReviewCard extends StatelessWidget {
 }
 
 class _GradeButton extends StatelessWidget {
-  const _GradeButton({required this.label, required this.color, required this.onTap});
+  const _GradeButton({
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
 
   final String label;
   final Color color;
@@ -266,7 +301,11 @@ class _SummaryPanel extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.check_circle_rounded, color: AppColors.moss, size: 56),
+            const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.moss,
+              size: 56,
+            ),
             const SizedBox(height: 16),
             const Text(
               'Hoàn thành ôn tập hôm nay!',

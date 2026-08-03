@@ -8,6 +8,7 @@ import '../../domain/entities/kanji_progress.dart';
 import '../../domain/services/srs_scheduler.dart';
 import '../home/providers/mission_providers.dart';
 import '../lesson/providers/content_providers.dart';
+import '../review/providers/review_mistakes_providers.dart';
 import 'providers/kanji_progress_providers.dart';
 
 /// Hàng đợi ôn tập SRS thật (SM-2 rút gọn, xem `srs_scheduler.dart`) — khác
@@ -27,7 +28,11 @@ class _KanjiReviewScreenState extends ConsumerState<KanjiReviewScreen> {
   int _reviewedCount = 0;
   int _forgotCount = 0;
 
-  Future<void> _grade(Kanji kanji, KanjiProgress? current, SrsGrade grade) async {
+  Future<void> _grade(
+    Kanji kanji,
+    KanjiProgress? current,
+    SrsGrade grade,
+  ) async {
     final controller = ref.read(kanjiProgressControllerProvider);
     if (controller != null) {
       await controller.recordReview(kanji.id, current, grade);
@@ -35,6 +40,13 @@ class _KanjiReviewScreenState extends ConsumerState<KanjiReviewScreen> {
         ref.invalidate(kanjiProgressProvider);
         ref.invalidate(dailyMissionStatusProvider);
       }
+    }
+    if (grade == SrsGrade.forgot) {
+      await ref.read(reviewMistakesControllerProvider)?.recordMistake(
+            sourceType: 'kanji',
+            sourceId: kanji.id,
+            correctAnswer: kanji.meaningVi.join(', '),
+          );
     }
     if (!mounted) return;
     setState(() {
@@ -63,8 +75,14 @@ class _KanjiReviewScreenState extends ConsumerState<KanjiReviewScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Lỗi: $e')),
         data: (all) {
-          final progress =
-              progressAsync.valueOrNull ?? const <String, KanjiProgress>{};
+          final progress = progressAsync.valueOrNull;
+          if (progress == null) {
+            return progressAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Lỗi: $e')),
+              data: (_) => const SizedBox.shrink(),
+            );
+          }
 
           _queue ??= [
             for (final k in all)
@@ -217,10 +235,12 @@ class _ReviewCard extends StatelessWidget {
               Text(
                 [
                   if (kanji.onyomi.isNotEmpty) 'On: ${kanji.onyomi.join('、')}',
-                  if (kanji.kunyomi.isNotEmpty) 'Kun: ${kanji.kunyomi.join('、')}',
+                  if (kanji.kunyomi.isNotEmpty)
+                    'Kun: ${kanji.kunyomi.join('、')}',
                 ].join('   '),
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+                style:
+                    const TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
               ),
             ],
           ],
@@ -265,8 +285,11 @@ class _SummaryPanel extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Icon(Icons.check_circle_rounded,
-                color: AppColors.moss, size: 56,),
+            const Icon(
+              Icons.check_circle_rounded,
+              color: AppColors.moss,
+              size: 56,
+            ),
             const SizedBox(height: 16),
             const Text(
               'Hoàn thành ôn tập hôm nay!',

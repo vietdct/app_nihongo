@@ -58,8 +58,7 @@ class VocabularyHomeScreen extends ConsumerWidget {
 
           final progress =
               progressAsync.valueOrNull ?? const <String, VocabProgress>{};
-          final wordOfDay =
-              pickWordOfTheDay(pool: all, levelId: selectedLevel);
+          final wordOfDay = pickWordOfTheDay(pool: all, levelId: selectedLevel);
 
           var newCount = 0;
           var learnedCount = 0;
@@ -130,7 +129,9 @@ class VocabularyHomeScreen extends ConsumerWidget {
                       Text(
                         'Tra từ vựng hoặc nghĩa...',
                         style: TextStyle(
-                            fontSize: 13.5, color: AppColors.inkFaint),
+                          fontSize: 13.5,
+                          color: AppColors.inkFaint,
+                        ),
                       ),
                     ],
                   ),
@@ -166,7 +167,7 @@ class VocabularyHomeScreen extends ConsumerWidget {
                         value: '$dueCount từ cần ôn',
                         colors: const [
                           AppColors.accent,
-                          AppColors.accentStrong
+                          AppColors.accentStrong,
                         ],
                         onTap: () => context.push('/vocabulary/review'),
                       ),
@@ -312,8 +313,10 @@ class VocabularyHomeScreen extends ConsumerWidget {
                         backgroundColor: AppColors.moss,
                         padding: const EdgeInsets.symmetric(horizontal: 4),
                       ),
-                      child: const Text('Ôn tập',
-                          style: TextStyle(fontSize: 12.5)),
+                      child: const Text(
+                        'Ôn tập',
+                        style: TextStyle(fontSize: 12.5),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -353,7 +356,10 @@ class _WordOfDayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final meaning = vocab.meanings.first;
+    final meaning = vocab.meanings.isEmpty ? null : vocab.meanings.first;
+    final meaningVi = vocab.primaryMeaning.isEmpty
+        ? 'Đang cập nhật nghĩa…'
+        : vocab.primaryMeaning;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -397,7 +403,7 @@ class _WordOfDayCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      meaning.meaningVi,
+                      meaningVi,
                       style: const TextStyle(
                         fontSize: 13.5,
                         fontWeight: FontWeight.w600,
@@ -410,7 +416,7 @@ class _WordOfDayCard extends StatelessWidget {
               JpSpeakButton(text: vocab.word, color: AppColors.moss),
             ],
           ),
-          if (meaning.exampleJp != null) ...[
+          if (meaning?.exampleJp != null) ...[
             const SizedBox(height: 10),
             Container(
               width: double.infinity,
@@ -423,7 +429,7 @@ class _WordOfDayCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    meaning.exampleJp!,
+                    meaning!.exampleJp!,
                     style: AppFonts.zenMaruGothic(
                       fontSize: 13.5,
                       color: AppColors.ink,
@@ -456,7 +462,10 @@ class _WordOfDayCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                   icon: const Icon(Icons.menu_book_rounded, size: 16),
-                  label: const Text('Xem chi tiết', style: TextStyle(fontSize: 12.5)),
+                  label: const Text(
+                    'Xem chi tiết',
+                    style: TextStyle(fontSize: 12.5),
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -469,7 +478,10 @@ class _WordOfDayCard extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                   ),
                   icon: const Icon(Icons.forum_rounded, size: 16),
-                  label: const Text('Dùng trong AI Kaiwa', style: TextStyle(fontSize: 12.5)),
+                  label: const Text(
+                    'Dùng trong AI Kaiwa',
+                    style: TextStyle(fontSize: 12.5),
+                  ),
                 ),
               ),
             ],

@@ -34,6 +34,10 @@ import '../../features/lesson/lesson_runner_screen.dart';
 import '../../features/lesson/providers/level_providers.dart';
 import '../../features/premium/premium_screen.dart';
 import '../../features/quiz/providers/quiz_providers.dart';
+import '../../features/review/review_mistakes_screen.dart';
+import '../../features/review/review_smart_screen.dart';
+import '../../features/review/review_today_screen.dart';
+import '../../features/review/review_weak_points_screen.dart';
 import 'main_tab_shell.dart';
 import '../../features/quiz/quiz_category_screen.dart';
 import '../../features/quiz/quiz_screen.dart';
@@ -150,6 +154,22 @@ final routerProvider = Provider<GoRouter>((ref) {
             );
           },
         ),
+      ),
+      GoRoute(
+        path: '/review/today',
+        builder: (_, __) => const ReviewTodayScreen(),
+      ),
+      GoRoute(
+        path: '/review/weak-points',
+        builder: (_, __) => const ReviewWeakPointsScreen(),
+      ),
+      GoRoute(
+        path: '/review/mistakes',
+        builder: (_, __) => const ReviewMistakesScreen(),
+      ),
+      GoRoute(
+        path: '/review/smart',
+        builder: (_, __) => const ReviewSmartScreen(),
       ),
       GoRoute(
         path: '/vocabulary',

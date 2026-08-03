@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../grammar/providers/grammar_progress_providers.dart';
+import '../home/providers/profile_providers.dart';
 import '../kaiwa/providers/kaiwa_conversation_providers.dart';
 import '../kanji/providers/kanji_progress_providers.dart';
 import '../vocabulary/providers/vocab_progress_providers.dart';
@@ -25,6 +26,7 @@ class ReviewScreen extends ConsumerWidget {
         ref.watch(grammarProgressProvider).valueOrNull ?? const {};
     final kaiwaConversations =
         ref.watch(kaiwaConversationsProvider).valueOrNull ?? const [];
+    final profile = ref.watch(profileProvider).valueOrNull;
 
     final knownVocab =
         vocabProgress.values.where((p) => p.isKnown == true).length;
@@ -33,18 +35,65 @@ class ReviewScreen extends ConsumerWidget {
     final starredGrammar =
         grammarProgress.values.where((p) => p.starred).length;
 
+    // "Đến hạn" chỉ tính mục đã từng ôn qua SRS ít nhất 1 lần (reviewCount >
+    // 0) và nay đã tới/qua hạn — mục chưa từng ôn không tính là "đến hạn".
+    final dueVocab = vocabProgress.values
+        .where((p) => p.reviewCount > 0 && p.isDueNow)
+        .length;
+    final dueKanji = kanjiProgress.values
+        .where((p) => p.reviewCount > 0 && p.isDueNow)
+        .length;
+    final dueGrammar = grammarProgress.values
+        .where((p) => p.reviewCount > 0 && p.isDueNow)
+        .length;
+    final totalDue = dueVocab + dueKanji + dueGrammar;
+
     return Scaffold(
       backgroundColor: AppColors.canvas,
       appBar: AppBar(title: const Text('Ôn tập')),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(20, 4, 20, 20),
         children: [
+          Row(
+            children: [
+              Expanded(
+                child: _StatTile(
+                  icon: Icons.event_available_outlined,
+                  iconColor: AppColors.accent,
+                  value: '$totalDue',
+                  label: 'Đến hạn hôm nay',
+                  onTap: () => context.push('/review/today'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _StatTile(
+                  icon: Icons.local_fire_department_outlined,
+                  iconColor: AppColors.accentStrong,
+                  value: '${profile?.streakCount ?? 0}',
+                  label: 'Chuỗi ngày',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _ReviewRow(
+            icon: Icons.auto_awesome_outlined,
+            iconBg: AppColors.accentSoft,
+            iconColor: AppColors.accentStrong,
+            title: 'Smart Review',
+            subtitle: 'Để AI chọn mục cần ôn hôm nay',
+            onTap: () => context.push('/review/smart'),
+          ),
+          const SizedBox(height: 10),
           _ReviewRow(
             icon: Icons.style_outlined,
             iconBg: AppColors.mossSoft,
             iconColor: AppColors.moss,
             title: 'Flashcard Từ vựng',
-            subtitle: '$knownVocab từ đã thuộc · Lật thẻ ôn lại',
+            subtitle: dueVocab > 0
+                ? '$dueVocab thẻ đến hạn ôn · $knownVocab từ đã thuộc'
+                : '$knownVocab từ đã thuộc · Lật thẻ ôn lại',
             onTap: () => context.push('/vocabulary/flashcards'),
           ),
           const SizedBox(height: 10),
@@ -53,7 +102,9 @@ class ReviewScreen extends ConsumerWidget {
             iconBg: AppColors.indigoSoft,
             iconColor: AppColors.indigo,
             title: 'Flashcard Kanji',
-            subtitle: '$knownKanji chữ đã thuộc · Nét viết + Hán Việt',
+            subtitle: dueKanji > 0
+                ? '$dueKanji chữ đến hạn ôn · $knownKanji chữ đã thuộc'
+                : '$knownKanji chữ đã thuộc · Nét viết + Hán Việt',
             onTap: () => context.push('/kanji'),
           ),
           const SizedBox(height: 10),
@@ -62,7 +113,9 @@ class ReviewScreen extends ConsumerWidget {
             iconBg: AppColors.plumSoft,
             iconColor: AppColors.plum,
             title: 'Ngữ pháp',
-            subtitle: '$starredGrammar mẫu đã đánh dấu · Xem lại mẫu câu',
+            subtitle: dueGrammar > 0
+                ? '$dueGrammar mẫu đến hạn ôn · $starredGrammar mẫu đã đánh dấu'
+                : '$starredGrammar mẫu đã đánh dấu · Xem lại mẫu câu',
             onTap: () => context.push('/grammar'),
           ),
           const SizedBox(height: 10),
@@ -73,6 +126,24 @@ class ReviewScreen extends ConsumerWidget {
             title: 'AI Kaiwa',
             subtitle: '${kaiwaConversations.length} buổi hội thoại đã lưu',
             onTap: () => context.push('/kaiwa'),
+          ),
+          const SizedBox(height: 10),
+          _ReviewRow(
+            icon: Icons.trending_down_outlined,
+            iconBg: AppColors.chip,
+            iconColor: AppColors.accentStrong,
+            title: 'Điểm yếu',
+            subtitle: 'Từ/chữ/mẫu bạn hay quên nhất',
+            onTap: () => context.push('/review/weak-points'),
+          ),
+          const SizedBox(height: 10),
+          _ReviewRow(
+            icon: Icons.sticky_note_2_outlined,
+            iconBg: AppColors.chip,
+            iconColor: AppColors.danger,
+            title: 'Sổ tay lỗi',
+            subtitle: 'Xem lại các lỗi đã ghi nhận',
+            onTap: () => context.push('/review/mistakes'),
           ),
           const SizedBox(height: 10),
           const _ReviewRow(
@@ -173,6 +244,64 @@ class _ReviewRow extends StatelessWidget {
                 ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.icon,
+    required this.iconColor,
+    required this.value,
+    required this.label,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String value;
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(15),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border, width: 1.0),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: iconColor, size: 22),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 18,
+                    color: AppColors.ink,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

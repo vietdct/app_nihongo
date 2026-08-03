@@ -8,6 +8,7 @@ import '../../domain/entities/grammar_progress.dart';
 import '../../domain/services/srs_scheduler.dart';
 import '../../shared/flip_card.dart';
 import '../lesson/providers/content_providers.dart';
+import '../review/providers/review_mistakes_providers.dart';
 import 'providers/grammar_progress_providers.dart';
 
 /// Hàng đợi ôn tập SRS thật (SM-2 rút gọn, xem `srs_scheduler.dart`) — khác
@@ -40,6 +41,14 @@ class _GrammarReviewScreenState extends ConsumerState<GrammarReviewScreen> {
       await controller.recordReview(grammar.id, current, grade);
       if (mounted) ref.invalidate(grammarProgressProvider);
     }
+    if (grade == SrsGrade.forgot) {
+      await ref.read(reviewMistakesControllerProvider)?.recordMistake(
+            sourceType: 'grammar',
+            sourceId: grammar.id,
+            correctAnswer: grammar.explanation,
+            explanation: grammar.commonMistake,
+          );
+    }
     if (!mounted) return;
     setState(() {
       final queue = _queue!..removeAt(0);
@@ -66,8 +75,14 @@ class _GrammarReviewScreenState extends ConsumerState<GrammarReviewScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Lỗi: $e')),
         data: (all) {
-          final progress =
-              progressAsync.valueOrNull ?? const <String, GrammarProgress>{};
+          final progress = progressAsync.valueOrNull;
+          if (progress == null) {
+            return progressAsync.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (e, _) => Center(child: Text('Lỗi: $e')),
+              data: (_) => const SizedBox.shrink(),
+            );
+          }
 
           _queue ??= [
             for (final g in all)

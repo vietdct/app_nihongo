@@ -633,7 +633,10 @@ class _WordOfDayCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final meaning = vocab.meanings.first;
+    final meaning = vocab.meanings.isEmpty ? null : vocab.meanings.first;
+    final meaningVi = vocab.primaryMeaning.isEmpty
+        ? 'Đang cập nhật nghĩa…'
+        : vocab.primaryMeaning;
     return InkWell(
       borderRadius: BorderRadius.circular(18),
       onTap: () => context.push('/vocabulary'),
@@ -690,12 +693,12 @@ class _WordOfDayCard extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text(meaning.meaningVi,
+                  Text(meaningVi,
                       style: const TextStyle(
                           fontSize: 12, color: AppColors.inkSoft,),),
-                  if (meaning.exampleJp != null) ...[
+                  if (meaning?.exampleJp != null) ...[
                     const SizedBox(height: 4),
-                    Text(meaning.exampleJp!,
+                    Text(meaning!.exampleJp!,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(

@@ -1,109 +1,208 @@
-# Nihongo — Ứng dụng học tiếng Nhật (JLPT N5–N1)
+# Nihongo — Ứng dụng học tiếng Nhật JLPT
 
-App đa nền tảng (Android + iOS) từ một codebase **Flutter**, backend chạy trên **Supabase**.
-Tài liệu thiết kế & playbook thi công đầy đủ được lưu riêng (artifact); repo này bám theo
-**Playbook thi công từng bước**.
+Nihongo là ứng dụng Flutter hỗ trợ học tiếng Nhật theo khung JLPT N5–N1. Theo mã nguồn và cấu hình hiện có, project bao gồm các module bài học, từ vựng, Kanji, ngữ pháp, quiz, hội thoại, ôn tập và hồ sơ người học.
 
-Trạng thái hiện tại: **Pha 1 — Nền móng & Auth** (khung code đã dựng, chờ cài toolchain để chạy).
+Project sử dụng Supabase cho backend và Drift/SQLite cho lưu trữ cục bộ. Một số Supabase Edge Functions tích hợp dịch vụ AI và xử lý đăng nhập bằng username.
 
----
+> Trạng thái trong manifest: `0.1.0+1`, không phát hành lên pub.dev. Trạng thái chạy thực tế của toàn bộ tính năng: `[NEEDS_CONFIRMATION]`.
 
-## Pha 0 — Chuẩn bị môi trường (làm một lần trên máy)
+## Công nghệ đã xác nhận
 
-Chưa có Flutter/Docker/Supabase CLI thì cài theo thứ tự sau (macOS):
+| Thành phần | Công nghệ |
+|---|---|
+| Ngôn ngữ ứng dụng | Dart |
+| Framework | Flutter |
+| State management và DI | Riverpod |
+| Điều hướng | go_router |
+| Backend client | Supabase Flutter |
+| Database cục bộ | Drift / SQLite |
+| Edge Functions | Supabase Functions / Deno |
+| Giọng nói | speech_to_text, flutter_tts, record |
+| Kiểm thử | flutter_test, mocktail |
+| Package manager | Dart Pub |
 
-```bash
-# 1) Flutter SDK (khuyên dùng để có phiên bản mới)
-#    Xem: https://docs.flutter.dev/get-started/install/macos
-#    Sau khi cài, thêm flutter/bin vào PATH rồi:
-flutter doctor            # sửa cho tới khi Flutter + Android toolchain xanh
+Yêu cầu SDK được khai báo trong `pubspec.yaml`:
 
-# 2) Docker Desktop (Supabase local cần Docker)
-#    https://www.docker.com/products/docker-desktop/
+- Dart `^3.5.0`.
+- Flutter `>=3.24.0`.
 
-# 3) Supabase CLI
-brew install supabase/tap/supabase
-supabase --version
-```
+Phiên bản Flutter và Dart thực tế đang được dùng trên máy phát triển: `[NEEDS_CONFIRMATION]`.
 
-Xong khi: `flutter doctor` xanh ở Flutter + Android toolchain, và có một emulator để chạy.
+## Nền tảng
 
----
+Repository có cấu hình cho:
 
-## Khởi động project (sau khi cài xong toolchain)
+- Android.
+- iOS.
+- macOS.
+- Web.
 
-```bash
-cd app_nihongo
+Mức độ hoàn thiện và hỗ trợ phát hành của từng nền tảng: `[NEEDS_CONFIRMATION]`.
 
-# 1) Sinh phần nền tảng android/ ios/ (chưa có trong repo).
-#    Lệnh này có thể ghi đè pubspec.yaml/lib — khôi phục lại bản trong repo ngay sau đó:
-flutter create . --org com.tencuaban --project-name nihongo --platforms=android,ios
-git checkout -- pubspec.yaml lib/ analysis_options.yaml
+## Module hiện có trong mã nguồn
 
-flutter pub get
+Các thư mục dưới `lib/features/` xác nhận project có mã nguồn cho:
 
-# 2) Bật Supabase local + áp migration
-supabase init          # nếu chưa có supabase/config.toml
-supabase start         # in ra API URL + anon key của local
-supabase db reset      # áp migration trong supabase/migrations/
+- `auth`: xác thực người dùng.
+- `home`: màn hình chính và thông tin học tập.
+- `lesson`: danh sách, chi tiết và luồng học bài.
+- `vocabulary`: danh sách, flashcard và ôn từ vựng.
+- `kanji`: danh sách, chi tiết, luyện viết và ôn Kanji.
+- `grammar`: nội dung, luyện tập và ôn ngữ pháp.
+- `kaiwa`: hội thoại, shadowing và thống kê.
+- `quiz`: kiểm tra theo nội dung.
+- `review`: ôn tập tổng hợp.
+- `profile`: hồ sơ người học.
+- `premium`: giao diện liên quan đến Premium.
 
-# 3) Tạo env.json từ mẫu, điền anon key local vừa in ra
-cp env.example.json env.json
-#   sửa SUPABASE_ANON_KEY trong env.json
+Các Supabase Edge Functions hiện có:
 
-# 4) Chạy app
-flutter run --dart-define-from-file=env.json
-```
+- `auth-login-username`.
+- `ai-grammar-tutor`.
+- `ai-kanji-tutor`.
+- `ai-kaiwa-chat`.
+- `ai-kaiwa-tutor`.
+- `ai-lesson-mission`.
+- `ai-pronunciation-feedback`.
 
-Xong khi: đăng ký một tài khoản email → thấy row mới trong `auth.users` và `profiles`
-(trigger chạy) → vào được màn Home.
+Việc các module và Edge Functions hoạt động hoàn chỉnh trên môi trường local hoặc production: `[NEEDS_CONFIRMATION]`.
 
-### Bật đăng nhập Google (tuỳ chọn ở Pha 1)
+## Kiến trúc tổng quan
 
-1. Tạo OAuth Client ID trong Google Cloud Console.
-2. Supabase Dashboard → Authentication → Providers → Google → dán Client ID/Secret.
-3. Cấu hình redirect URL theo hướng dẫn Supabase cho Android/iOS.
+Project được tổ chức theo hướng feature-first kết hợp phân lớp:
 
----
-
-## Cấu trúc thư mục (theo mục 8 tài liệu thiết kế)
-
-```
+```text
 lib/
-├── main.dart                    # khởi tạo Supabase + ProviderScope
-├── app.dart                     # MaterialApp.router + theme
-├── core/
-│   ├── config/env.dart          # đọc SUPABASE_URL/ANON_KEY qua --dart-define
-│   ├── theme/app_theme.dart     # Material 3, màu kon-iro / shu-iro
-│   ├── router/app_router.dart   # go_router + redirect theo trạng thái đăng nhập
-│   └── network/                 # supabase_providers.dart (client, auth state)
-├── data/                        # (Pha 2+) Drift, repository, dto
-├── domain/                      # (Pha 2+) entity, usecase
-└── features/
-    ├── auth/                    # login_screen, auth_controller
-    └── home/                    # home_screen (placeholder)
-
-supabase/
-└── migrations/                  # schema + RLS (version control)
+├── main.dart       # Entry point
+├── app.dart        # MaterialApp, theme và router
+├── core/           # Config, network, router, theme và service dùng chung
+├── data/           # Database cục bộ và repository implementation
+├── domain/         # Entity, repository contract và domain service
+├── features/       # UI và provider theo chức năng
+└── shared/         # Thành phần dùng chung
 ```
 
-## Lệnh hay dùng
+Luồng khởi động đã xác nhận từ mã nguồn:
+
+1. `lib/main.dart` gọi `WidgetsFlutterBinding.ensureInitialized()`.
+2. Kiểm tra `SUPABASE_URL` và `SUPABASE_ANON_KEY`.
+3. Khởi tạo Supabase.
+4. Khởi chạy `NihongoApp` bên trong `ProviderScope`.
+
+## Cấu hình môi trường
+
+Ứng dụng Flutter đọc cấu hình bằng `--dart-define-from-file`.
+
+Biến bắt buộc ở Flutter client:
+
+- `SUPABASE_URL`.
+- `SUPABASE_ANON_KEY`.
+
+Tên biến được Edge Functions tham chiếu:
+
+- `SUPABASE_URL`.
+- `SUPABASE_ANON_KEY`.
+- `SUPABASE_SERVICE_ROLE_KEY`.
+- `GOOGLE_AI_API_KEY`.
+- `GEMINI_MODEL`.
+- `PRONUNCIATION_GEMINI_MODEL`.
+- `ANTHROPIC_API_KEY`.
+- `ANTHROPIC_MODEL`.
+
+Biến nào đang được cấu hình trên môi trường deploy: `[NEEDS_CONFIRMATION]`.
+
+Không commit file cấu hình thật, API key, token, service role key, keystore hoặc credential. Chỉ sử dụng anon/publishable key ở Flutter client.
+
+## Cách chạy dự kiến
+
+Các lệnh dưới đây được suy ra từ Flutter, cấu hình source và README hiện có nhưng chưa được chạy xác nhận trong lần cập nhật tài liệu này.
 
 ```bash
-flutter analyze                            # phân tích tĩnh
-flutter test                               # chạy test
+flutter pub get
+cp env.example.json env.json
 flutter run --dart-define-from-file=env.json
 ```
 
-## Lộ trình
+Trước khi chạy, cần cung cấp tên biến sau trong `env.json`:
 
-| Pha | Nội dung | Tag |
-|-----|----------|-----|
-| 1 | Nền móng & Auth | `v0.1-foundation` |
-| 2 | Nội dung học liệu (Drift offline) | `v0.2-content` |
-| 3 | Flashcard SRS & Quiz | `v0.3-core-loop` |
-| 4 | Ngữ pháp & Subscription | `v0.4-monetization` |
-| 5 | AI & Notification | `v0.5-ai` |
-| 6 | Offline & Hiệu năng | `v0.6-beta` |
-| 7 | JLPT Mock Test & iOS | `v0.9-rc` |
-| 8 | Ra mắt Google Play & App Store | `v1.0` |
+```text
+SUPABASE_URL
+SUPABASE_ANON_KEY
+```
+
+Trạng thái chạy thành công trên Android, iOS, macOS hoặc Web: `[NEEDS_CONFIRMATION]`.
+
+## Supabase local
+
+Repository có:
+
+- `supabase/config.toml`.
+- Migration trong `supabase/migrations/`.
+- Edge Functions trong `supabase/functions/`.
+- Các file seed nội dung N5 và luyện nghe ở thư mục `supabase/`.
+
+Cách chạy dự kiến, chưa được xác nhận trong lần cập nhật này:
+
+```bash
+supabase start
+supabase db reset
+supabase functions serve
+```
+
+Yêu cầu Docker, phiên bản Supabase CLI, thứ tự seed và khả năng tương thích migration: `[NEEDS_CONFIRMATION]`.
+
+Không chạy migration hoặc seed trên production nếu chưa có quy trình backup và rollback được xác nhận.
+
+## Kiểm tra dự kiến
+
+Repository có test trong `test/`. Các lệnh dự kiến:
+
+```bash
+flutter analyze
+flutter test
+dart format --output=none --set-exit-if-changed lib test
+```
+
+Kết quả analyze và test hiện tại: `[NEEDS_CONFIRMATION]`.
+
+## Build dự kiến
+
+Các lệnh build tiêu chuẩn có thể phù hợp với project nhưng chưa được chạy xác nhận:
+
+```bash
+flutter build apk --release --dart-define-from-file=env.json
+flutter build appbundle --release --dart-define-from-file=env.json
+flutter build ios --release --dart-define-from-file=env.json
+```
+
+Android signing, iOS signing, bundle identifier, package name và cấu hình phát hành cửa hàng: `[NEEDS_CONFIRMATION]`.
+
+## Cấu trúc repository
+
+```text
+app_nihongo/
+├── android/              # Cấu hình Android
+├── ios/                  # Cấu hình iOS
+├── macos/                # Cấu hình macOS
+├── web/                  # Cấu hình Web
+├── assets/fonts/         # Font đóng gói cục bộ
+├── lib/                  # Mã nguồn Flutter
+├── supabase/             # Config, migration, function và seed
+├── test/                 # Test Flutter/Dart
+├── docs/                 # Tài liệu project
+├── env.example.json      # Mẫu tên cấu hình client
+├── pubspec.yaml          # Manifest dependency
+└── pubspec.lock          # Phiên bản dependency đã khóa
+```
+
+## Tài liệu liên quan
+
+- `docs/PROJECT.md`: context ổn định của project.
+- `docs/ENVIRONMENT.md`: runtime, service và tên biến môi trường.
+- `docs/ARCHITECTURE.md`: `[NEEDS_CONFIRMATION]` — cần đối chiếu với source trước khi sử dụng làm nguồn chính.
+- `docs/COMMANDS.md`: `[NEEDS_CONFIRMATION]` — cần cập nhật sau khi các lệnh được chạy thành công.
+- `docs/PROGRESS.md`: `[NEEDS_CONFIRMATION]` — cần kiểm tra độ mới trước khi tiếp tục task.
+
+## Giấy phép
+
+File `LICENSE` chưa được xác nhận trong khảo sát hiện tại. Chính sách sử dụng và phân phối source: `[NEEDS_CONFIRMATION]`.

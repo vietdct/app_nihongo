@@ -77,24 +77,33 @@ class KaiwaSummaryScreen extends ConsumerWidget {
                       width: 64,
                       height: 64,
                       decoration: const BoxDecoration(
-                          color: AppColors.tealSoft, shape: BoxShape.circle),
+                        color: AppColors.tealSoft,
+                        shape: BoxShape.circle,
+                      ),
                       alignment: Alignment.center,
-                      child: const Icon(Icons.forum_rounded,
-                          color: AppColors.teal, size: 30),
+                      child: const Icon(
+                        Icons.forum_rounded,
+                        color: AppColors.teal,
+                        size: 30,
+                      ),
                     ),
                     const SizedBox(height: 14),
-                    const Text('Hoàn thành hội thoại!',
-                        style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w800,
-                            color: AppColors.ink)),
+                    const Text(
+                      'Hoàn thành hội thoại!',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: AppColors.ink,
+                      ),
+                    ),
                     const SizedBox(height: 4),
                     Text(
                       '${persona.name} · ${scenario.title}',
                       style: const TextStyle(
-                          fontSize: 13,
-                          color: AppColors.inkSoft,
-                          fontWeight: FontWeight.w600),
+                        fontSize: 13,
+                        color: AppColors.inkSoft,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ],
                 ),
@@ -132,12 +141,14 @@ class KaiwaSummaryScreen extends ConsumerWidget {
               const SizedBox(height: 28),
               if (userMessages.isEmpty)
                 const _EmptyNote(
-                    text:
-                        'Bạn chưa nói câu nào trong buổi này — thử lại lần sau nhé!')
+                  text:
+                      'Bạn chưa nói câu nào trong buổi này — thử lại lần sau nhé!',
+                )
               else if (corrections.isEmpty)
                 const _EmptyNote(
-                    text:
-                        'Không có câu nào cần sửa trong buổi này — làm tốt lắm!')
+                  text:
+                      'Không có câu nào cần sửa trong buổi này — làm tốt lắm!',
+                )
               else ...[
                 const _SectionLabel('Câu nên ôn lại'),
                 const SizedBox(height: 10),
@@ -151,8 +162,9 @@ class KaiwaSummaryScreen extends ConsumerWidget {
                 width: double.infinity,
                 child: FilledButton(
                   style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.teal,
-                      minimumSize: const Size.fromHeight(52)),
+                    backgroundColor: AppColors.teal,
+                    minimumSize: const Size.fromHeight(52),
+                  ),
                   onPressed: () =>
                       Navigator.of(context).popUntil((route) => route.isFirst),
                   child: const Text('Về trang chủ Kaiwa'),
@@ -176,8 +188,11 @@ String _formatDuration(Duration? duration) {
 }
 
 class _StatCard extends StatelessWidget {
-  const _StatCard(
-      {required this.icon, required this.label, required this.value});
+  const _StatCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
 
   final IconData icon;
   final String label;
@@ -196,18 +211,24 @@ class _StatCard extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: AppColors.teal),
           const SizedBox(height: 8),
-          Text(value,
-              style: const TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w800,
-                  color: AppColors.ink)),
+          Text(
+            value,
+            style: const TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: AppColors.ink,
+            ),
+          ),
           const SizedBox(height: 2),
-          Text(label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                  fontSize: 10.5,
-                  color: AppColors.inkSoft,
-                  fontWeight: FontWeight.w600)),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 10.5,
+              color: AppColors.inkSoft,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ],
       ),
     );
@@ -242,16 +263,24 @@ class _CorrectionCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(feedback.betterPhrasing.trim(),
-              style: AppFonts.zenMaruGothic(
-                  fontSize: 15,
-                  color: AppColors.moss,
-                  fontWeight: FontWeight.w700)),
+          Text(
+            feedback.betterPhrasing.trim(),
+            style: AppFonts.zenMaruGothic(
+              fontSize: 15,
+              color: AppColors.moss,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
           if (feedback.explanation.trim().isNotEmpty) ...[
             const SizedBox(height: 6),
-            Text(feedback.explanation.trim(),
-                style: const TextStyle(
-                    fontSize: 12, color: AppColors.inkSoft, height: 1.4)),
+            Text(
+              feedback.explanation.trim(),
+              style: const TextStyle(
+                fontSize: 12,
+                color: AppColors.inkSoft,
+                height: 1.4,
+              ),
+            ),
           ],
         ],
       ),
@@ -269,11 +298,18 @@ class _EmptyNote extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-          color: AppColors.tealSoft, borderRadius: BorderRadius.circular(16)),
-      child: Text(text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-              fontSize: 13, color: AppColors.ink, fontWeight: FontWeight.w600)),
+        color: AppColors.tealSoft,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Text(
+        text,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 13,
+          color: AppColors.ink,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 }
@@ -288,10 +324,11 @@ class _SectionLabel extends StatelessWidget {
     return Text(
       text.toUpperCase(),
       style: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-          color: AppColors.inkFaint,
-          letterSpacing: 0.6),
+        fontSize: 12,
+        fontWeight: FontWeight.w700,
+        color: AppColors.inkFaint,
+        letterSpacing: 0.6,
+      ),
     );
   }
 }
