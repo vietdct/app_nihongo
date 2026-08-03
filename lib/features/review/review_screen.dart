@@ -155,6 +155,15 @@ class ReviewScreen extends ConsumerWidget {
             onTap: () => context.push('/review/coach'),
           ),
           const SizedBox(height: 10),
+          _ReviewRow(
+            icon: Icons.bar_chart_outlined,
+            iconBg: AppColors.chip,
+            iconColor: AppColors.indigo,
+            title: 'Thống kê ôn tập',
+            subtitle: 'Độ thành thục, lỗi theo module và theo ngày',
+            onTap: () => context.push('/review/statistics'),
+          ),
+          const SizedBox(height: 10),
           const _ReviewRow(
             icon: Icons.quiz_outlined,
             iconBg: AppColors.chip,
