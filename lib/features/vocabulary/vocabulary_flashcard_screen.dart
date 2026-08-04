@@ -4,7 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/vocab_meaning.dart';
 import '../../domain/entities/vocabulary.dart';
+import '../../shared/card_dot_progress.dart';
+import '../../shared/card_known_stats.dart';
+import '../../shared/card_stamp_label.dart';
 import '../../shared/flip_card.dart';
+import '../../shared/gradient_card_shell.dart';
 import '../home/providers/mission_providers.dart';
 import '../lesson/providers/content_providers.dart';
 import 'providers/vocab_progress_providers.dart';
@@ -167,9 +171,13 @@ class _VocabularyFlashcardScreenState
               progressMap[vocab.id]?.starred ??
               false;
           final total = deck.length;
+          final wrongIndices = {
+            for (var i = 0; i < _index; i++)
+              if (_unknownIds.contains(deck[i].id)) i,
+          };
 
           return Padding(
-            padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
             child: Column(
               children: [
                 Row(
@@ -180,21 +188,7 @@ class _VocabularyFlashcardScreenState
                       color: AppColors.inkSoft,
                       tooltip: 'Thẻ trước',
                     ),
-                    Expanded(
-                      child: Column(
-                        children: [
-                          Text(
-                            _reviewRound
-                                ? 'Ôn từ chưa thuộc · ${_index + 1}/$total'
-                                : '${_index + 1} / $total',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.inkSoft,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
+                    const Expanded(child: SizedBox.shrink()),
                     if (_unknownIds.isNotEmpty)
                       InkWell(
                         borderRadius: BorderRadius.circular(100),
@@ -232,17 +226,13 @@ class _VocabularyFlashcardScreenState
                       const SizedBox(width: 48),
                   ],
                 ),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(100),
-                  child: LinearProgressIndicator(
-                    value: (_index + 1) / total,
-                    minHeight: 5,
-                    backgroundColor: AppColors.chip,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.accent),
-                  ),
+                const SizedBox(height: 10),
+                CardDotProgress(
+                  total: total,
+                  index: _index,
+                  wrongIndices: wrongIndices,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 26),
                 Expanded(
                   child: Center(
                     child: _SwipeableVocabCard(
@@ -256,7 +246,24 @@ class _VocabularyFlashcardScreenState
                     ),
                   ),
                 ),
+                // "x / total" đặt dưới khung flashcard theo yêu cầu thiết kế.
+                const SizedBox(height: 16),
+                Text(
+                  _reviewRound
+                      ? 'Ôn từ chưa thuộc · ${_index + 1}/$total'
+                      : '${_index + 1} / $total',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
                 const SizedBox(height: 8),
+                CardKnownStats(
+                  known: _index - _unknownIds.length,
+                  unknown: _unknownIds.length,
+                ),
+                const SizedBox(height: 10),
                 Text(
                   _unknownIds.isNotEmpty
                       ? 'Vuốt phải: đã thuộc · Vuốt trái: chưa thuộc · Chạm badge để xem/ôn ngay'
@@ -492,8 +499,8 @@ class _SwipeableVocabCardState extends State<_SwipeableVocabCard>
     final angle = (_drag.dx / 2800).clamp(-0.25, 0.25);
 
     return GestureDetector(
-      onPanUpdate: _completing ? null : _onPanUpdate,
-      onPanEnd: _completing ? null : _onPanEnd,
+      onHorizontalDragUpdate: _completing ? null : _onPanUpdate,
+      onHorizontalDragEnd: _completing ? null : _onPanEnd,
       child: Transform.translate(
         offset: _drag,
         child: Transform.rotate(
@@ -506,33 +513,63 @@ class _SwipeableVocabCardState extends State<_SwipeableVocabCard>
                 front: _VocabFront(vocab: widget.vocab),
                 back: _VocabBack(vocab: widget.vocab),
               ),
+              if (rightProgress > 0)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: rightProgress * 0.35,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.moss,
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (leftProgress > 0)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: leftProgress * 0.35,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.danger,
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               if (rightProgress > 0.08)
                 Positioned(
-                  top: 22,
-                  left: 22,
+                  top: 24,
+                  left: 24,
                   child: Opacity(
                     opacity: rightProgress,
-                    child: const _StampLabel(
+                    child: const CardStampLabel(
                       text: 'ĐÃ THUỘC',
                       color: AppColors.moss,
+                      angle: -0.21,
                     ),
                   ),
                 ),
               if (leftProgress > 0.08)
                 Positioned(
-                  top: 22,
-                  right: 22,
+                  top: 24,
+                  right: 20,
                   child: Opacity(
                     opacity: leftProgress,
-                    child: const _StampLabel(
+                    child: const CardStampLabel(
                       text: 'CHƯA THUỘC',
-                      color: AppColors.accentStrong,
+                      color: AppColors.danger,
+                      angle: 0.21,
                     ),
                   ),
                 ),
               Positioned(
-                top: 14,
-                right: 14,
+                top: 16,
+                right: 16,
                 child: GestureDetector(
                   onTap: widget.onToggleStar,
                   child: Container(
@@ -544,7 +581,7 @@ class _SwipeableVocabCardState extends State<_SwipeableVocabCard>
                       color: widget.starred
                           ? AppColors.accent
                           : AppColors.inkFaint,
-                      size: 26,
+                      size: 28,
                     ),
                   ),
                 ),
@@ -557,63 +594,6 @@ class _SwipeableVocabCardState extends State<_SwipeableVocabCard>
   }
 }
 
-class _StampLabel extends StatelessWidget {
-  const _StampLabel({required this.text, required this.color});
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        border: Border.all(color: color, width: 2.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w900,
-          fontSize: 15,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-}
-
-class _CardShell extends StatelessWidget {
-  const _CardShell({required this.child, this.background = AppColors.card});
-
-  final Widget child;
-  final Color background;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 420),
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border, width: 1.0),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.ink.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
-
 class _VocabFront extends StatelessWidget {
   const _VocabFront({required this.vocab});
 
@@ -621,7 +601,13 @@ class _VocabFront extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _CardShell(
+    return GradientCardShell(
+      gradientColors: const [
+        Color(0xFFFF9C5A),
+        Color(0xFFFF7A45),
+        Color(0xFFD85A93),
+      ],
+      shadowColor: AppColors.accent.withValues(alpha: 0.25),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -670,8 +656,14 @@ class _VocabBack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _CardShell(
-      background: AppColors.mossSoft,
+    return GradientCardShell(
+      gradientColors: const [
+        Color(0xFF3FB35B),
+        Color(0xFF2D9A47),
+        Color(0xFF1E8038),
+      ],
+      shadowColor: AppColors.moss.withValues(alpha: 0.25),
+      innerBackground: const Color(0xFFEEFBF0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.center,

@@ -5,10 +5,16 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/kanji.dart';
 import '../../domain/entities/vocabulary.dart';
+import '../../shared/card_dot_progress.dart';
+import '../../shared/card_known_stats.dart';
+import '../../shared/card_stamp_label.dart';
 import '../../shared/flip_card.dart';
+import '../../shared/gradient_card_shell.dart';
+import '../../shared/jp_speak_button.dart';
 import '../../shared/kanji_stroke_canvas.dart';
 import '../home/providers/mission_providers.dart';
 import '../lesson/providers/content_providers.dart';
+import '../lesson/providers/level_providers.dart';
 import 'providers/kanji_family_providers.dart';
 import 'providers/kanji_progress_providers.dart';
 
@@ -126,6 +132,7 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
     final progressAsync = ref.watch(kanjiProgressProvider);
     final controller = ref.watch(kanjiProgressControllerProvider);
     final vocabList = ref.watch(vocabularyListProvider).valueOrNull ?? const [];
+    final levelCode = ref.watch(selectedLevelCodeProvider);
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -179,6 +186,10 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
               false;
           final total = deck.length;
           final simple = filterIds != null;
+          final wrongIndices = {
+            for (var i = 0; i < _index; i++)
+              if (_unknownIds.contains(deck[i].id)) i,
+          };
           final relatedVocab = simple
               ? const <Vocabulary>[]
               : [
@@ -199,18 +210,7 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                       color: AppColors.inkSoft,
                       tooltip: 'Thẻ trước',
                     ),
-                    Expanded(
-                      child: Text(
-                        _reviewRound
-                            ? 'Ôn chữ chưa thuộc · ${_index + 1}/$total'
-                            : '${_index + 1} / $total',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.inkSoft,
-                        ),
-                      ),
-                    ),
+                    const Expanded(child: SizedBox.shrink()),
                     if (_unknownIds.isNotEmpty)
                       InkWell(
                         borderRadius: BorderRadius.circular(100),
@@ -248,17 +248,42 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                       const SizedBox(width: 48),
                   ],
                 ),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(100),
-                  child: LinearProgressIndicator(
-                    value: (_index + 1) / total,
-                    minHeight: 5,
-                    backgroundColor: AppColors.chip,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.accent),
+                // "x / total" luôn căn giữa tuyệt đối theo bề ngang màn hình,
+                // tách khỏi hàng nút quay lại/badge (2 bên không đối xứng
+                // nhau về độ rộng nên nếu dùng chung 1 Row, Expanded ở giữa
+                // sẽ bị lệch tâm khi badge hiện/ẩn). Ở chế độ simple (flip
+                // card), số này chuyển xuống dưới khung flashcard.
+                if (!simple) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    _reviewRound
+                        ? 'Ôn chữ chưa thuộc · ${_index + 1}/$total'
+                        : '${_index + 1} / $total',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.inkSoft,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
+                ],
+                const SizedBox(height: 14),
+                simple
+                    ? CardDotProgress(
+                        total: total,
+                        index: _index,
+                        wrongIndices: wrongIndices,
+                      )
+                    : ClipRRect(
+                        borderRadius: BorderRadius.circular(100),
+                        child: LinearProgressIndicator(
+                          value: (_index + 1) / total,
+                          minHeight: 5,
+                          backgroundColor: AppColors.chip,
+                          valueColor:
+                              const AlwaysStoppedAnimation(AppColors.accent),
+                        ),
+                      ),
+                const SizedBox(height: 26),
                 Expanded(
                   child: Center(
                     child: _SwipeableKanjiCard(
@@ -268,6 +293,7 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                       relatedVocab: relatedVocab,
                       hasFamily: hasFamily,
                       simple: simple,
+                      levelCode: levelCode,
                       onSwipeRight: () => _markKnown(kanji, controller),
                       onSwipeLeft: () => _markUnknown(kanji, controller),
                       onToggleStar: () =>
@@ -275,7 +301,25 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                SizedBox(height: simple ? 16 : 26),
+                if (simple) ...[
+                  Text(
+                    _reviewRound
+                        ? 'Ôn chữ chưa thuộc · ${_index + 1}/$total'
+                        : '${_index + 1} / $total',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.inkSoft,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  CardKnownStats(
+                    known: _index - _unknownIds.length,
+                    unknown: _unknownIds.length,
+                  ),
+                  const SizedBox(height: 10),
+                ],
                 Text(
                   _unknownIds.isNotEmpty
                       ? 'Vuốt phải: đã thuộc · Vuốt trái: chưa thuộc · Chạm badge để xem/ôn ngay'
@@ -450,6 +494,7 @@ class _SwipeableKanjiCard extends StatefulWidget {
     required this.relatedVocab,
     required this.hasFamily,
     required this.simple,
+    required this.levelCode,
     required this.onSwipeRight,
     required this.onSwipeLeft,
     required this.onToggleStar,
@@ -460,6 +505,7 @@ class _SwipeableKanjiCard extends StatefulWidget {
   final List<Vocabulary> relatedVocab;
   final bool hasFamily;
   final bool simple;
+  final String levelCode;
   final VoidCallback onSwipeRight;
   final VoidCallback onSwipeLeft;
   final VoidCallback onToggleStar;
@@ -540,7 +586,10 @@ class _SwipeableKanjiCardState extends State<_SwipeableKanjiCard>
             children: [
               widget.simple
                   ? FlipCard(
-                      front: _KanjiFront(kanji: widget.kanji),
+                      front: _KanjiFront(
+                        kanji: widget.kanji,
+                        levelCode: widget.levelCode,
+                      ),
                       back: _KanjiBack(kanji: widget.kanji),
                     )
                   : _KanjiCardContent(
@@ -549,33 +598,63 @@ class _SwipeableKanjiCardState extends State<_SwipeableKanjiCard>
                       hasFamily: widget.hasFamily,
                       onMarkKnown: widget.onSwipeRight,
                     ),
+              if (rightProgress > 0)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: rightProgress * 0.35,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.moss,
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              if (leftProgress > 0)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Opacity(
+                      opacity: leftProgress * 0.35,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: AppColors.danger,
+                          borderRadius: BorderRadius.circular(28),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               if (rightProgress > 0.08)
                 Positioned(
-                  top: 22,
-                  left: 22,
+                  top: 24,
+                  left: 24,
                   child: Opacity(
                     opacity: rightProgress,
-                    child: const _StampLabel(
+                    child: const CardStampLabel(
                       text: 'ĐÃ THUỘC',
                       color: AppColors.moss,
+                      angle: -0.21,
                     ),
                   ),
                 ),
               if (leftProgress > 0.08)
                 Positioned(
-                  top: 22,
-                  right: 22,
+                  top: 24,
+                  right: 20,
                   child: Opacity(
                     opacity: leftProgress,
-                    child: const _StampLabel(
+                    child: const CardStampLabel(
                       text: 'CHƯA THUỘC',
-                      color: AppColors.accentStrong,
+                      color: AppColors.danger,
+                      angle: 0.21,
                     ),
                   ),
                 ),
               Positioned(
-                top: 14,
-                right: 14,
+                top: 16,
+                right: 16,
                 child: GestureDetector(
                   onTap: widget.onToggleStar,
                   child: Container(
@@ -587,7 +666,7 @@ class _SwipeableKanjiCardState extends State<_SwipeableKanjiCard>
                       color: widget.starred
                           ? AppColors.accent
                           : AppColors.inkFaint,
-                      size: 26,
+                      size: 28,
                     ),
                   ),
                 ),
@@ -600,95 +679,144 @@ class _SwipeableKanjiCardState extends State<_SwipeableKanjiCard>
   }
 }
 
-class _StampLabel extends StatelessWidget {
-  const _StampLabel({required this.text, required this.color});
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        border: Border.all(color: color, width: 2.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w900,
-          fontSize: 15,
-          letterSpacing: 0.5,
-        ),
-      ),
-    );
-  }
-}
-
-/// Thẻ lật 2 mặt đơn giản cho Smart Review — giống hệt bố cục flashcard từ
-/// vựng (`_CardShell`/`_VocabFront`/`_VocabBack` bên vocabulary_flashcard_
-/// screen.dart): mặt trước chỉ có chữ Hán lớn, chạm để lật xem Hán Việt/
-/// On-Kun/nghĩa ở mặt sau — bỏ nét chữ, mẹo nhớ, ví dụ, nút Quiz để ôn nhanh.
-class _KanjiCardShell extends StatelessWidget {
-  const _KanjiCardShell({required this.child, this.background = AppColors.card});
-
-  final Widget child;
-  final Color background;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 420),
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border, width: 1.0),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.ink.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
-
+/// Thẻ lật 2 mặt cho Smart Review — theo đúng mockup "Flashcard Final"
+/// (claude.ai/design): viền gradient cam→hồng ở mặt trước, xanh lá ở mặt
+/// sau, thay cho khung viền phẳng cũ. Mặt trước chỉ gợi ý (số nét + 1 cách
+/// đọc), chạm để lật xem đầy đủ Hán Việt/On-Kun/nghĩa/ví dụ ở mặt sau.
 class _KanjiFront extends StatelessWidget {
-  const _KanjiFront({required this.kanji});
+  const _KanjiFront({required this.kanji, required this.levelCode});
 
   final Kanji kanji;
+  final String levelCode;
 
   @override
   Widget build(BuildContext context) {
-    return _KanjiCardShell(
+    final reading = kanji.kunyomi.isNotEmpty
+        ? kanji.kunyomi.first
+        : (kanji.onyomi.isNotEmpty ? kanji.onyomi.first : null);
+    return GradientCardShell(
+      gradientColors: const [Color(0xFFFF9C5A), Color(0xFFFF7A45), Color(0xFFD85A93)],
+      shadowColor: AppColors.accent.withValues(alpha: 0.25),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [AppColors.indigoSoft, Color(0xFFD1DBFF)],
+              ),
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: Text(
+              '$levelCode · KANJI',
+              style: const TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                color: AppColors.indigo,
+                letterSpacing: 0.5,
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
           Text(
             kanji.character,
             textAlign: TextAlign.center,
             style: AppFonts.zenMaruGothic(
-              fontSize: 72,
-              fontWeight: FontWeight.w800,
+              fontSize: 96,
+              fontWeight: FontWeight.w900,
               color: AppColors.ink,
             ),
           ),
+          const SizedBox(height: 10),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            runSpacing: 8,
+            children: [
+              if (kanji.strokeCount != null)
+                _FrontChip(icon: Icons.gesture_rounded, label: '${kanji.strokeCount} nét'),
+              if (reading != null) _FrontChip(label: reading, isJapanese: true),
+            ],
+          ),
           const SizedBox(height: 28),
-          const Icon(
-            Icons.touch_app_outlined,
-            color: AppColors.inkFaint,
-            size: 20,
+          _AudioButton(
+            text: reading ?? kanji.character,
+            background: const Color(0xFFFFF3EB),
+            iconColor: AppColors.accent,
           ),
         ],
       ),
+    );
+  }
+}
+
+class _FrontChip extends StatelessWidget {
+  const _FrontChip({this.icon, required this.label, this.isJapanese = false});
+
+  final IconData? icon;
+  final String label;
+  final bool isJapanese;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3EB),
+        borderRadius: BorderRadius.circular(100),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: AppColors.accent),
+            const SizedBox(width: 6),
+          ],
+          Text(
+            label,
+            style: isJapanese
+                ? AppFonts.zenMaruGothic(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accent,
+                  )
+                : const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.accent,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Nút loa tròn bọc quanh [JpSpeakButton] có sẵn (TTS dùng chung giọng đã
+/// lưu toàn app) để khớp kiểu nút tròn nổi trong thiết kế thay vì IconButton
+/// phẳng mặc định.
+class _AudioButton extends StatelessWidget {
+  const _AudioButton({
+    required this.text,
+    required this.background,
+    required this.iconColor,
+    this.size = 52,
+  });
+
+  final String text;
+  final Color background;
+  final Color iconColor;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(color: background, shape: BoxShape.circle),
+      child: JpSpeakButton(text: text, color: iconColor, size: size * 0.42),
     );
   }
 }
@@ -700,61 +828,77 @@ class _KanjiBack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _KanjiCardShell(
-      background: AppColors.indigoSoft,
+    final readingForAudio = kanji.kunyomi.isNotEmpty
+        ? kanji.kunyomi.first
+        : (kanji.onyomi.isNotEmpty ? kanji.onyomi.first : kanji.character);
+    return GradientCardShell(
+      gradientColors: const [Color(0xFF3FB35B), Color(0xFF2D9A47), Color(0xFF1E8038)],
+      shadowColor: AppColors.moss.withValues(alpha: 0.25),
+      innerBackground: const Color(0xFFEEFBF0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          if (kanji.hanViet.isNotEmpty)
+          Text(
+            kanji.character,
+            textAlign: TextAlign.center,
+            style: AppFonts.zenMaruGothic(
+              fontSize: 52,
+              fontWeight: FontWeight.w900,
+              color: AppColors.ink,
+            ),
+          ),
+          if (kanji.hanViet.isNotEmpty) ...[
+            const SizedBox(height: 8),
             Text(
               kanji.hanViet.join(' · ').toUpperCase(),
               textAlign: TextAlign.center,
               style: const TextStyle(
-                fontSize: 22,
+                fontSize: 20,
                 fontWeight: FontWeight.w900,
                 color: AppColors.indigo,
                 letterSpacing: 1,
               ),
             ),
+          ],
           const SizedBox(height: 10),
           Text(
             kanji.meaningVi.join(', '),
             textAlign: TextAlign.center,
             style: const TextStyle(
-              fontSize: 17,
+              fontSize: 20,
               fontWeight: FontWeight.w800,
               color: AppColors.ink,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _KanjiReadingColumn(
+                child: _ReadingPill(
                   label: 'ON',
-                  value: kanji.onyomi.isEmpty ? '—' : kanji.onyomi.join('、'),
+                  value: kanji.onyomi.isEmpty ? '—' : kanji.onyomi.join(' · '),
                 ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: _KanjiReadingColumn(
+                child: _ReadingPill(
                   label: 'KUN',
-                  value:
-                      kanji.kunyomi.isEmpty ? '—' : kanji.kunyomi.join('、'),
+                  value: kanji.kunyomi.isEmpty ? '—' : kanji.kunyomi.join(' · '),
                 ),
               ),
             ],
           ),
           if (kanji.exampleJp != null) ...[
-            const SizedBox(height: 14),
+            const SizedBox(height: 18),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: AppColors.card,
-                borderRadius: BorderRadius.circular(14),
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -781,43 +925,57 @@ class _KanjiBack extends StatelessWidget {
               ),
             ),
           ],
+          const SizedBox(height: 24),
+          _AudioButton(
+            text: readingForAudio,
+            background: Colors.white,
+            iconColor: AppColors.moss,
+            size: 48,
+          ),
         ],
       ),
     );
   }
 }
 
-class _KanjiReadingColumn extends StatelessWidget {
-  const _KanjiReadingColumn({required this.label, required this.value});
+class _ReadingPill extends StatelessWidget {
+  const _ReadingPill({required this.label, required this.value});
 
   final String label;
   final String value;
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w700,
-            color: AppColors.inkFaint,
-            letterSpacing: 0.5,
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              color: AppColors.inkSoft,
+              letterSpacing: 0.5,
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          textAlign: TextAlign.center,
-          style: AppFonts.zenMaruGothic(
-            fontSize: 15,
-            fontWeight: FontWeight.w800,
-            color: AppColors.ink,
+          const SizedBox(height: 2),
+          Text(
+            value,
+            textAlign: TextAlign.center,
+            style: AppFonts.zenMaruGothic(
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+              color: AppColors.ink,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
