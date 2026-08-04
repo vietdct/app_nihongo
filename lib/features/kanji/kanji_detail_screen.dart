@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/kanji.dart';
 import '../../domain/entities/vocabulary.dart';
+import '../../shared/flip_card.dart';
 import '../../shared/kanji_stroke_canvas.dart';
 import '../home/providers/mission_providers.dart';
 import '../lesson/providers/content_providers.dart';
@@ -12,13 +13,17 @@ import 'providers/kanji_family_providers.dart';
 import 'providers/kanji_progress_providers.dart';
 
 /// Bấm vào 1 kanji mở bộ thẻ vuốt qua — giống hệt từ vựng: vuốt phải đánh
-/// dấu đã thuộc, vuốt trái đánh dấu chưa thuộc, chạm sao để lưu lại. Mỗi thẻ
-/// là 1 trang đầy đủ (không lật 2 mặt): hoạt hoạ nét chữ (KanjiVG), Hán Việt,
-/// nghĩa, âm On/Kun, mẹo ghi nhớ, ví dụ. Bộ thẻ bắt đầu từ đúng chữ vừa bấm.
+/// dấu đã thuộc, vuốt trái đánh dấu chưa thuộc, chạm sao để lưu lại. Bộ thẻ
+/// bắt đầu từ đúng chữ vừa bấm.
 ///
 /// [filterIds] khi được truyền (vd. từ Smart Review) chỉ giới hạn bộ thẻ
-/// đúng những chữ này thay vì cả cấp độ — dùng để ôn đúng tập kanji AI đã
-/// chọn bằng thao tác vuốt thay vì màn chấm điểm SRS cũ.
+/// đúng những chữ này thay vì cả cấp độ, đồng thời chuyển thẻ sang kiểu lật
+/// 2 mặt đơn giản giống hệt flashcard từ vựng (mặt trước: chữ Hán, chạm để
+/// lật xem Hán Việt/On/Kun/nghĩa) thay vì trang đầy đủ nét chữ + mẹo nhớ —
+/// dùng để ôn nhanh đúng tập kanji AI đã chọn bằng thao tác vuốt thay vì
+/// màn chấm điểm SRS cũ. Khi duyệt kanji bình thường (không qua Smart
+/// Review, [filterIds] null) vẫn giữ trang đầy đủ: hoạt hoạ nét chữ
+/// (KanjiVG), Hán Việt, nghĩa, âm On/Kun, mẹo ghi nhớ, ví dụ.
 class KanjiDetailScreen extends ConsumerStatefulWidget {
   const KanjiDetailScreen({super.key, required this.kanjiId, this.filterIds});
 
@@ -173,11 +178,14 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
               progressMap[kanji.id]?.starred ??
               false;
           final total = deck.length;
-          final relatedVocab = [
-            for (final v in vocabList)
-              if (v.word.contains(kanji.character)) v,
-          ].take(5).toList();
-          final hasFamily = !computeKanjiFamily(kanji, all).isEmpty;
+          final simple = filterIds != null;
+          final relatedVocab = simple
+              ? const <Vocabulary>[]
+              : [
+                  for (final v in vocabList)
+                    if (v.word.contains(kanji.character)) v,
+                ].take(5).toList();
+          final hasFamily = !simple && !computeKanjiFamily(kanji, all).isEmpty;
 
           return Padding(
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
@@ -259,6 +267,7 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                       starred: starred,
                       relatedVocab: relatedVocab,
                       hasFamily: hasFamily,
+                      simple: simple,
                       onSwipeRight: () => _markKnown(kanji, controller),
                       onSwipeLeft: () => _markUnknown(kanji, controller),
                       onToggleStar: () =>
@@ -270,12 +279,14 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                 Text(
                   _unknownIds.isNotEmpty
                       ? 'Vuốt phải: đã thuộc · Vuốt trái: chưa thuộc · Chạm badge để xem/ôn ngay'
-                      : 'Vuốt phải: đã thuộc · Vuốt trái: chưa thuộc',
+                      : simple
+                          ? 'Vuốt phải: đã thuộc · Vuốt trái: chưa thuộc · Chạm: xem nghĩa'
+                          : 'Vuốt phải: đã thuộc · Vuốt trái: chưa thuộc',
                   textAlign: TextAlign.center,
                   style:
                       const TextStyle(fontSize: 12, color: AppColors.inkFaint),
                 ),
-                if (kanji.strokeData != null) ...[
+                if (!simple && kanji.strokeData != null) ...[
                   const SizedBox(height: 3),
                   const Text(
                     'Dữ liệu nét chữ theo dự án KanjiVG (CC BY-SA)',
@@ -438,6 +449,7 @@ class _SwipeableKanjiCard extends StatefulWidget {
     required this.starred,
     required this.relatedVocab,
     required this.hasFamily,
+    required this.simple,
     required this.onSwipeRight,
     required this.onSwipeLeft,
     required this.onToggleStar,
@@ -447,6 +459,7 @@ class _SwipeableKanjiCard extends StatefulWidget {
   final bool starred;
   final List<Vocabulary> relatedVocab;
   final bool hasFamily;
+  final bool simple;
   final VoidCallback onSwipeRight;
   final VoidCallback onSwipeLeft;
   final VoidCallback onToggleStar;
@@ -525,12 +538,17 @@ class _SwipeableKanjiCardState extends State<_SwipeableKanjiCard>
             clipBehavior: Clip.none,
             alignment: Alignment.topCenter,
             children: [
-              _KanjiCardContent(
-                kanji: widget.kanji,
-                relatedVocab: widget.relatedVocab,
-                hasFamily: widget.hasFamily,
-                onMarkKnown: widget.onSwipeRight,
-              ),
+              widget.simple
+                  ? FlipCard(
+                      front: _KanjiFront(kanji: widget.kanji),
+                      back: _KanjiBack(kanji: widget.kanji),
+                    )
+                  : _KanjiCardContent(
+                      kanji: widget.kanji,
+                      relatedVocab: widget.relatedVocab,
+                      hasFamily: widget.hasFamily,
+                      onMarkKnown: widget.onSwipeRight,
+                    ),
               if (rightProgress > 0.08)
                 Positioned(
                   top: 22,
@@ -606,6 +624,200 @@ class _StampLabel extends StatelessWidget {
           letterSpacing: 0.5,
         ),
       ),
+    );
+  }
+}
+
+/// Thẻ lật 2 mặt đơn giản cho Smart Review — giống hệt bố cục flashcard từ
+/// vựng (`_CardShell`/`_VocabFront`/`_VocabBack` bên vocabulary_flashcard_
+/// screen.dart): mặt trước chỉ có chữ Hán lớn, chạm để lật xem Hán Việt/
+/// On-Kun/nghĩa ở mặt sau — bỏ nét chữ, mẹo nhớ, ví dụ, nút Quiz để ôn nhanh.
+class _KanjiCardShell extends StatelessWidget {
+  const _KanjiCardShell({required this.child, this.background = AppColors.card});
+
+  final Widget child;
+  final Color background;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(maxWidth: 420),
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: AppColors.border, width: 1.0),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.ink.withValues(alpha: 0.06),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: child,
+    );
+  }
+}
+
+class _KanjiFront extends StatelessWidget {
+  const _KanjiFront({required this.kanji});
+
+  final Kanji kanji;
+
+  @override
+  Widget build(BuildContext context) {
+    return _KanjiCardShell(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            kanji.character,
+            textAlign: TextAlign.center,
+            style: AppFonts.zenMaruGothic(
+              fontSize: 72,
+              fontWeight: FontWeight.w800,
+              color: AppColors.ink,
+            ),
+          ),
+          const SizedBox(height: 28),
+          const Icon(
+            Icons.touch_app_outlined,
+            color: AppColors.inkFaint,
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _KanjiBack extends StatelessWidget {
+  const _KanjiBack({required this.kanji});
+
+  final Kanji kanji;
+
+  @override
+  Widget build(BuildContext context) {
+    return _KanjiCardShell(
+      background: AppColors.indigoSoft,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          if (kanji.hanViet.isNotEmpty)
+            Text(
+              kanji.hanViet.join(' · ').toUpperCase(),
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: AppColors.indigo,
+                letterSpacing: 1,
+              ),
+            ),
+          const SizedBox(height: 10),
+          Text(
+            kanji.meaningVi.join(', '),
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: AppColors.ink,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _KanjiReadingColumn(
+                  label: 'ON',
+                  value: kanji.onyomi.isEmpty ? '—' : kanji.onyomi.join('、'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _KanjiReadingColumn(
+                  label: 'KUN',
+                  value:
+                      kanji.kunyomi.isEmpty ? '—' : kanji.kunyomi.join('、'),
+                ),
+              ),
+            ],
+          ),
+          if (kanji.exampleJp != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    kanji.exampleJp!,
+                    style: AppFonts.zenMaruGothic(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  if (kanji.exampleVi != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      kanji.exampleVi!,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.inkSoft,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _KanjiReadingColumn extends StatelessWidget {
+  const _KanjiReadingColumn({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+            color: AppColors.inkFaint,
+            letterSpacing: 0.5,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          value,
+          textAlign: TextAlign.center,
+          style: AppFonts.zenMaruGothic(
+            fontSize: 15,
+            fontWeight: FontWeight.w800,
+            color: AppColors.ink,
+          ),
+        ),
+      ],
     );
   }
 }
