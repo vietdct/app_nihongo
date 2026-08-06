@@ -42,6 +42,7 @@ class ExamResultScreen extends StatelessWidget {
   static const _sectionLabels = {
     'vocabulary': 'Từ vựng',
     'grammar': 'Ngữ pháp',
+    'kanji': 'Kanji',
     'reading': 'Đọc hiểu',
     'listening': 'Nghe hiểu',
   };

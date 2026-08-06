@@ -11,9 +11,10 @@ import '../../lesson/providers/level_providers.dart';
 /// Test (trùng "Weak Point Mini" đã có trong Mini Test) và AI Mock Exam
 /// (cùng lý do đã bỏ AI Mini Test — AI tự soạn đề không nằm trong phạm vi
 /// sản phẩm); gộp Section Practice vào Custom Test (chọn đúng 1 section +
-/// không giới hạn giờ trong Custom Test = Section Practice cũ). Custom Test
-/// vẫn tạm báo "đang phát triển" khi bấm — exam engine cho chế độ này chưa
-/// build, chỉ mới quyết định giữ nó lại.
+/// không giới hạn giờ trong Custom Test = Section Practice cũ). Custom
+/// Test đã build xong (`custom_test_settings_screen.dart` +
+/// `models/custom_test_blueprint.dart`) — mỗi phần chọn sinh 1
+/// `ExamRunSection` riêng, tái dùng nguyên `ExamRunnerScreen`.
 class JlptExamModeScreen extends ConsumerWidget {
   const JlptExamModeScreen({required this.levelId, super.key});
 
@@ -30,16 +31,6 @@ class JlptExamModeScreen extends ConsumerWidget {
           break;
         }
       }
-    }
-
-    void notifyInDevelopment(String modeName) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '$modeName đang được phát triển, sẽ có ở bản cập nhật tiếp theo.',
-          ),
-        ),
-      );
     }
 
     return Scaffold(
@@ -73,7 +64,8 @@ class JlptExamModeScreen extends ConsumerWidget {
             icon: Icons.tune_outlined,
             title: 'Custom Test',
             subtitle: 'Tự chọn phần và số câu muốn làm — kể cả luyện riêng 1 phần, không giới hạn giờ',
-            onTap: () => notifyInDevelopment('Custom Test'),
+            onTap: () =>
+                context.push('/review/jlpt-exam/$levelId/custom/settings'),
           ),
         ],
       ),

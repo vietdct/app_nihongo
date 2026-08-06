@@ -45,6 +45,7 @@ import '../../features/review/jlpt_exam/exam_result_screen.dart';
 import '../../features/review/jlpt_exam/exam_review_screen.dart';
 import '../../features/review/jlpt_exam/exam_runner_screen.dart';
 import '../../features/review/jlpt_exam/jlpt_exam_level_screen.dart';
+import '../../features/review/jlpt_exam/custom_test_settings_screen.dart';
 import '../../features/review/jlpt_exam/jlpt_exam_mode_screen.dart';
 import '../../features/review/jlpt_exam/mini_test/mini_test_home_screen.dart';
 import '../../features/review/jlpt_exam/mini_test/mini_test_result_screen.dart';
@@ -216,6 +217,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/review/jlpt-exam/:levelId/mini/result',
         builder: (_, state) => MiniTestResultScreen(
           args: state.extra! as MiniTestResultArgs,
+        ),
+      ),
+      GoRoute(
+        path: '/review/jlpt-exam/:levelId/custom/settings',
+        builder: (_, state) => CustomTestSettingsScreen(
+          levelId: state.pathParameters['levelId']!,
         ),
       ),
       GoRoute(
