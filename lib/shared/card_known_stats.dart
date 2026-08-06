@@ -6,10 +6,18 @@ import '../core/theme/app_theme.dart';
 /// từng thẻ đã vuốt qua trong lượt hiện tại — dùng chung cho mọi flashcard
 /// lật 2 mặt (Kanji, Từ vựng...).
 class CardKnownStats extends StatelessWidget {
-  const CardKnownStats({super.key, required this.known, required this.unknown});
+  const CardKnownStats({
+    super.key,
+    required this.known,
+    required this.unknown,
+    this.knownLabel = 'Đã thuộc',
+    this.unknownLabel = 'Chưa thuộc',
+  });
 
   final int known;
   final int unknown;
+  final String knownLabel;
+  final String unknownLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -21,7 +29,7 @@ class CardKnownStats extends StatelessWidget {
             child: _Stat(
               icon: Icons.check_circle_rounded,
               color: AppColors.moss,
-              label: 'Đã thuộc',
+              label: knownLabel,
               value: known,
             ),
           ),
@@ -30,7 +38,7 @@ class CardKnownStats extends StatelessWidget {
             child: _Stat(
               icon: Icons.cancel_rounded,
               color: AppColors.danger,
-              label: 'Chưa thuộc',
+              label: unknownLabel,
               value: unknown,
             ),
           ),

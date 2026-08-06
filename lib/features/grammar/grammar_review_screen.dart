@@ -6,7 +6,11 @@ import '../../core/theme/app_theme.dart';
 import '../../domain/entities/grammar_point.dart';
 import '../../domain/entities/grammar_progress.dart';
 import '../../domain/services/srs_scheduler.dart';
+import '../../shared/card_dot_progress.dart';
+import '../../shared/card_known_stats.dart';
+import '../../shared/card_stamp_label.dart';
 import '../../shared/flip_card.dart';
+import '../../shared/gradient_card_shell.dart';
 import '../lesson/providers/content_providers.dart';
 import '../review/providers/review_mistakes_providers.dart';
 import 'providers/grammar_progress_providers.dart';
@@ -30,6 +34,9 @@ class _GrammarReviewScreenState extends ConsumerState<GrammarReviewScreen> {
   List<GrammarPoint>? _queue;
   int _reviewedCount = 0;
   int _forgotCount = 0;
+  // Vị trí (theo số thứ tự đã ôn) mà lượt chấm đó là "Quên" — dùng tô đỏ
+  // đúng chấm trong CardDotProgress, giống cách vocab đánh dấu wrongIndices.
+  final Set<int> _wrongIndices = {};
 
   Future<void> _grade(
     GrammarPoint grammar,
@@ -58,6 +65,7 @@ class _GrammarReviewScreenState extends ConsumerState<GrammarReviewScreen> {
       if (grade == SrsGrade.forgot) {
         queue.add(grammar);
         _forgotCount++;
+        _wrongIndices.add(_reviewedCount);
       }
       _reviewedCount++;
     });
@@ -111,19 +119,21 @@ class _GrammarReviewScreenState extends ConsumerState<GrammarReviewScreen> {
 
           final grammar = queue.first;
           final current = progress[grammar.id];
+          // Tổng số chấm = số đã ôn + số còn lại trong hàng đợi (kể cả thẻ
+          // vừa bị đẩy lại cuối do "Quên") — nên khi requeue, progress tự
+          // nới thêm 1 chấm thay vì báo sai đã xong.
+          final total = _reviewedCount + queue.length;
 
           return Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
             child: Column(
               children: [
-                Text(
-                  'Còn ${queue.length} mẫu · Đã ôn $_reviewedCount',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.inkSoft,
-                  ),
+                CardDotProgress(
+                  total: total,
+                  index: _reviewedCount,
+                  wrongIndices: _wrongIndices,
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 26),
                 Expanded(
                   child: Center(
                     child: _SwipeableReviewCard(
@@ -136,7 +146,23 @@ class _GrammarReviewScreenState extends ConsumerState<GrammarReviewScreen> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 16),
+                Text(
+                  '${_reviewedCount + 1} / $total',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.inkSoft,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                CardKnownStats(
+                  known: _reviewedCount - _forgotCount,
+                  unknown: _forgotCount,
+                  knownLabel: 'Nhớ',
+                  unknownLabel: 'Quên',
+                ),
+                const SizedBox(height: 10),
                 const Text(
                   'Chạm để xem đáp án · Vuốt phải: Nhớ · Vuốt trái: Quên',
                   textAlign: TextAlign.center,
@@ -243,23 +269,27 @@ class _SwipeableReviewCardState extends State<_SwipeableReviewCard>
               ),
               if (rightProgress > 0.08)
                 Positioned(
-                  top: 22,
-                  left: 22,
+                  top: 24,
+                  left: 24,
                   child: Opacity(
                     opacity: rightProgress,
-                    child:
-                        const _StampLabel(text: 'NHỚ', color: AppColors.moss),
+                    child: const CardStampLabel(
+                      text: 'NHỚ',
+                      color: AppColors.moss,
+                      angle: -0.21,
+                    ),
                   ),
                 ),
               if (leftProgress > 0.08)
                 Positioned(
-                  top: 22,
-                  right: 22,
+                  top: 24,
+                  right: 20,
                   child: Opacity(
                     opacity: leftProgress,
-                    child: const _StampLabel(
+                    child: const CardStampLabel(
                       text: 'QUÊN',
                       color: AppColors.danger,
+                      angle: 0.21,
                     ),
                   ),
                 ),
@@ -271,35 +301,6 @@ class _SwipeableReviewCardState extends State<_SwipeableReviewCard>
   }
 }
 
-class _CardShell extends StatelessWidget {
-  const _CardShell({required this.child, this.background = AppColors.card});
-
-  final Widget child;
-  final Color background;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 420),
-      padding: const EdgeInsets.all(28),
-      decoration: BoxDecoration(
-        color: background,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: AppColors.border, width: 1.0),
-        boxShadow: [
-          BoxShadow(
-            color: AppColors.ink.withValues(alpha: 0.06),
-            blurRadius: 16,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: child,
-    );
-  }
-}
-
 class _CardFront extends StatelessWidget {
   const _CardFront({required this.grammar});
 
@@ -307,22 +308,44 @@ class _CardFront extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _CardShell(
+    return GradientCardShell(
+      gradientColors: const [
+        Color(0xFFFF9C5A),
+        Color(0xFFFF7A45),
+        Color(0xFFD85A93),
+      ],
+      shadowColor: AppColors.accent.withValues(alpha: 0.25),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: AppColors.chip,
+              borderRadius: BorderRadius.circular(100),
+            ),
+            child: const Text(
+              'NGỮ PHÁP',
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: AppColors.inkFaint,
+              ),
+            ),
+          ),
+          const SizedBox(height: 28),
           Text(
             grammar.title,
             textAlign: TextAlign.center,
             style: AppFonts.zenMaruGothic(
-              fontSize: 26,
+              fontSize: 34,
               fontWeight: FontWeight.w800,
               color: AppColors.ink,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 28),
           const Icon(
-            Icons.touch_app_rounded,
+            Icons.touch_app_outlined,
             color: AppColors.inkFaint,
             size: 20,
           ),
@@ -339,66 +362,62 @@ class _CardBack extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _CardShell(
-      background: AppColors.plumSoft,
+    return GradientCardShell(
+      gradientColors: const [
+        Color(0xFF3FB35B),
+        Color(0xFF2D9A47),
+        Color(0xFF1E8038),
+      ],
+      shadowColor: AppColors.moss.withValues(alpha: 0.25),
+      innerBackground: const Color(0xFFEEFBF0),
       child: Column(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           Text(
             grammar.explanation,
             textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14.5, color: AppColors.ink),
+            style: const TextStyle(
+              fontSize: 19,
+              fontWeight: FontWeight.w800,
+              color: AppColors.ink,
+            ),
           ),
           if (grammar.exampleJp != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              grammar.exampleJp!,
-              textAlign: TextAlign.center,
-              style: AppFonts.zenMaruGothic(
-                fontSize: 15.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.plum,
+            const SizedBox(height: 14),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    grammar.exampleJp!,
+                    style: AppFonts.zenMaruGothic(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.ink,
+                    ),
+                  ),
+                  if (grammar.exampleVi != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      grammar.exampleVi!,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.inkSoft,
+                      ),
+                    ),
+                  ],
+                ],
               ),
             ),
-            if (grammar.exampleVi != null) ...[
-              const SizedBox(height: 4),
-              Text(
-                grammar.exampleVi!,
-                textAlign: TextAlign.center,
-                style:
-                    const TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
-              ),
-            ],
           ],
         ],
-      ),
-    );
-  }
-}
-
-class _StampLabel extends StatelessWidget {
-  const _StampLabel({required this.text, required this.color});
-
-  final String text;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        border: Border.all(color: color, width: 2.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        text,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w900,
-          fontSize: 15,
-          letterSpacing: 0.5,
-        ),
       ),
     );
   }
