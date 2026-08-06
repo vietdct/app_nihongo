@@ -34,6 +34,16 @@ import '../../features/lesson/lesson_runner_screen.dart';
 import '../../features/lesson/providers/level_providers.dart';
 import '../../features/premium/premium_screen.dart';
 import '../../features/quiz/providers/quiz_providers.dart';
+import '../../features/review/jlpt_exam/exam_result_screen.dart';
+import '../../features/review/jlpt_exam/exam_review_screen.dart';
+import '../../features/review/jlpt_exam/exam_runner_screen.dart';
+import '../../features/review/jlpt_exam/jlpt_exam_level_screen.dart';
+import '../../features/review/jlpt_exam/jlpt_exam_mode_screen.dart';
+import '../../features/review/jlpt_exam/mini_test/mini_test_home_screen.dart';
+import '../../features/review/jlpt_exam/mini_test/mini_test_result_screen.dart';
+import '../../features/review/jlpt_exam/models/exam_review_answer.dart';
+import '../../features/review/jlpt_exam/providers/jlpt_exam_content_providers.dart'
+    show ExamRunSection;
 import '../../features/review/review_coach_screen.dart';
 import '../../features/review/review_mistakes_screen.dart';
 import '../../features/review/review_mixed_quiz_custom_screen.dart';
@@ -183,6 +193,50 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/review/statistics',
         builder: (_, __) => const ReviewStatisticsScreen(),
+      ),
+      GoRoute(
+        path: '/review/jlpt-exam',
+        builder: (_, __) => const JlptExamLevelScreen(),
+      ),
+      GoRoute(
+        path: '/review/jlpt-exam/:levelId/mode',
+        builder: (_, state) => JlptExamModeScreen(
+          levelId: state.pathParameters['levelId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/review/jlpt-exam/:levelId/mini',
+        builder: (_, state) => MiniTestHomeScreen(
+          levelId: state.pathParameters['levelId']!,
+        ),
+      ),
+      GoRoute(
+        path: '/review/jlpt-exam/:levelId/mini/result',
+        builder: (_, state) => MiniTestResultScreen(
+          args: state.extra! as MiniTestResultArgs,
+        ),
+      ),
+      GoRoute(
+        path: '/review/jlpt-exam/:levelId/session/:mode',
+        builder: (_, state) => ExamRunnerScreen(
+          levelId: state.pathParameters['levelId']!,
+          mode: state.pathParameters['mode']!,
+          // Full Exam không truyền extra (null) — Mini Test truyền sẵn đề đã
+          // sinh (docs/JLPT_MINI_TEST_DESIGN.md §7), xem ExamRunnerScreen.overrideSections.
+          overrideSections: state.extra as List<ExamRunSection>?,
+        ),
+      ),
+      GoRoute(
+        path: '/review/jlpt-exam/result',
+        builder: (_, state) => ExamResultScreen(
+          args: state.extra! as ExamResultArgs,
+        ),
+      ),
+      GoRoute(
+        path: '/review/jlpt-exam/result/review',
+        builder: (_, state) => ExamReviewScreen(
+          sections: state.extra! as List<ExamReviewSection>,
+        ),
       ),
       GoRoute(
         path: '/review/mixed-quiz',

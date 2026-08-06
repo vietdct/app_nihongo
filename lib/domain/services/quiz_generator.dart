@@ -18,6 +18,8 @@ class QuizQuestion {
     this.sourceType,
     this.readingFurigana,
     this.dialogueTurns,
+    this.readingPassageTitle,
+    this.readingPassageBodyJa,
     this.displayIsJapanese = true,
     this.typedAnswerMode,
     this.typedAcceptedAnswers = const [],
@@ -55,6 +57,13 @@ class QuizQuestion {
   /// — khi có giá trị, `QuizScreen` đọc TTS lần lượt từng lượt thoại (đổi
   /// giọng theo speaker) thay vì đọc nguyên [displayJp] 1 lần.
   final List<ListeningTurn>? dialogueTurns;
+
+  /// Chỉ có ở câu hỏi Đọc hiểu (xem `ReadingQuestionGenerator`) — khi khác
+  /// null, UI hiện khung đoạn văn [readingPassageBodyJa] cố định phía trên
+  /// câu hỏi thay vì khung [displayJp] thường. Nhiều câu hỏi liên tiếp có
+  /// thể cùng 1 đoạn văn (1 passage — nhiều câu).
+  final String? readingPassageTitle;
+  final String? readingPassageBodyJa;
 
   /// null: câu hỏi trắc nghiệm bình thường (chọn giữa [options]). Khác null:
   /// câu hỏi gõ đáp án (Typing/Translation, xem [QuizGenerator.generateTyping]/

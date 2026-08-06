@@ -8,6 +8,8 @@ import '../grammar/providers/grammar_progress_providers.dart';
 import '../home/providers/profile_providers.dart';
 import '../kanji/providers/kanji_progress_providers.dart';
 import '../vocabulary/providers/vocab_progress_providers.dart';
+import 'jlpt_exam/mini_test/models/mini_test_variant.dart';
+import 'jlpt_exam/providers/jlpt_exam_session_providers.dart';
 import 'providers/review_mistakes_providers.dart';
 
 const _hiddenAxis = AxisTitles(sideTitles: SideTitles(showTitles: false));
@@ -28,6 +30,7 @@ class ReviewStatisticsScreen extends ConsumerWidget {
     final grammarAsync = ref.watch(grammarProgressProvider);
     final mistakesAsync = ref.watch(reviewMistakesProvider);
     final profile = ref.watch(profileProvider).valueOrNull;
+    final miniTestStats = ref.watch(miniTestStatsProvider).valueOrNull;
 
     final loading = vocabAsync.isLoading ||
         kanjiAsync.isLoading ||
@@ -117,6 +120,15 @@ class ReviewStatisticsScreen extends ConsumerWidget {
             const _EmptyChartCard(text: 'Chưa có lỗi nào được ghi nhận.')
           else
             _MistakesByDayChart(mistakes: mistakes),
+          const SizedBox(height: 24),
+          const _SectionLabel('Mini Test JLPT'),
+          const SizedBox(height: 10),
+          if (miniTestStats == null || miniTestStats.totalCount == 0)
+            const _EmptyChartCard(
+              text: 'Làm thử 1 Mini Test JLPT để thấy số liệu ở đây.',
+            )
+          else
+            _MiniTestStatsCard(stats: miniTestStats),
         ],
       ),
     );
@@ -194,6 +206,107 @@ class _StatCard extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Lát cắt Mini Test trong Thống kê ôn tập (docs/JLPT_MINI_TEST_DESIGN.md
+/// §10, Task 10) — tile số liệu cơ bản (MVP), KHÔNG làm Heatmap Calendar
+/// (mở rộng, phụ thuộc gap `fl_chart` đã ghi ở §10/§21). Streak dùng chung
+/// `profiles.streak_count` đã hiện ở đầu màn, không lặp lại ở đây.
+class _MiniTestStatsCard extends StatelessWidget {
+  const _MiniTestStatsCard({required this.stats});
+
+  final MiniTestStats stats;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: _MiniStatTile(label: 'Tổng lượt', value: '${stats.totalCount}'),
+              ),
+              Expanded(
+                child: _MiniStatTile(label: 'Tuần này', value: '${stats.weeklyCount}'),
+              ),
+              Expanded(
+                child: _MiniStatTile(
+                  label: 'Trung bình',
+                  value: '${(stats.avgAccuracy * 100).round()}%',
+                ),
+              ),
+              Expanded(
+                child: _MiniStatTile(
+                  label: 'Tốt nhất',
+                  value: '${(stats.bestAccuracy * 100).round()}%',
+                ),
+              ),
+            ],
+          ),
+          if (stats.byVariant.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            const Divider(height: 1, color: AppColors.border),
+            const SizedBox(height: 10),
+            for (final variant in MiniTestVariant.values)
+              if (stats.byVariant[variant.name] case final v?)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          variant.label,
+                          style: const TextStyle(fontSize: 12.5, color: AppColors.ink),
+                        ),
+                      ),
+                      Text(
+                        '${v.count} lượt · TB ${(v.avgAccuracy * 100).round()}%',
+                        style: const TextStyle(fontSize: 11.5, color: AppColors.inkSoft),
+                      ),
+                    ],
+                  ),
+                ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniStatTile extends StatelessWidget {
+  const _MiniStatTile({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.w800,
+            color: AppColors.accentStrong,
+          ),
+        ),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10.5, color: AppColors.inkFaint),
+        ),
+      ],
     );
   }
 }
