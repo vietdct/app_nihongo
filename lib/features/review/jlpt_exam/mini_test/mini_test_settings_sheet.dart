@@ -20,7 +20,7 @@ class MiniTestSettings {
   final MiniTestTimerMode timerMode;
 }
 
-/// Bottom sheet cấu hình dùng chung Daily/Weak Point/AI Mini Test — Quick 5
+/// Bottom sheet cấu hình dùng chung Daily/Weak Point Mini Test — Quick 5
 /// bỏ qua bước này (docs §4). KHÔNG có bộ chọn "Độ khó" như mock gốc:
 /// `quiz_generator.dart` chưa có cơ chế lọc câu hỏi theo độ khó/Adaptive nào
 /// (đã kiểm tra codebase, không có rule tương đương REVIEW_DESIGN.md §4 nào

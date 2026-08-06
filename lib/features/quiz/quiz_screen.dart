@@ -201,6 +201,15 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
     // giữa màn — không đọc bằng giọng tiếng Nhật vì sẽ phát âm sai hoàn
     // toàn, không phải im lặng do lỗi.
     if (turns == null && !question.displayIsJapanese) return;
+    // Câu Nghe hiểu tự phát (auto, không phải bấm nút "Nghe lại" thủ công):
+    // đợi 3s trước khi phát để người làm kịp đọc câu hỏi/đáp án, giống hành
+    // vi thi thật — không áp dụng cho câu thường (đọc 1 từ/câu ngắn) vì sẽ
+    // làm chậm nhịp làm bài không cần thiết.
+    if (auto && turns != null && turns.isNotEmpty) {
+      final startIndex = _index;
+      await Future<void>.delayed(const Duration(seconds: 3));
+      if (!mounted || _isDone || _index != startIndex) return;
+    }
     await applyIosTtsPlaybackCategory(_tts);
     await _tts.stop();
     if (turns == null || turns.isEmpty) {

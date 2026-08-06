@@ -616,8 +616,15 @@ class _ExamBodyState extends ConsumerState<_ExamBody> {
       _speakGeneration++;
       unawaited(_tts.stop());
       if (question.dialogueTurns != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) unawaited(_speakListening(question));
+        // Đợi 3s trước khi tự phát để người làm kịp đọc đề/đáp án trước khi
+        // nghe, giống hành vi thi thật. Chốt token TRƯỚC khi addPostFrameCallback
+        // (không phải trong callback) để không đợi "trượt" theo build khác.
+        final generation = _speakGeneration;
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          await Future<void>.delayed(const Duration(seconds: 3));
+          if (mounted && generation == _speakGeneration) {
+            unawaited(_speakListening(question));
+          }
         });
       }
     }
@@ -894,6 +901,7 @@ class _ExamHeader extends StatelessWidget {
               ),
               IconButton(
                 onPressed: onToggleBookmark,
+                tooltip: bookmarked ? 'Bỏ đánh dấu' : 'Đánh dấu câu này',
                 icon: Icon(
                   bookmarked ? Icons.bookmark : Icons.bookmark_outline,
                   color:
@@ -902,6 +910,7 @@ class _ExamHeader extends StatelessWidget {
               ),
               IconButton(
                 onPressed: onToggleFlag,
+                tooltip: flagged ? 'Bỏ gắn cờ' : 'Gắn cờ để xem lại',
                 icon: Icon(
                   flagged ? Icons.flag : Icons.outlined_flag,
                   color: flagged ? AppColors.danger : AppColors.inkFaint,

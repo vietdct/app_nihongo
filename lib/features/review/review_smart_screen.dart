@@ -11,11 +11,14 @@ import '../vocabulary/providers/vocab_review_providers.dart' show isSmartPick;
 /// Smart Review — khác Today's Review (chỉ "đến hạn theo lịch"): gộp thêm
 /// mục đang yếu (`easeFactor` thấp) dù chưa tới hạn, để AI "chọn thay bạn"
 /// đúng như `docs/REVIEW_DESIGN.md` §14. Không tạo session runner đa nguồn
-/// mới. Từ vựng/Kanji dẫn tới đúng bộ thẻ vuốt (`VocabularyFlashcardScreen`/
-/// `KanjiDetailScreen`) giới hạn đúng tập ID đã chọn — không dùng màn chấm
-/// điểm SRS cũ (`/vocabulary/review`, `/kanji/review`) nữa (theo yêu cầu
-/// người dùng). Ngữ pháp giữ nguyên `/grammar/review` vì không nằm trong
-/// phạm vi yêu cầu đó.
+/// mới. Kanji dẫn tới đúng bộ thẻ vuốt (`KanjiDetailScreen`) giới hạn đúng
+/// tập ID đã chọn — không dùng màn chấm điểm SRS cũ (`/kanji/review`) nữa
+/// (theo yêu cầu người dùng). Ngữ pháp giữ nguyên `/grammar/review` vì
+/// không nằm trong phạm vi yêu cầu đó. Từ vựng (2026-08-06): không tự tính
+/// `filterIds` nữa — `VocabularyFlashcardScreen` giờ tự tính tập AI gợi ý
+/// bằng cùng `isSmartPick`, ở đây chỉ đếm để hiện số + báo màn mở sẵn ở chế
+/// độ AI gợi ý (`extra: true`), gộp chung với "Flashcard Từ vựng" cũ (đã bỏ
+/// khỏi `review_screen.dart` vì trùng đích đến).
 class ReviewSmartScreen extends ConsumerWidget {
   const ReviewSmartScreen({super.key});
 
@@ -28,15 +31,9 @@ class ReviewSmartScreen extends ConsumerWidget {
     final grammarProgress =
         ref.watch(grammarProgressProvider).valueOrNull ?? const {};
 
-    final smartVocabIds = {
-      for (final e in vocabProgress.entries)
-        if (isSmartPick(
-          e.value.reviewCount,
-          e.value.easeFactor,
-          e.value.isDueNow,
-        ))
-          e.key,
-    };
+    final smartVocab = vocabProgress.values
+        .where((p) => isSmartPick(p.reviewCount, p.easeFactor, p.isDueNow))
+        .length;
     final smartKanjiIds = {
       for (final e in kanjiProgress.entries)
         if (isSmartPick(
@@ -46,7 +43,6 @@ class ReviewSmartScreen extends ConsumerWidget {
         ))
           e.key,
     };
-    final smartVocab = smartVocabIds.length;
     final smartKanji = smartKanjiIds.length;
     final smartGrammar = grammarProgress.values
         .where((p) => isSmartPick(p.reviewCount, p.easeFactor, p.isDueNow))
@@ -75,7 +71,7 @@ class ReviewSmartScreen extends ConsumerWidget {
                     count: smartVocab,
                     onTap: () => context.push(
                       '/vocabulary/flashcards',
-                      extra: smartVocabIds,
+                      extra: true,
                     ),
                   ),
                 if (smartVocab > 0) const SizedBox(height: 10),

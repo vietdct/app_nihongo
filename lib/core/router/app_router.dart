@@ -44,7 +44,6 @@ import '../../features/review/jlpt_exam/mini_test/mini_test_result_screen.dart';
 import '../../features/review/jlpt_exam/models/exam_review_answer.dart';
 import '../../features/review/jlpt_exam/providers/jlpt_exam_content_providers.dart'
     show ExamRunSection;
-import '../../features/review/review_coach_screen.dart';
 import '../../features/review/review_mistakes_screen.dart';
 import '../../features/review/review_mixed_quiz_custom_screen.dart';
 import '../../features/review/review_mixed_quiz_screen.dart';
@@ -187,10 +186,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const ReviewSmartScreen(),
       ),
       GoRoute(
-        path: '/review/coach',
-        builder: (_, __) => const ReviewCoachScreen(),
-      ),
-      GoRoute(
         path: '/review/statistics',
         builder: (_, __) => const ReviewStatisticsScreen(),
       ),
@@ -306,7 +301,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/vocabulary/flashcards',
         builder: (context, state) => VocabularyFlashcardScreen(
-          filterIds: state.extra as Set<String>?,
+          startSmart: state.extra == true,
         ),
       ),
       GoRoute(

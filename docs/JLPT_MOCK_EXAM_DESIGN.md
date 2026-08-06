@@ -298,3 +298,21 @@ Không cần đổi kiến trúc `ReviewScreen`, chỉ thêm 2 `_ReviewRow` mớ
 - [x] Tích hợp đề xuất IA Review tổng (Addendum A) và đánh giá AI Challenge Mode (Addendum B) theo đúng thứ tự phụ thuộc thực tế, không hứa hẹn quá phạm vi.
 - [ ] Chưa triển khai source code — đúng phạm vi giai đoạn hiện tại.
 - Bước tiếp theo: người dùng trả lời §20, đặc biệt câu 1–4 (thời gian/thang điểm/nguồn Reading/audio Listening thật) vì đây là 4 điểm chặn triển khai lớn nhất, sau đó mở task implementation riêng ưu tiên Vocab/Grammar/Listening section (tái dùng nhiều nhất, rủi ro thấp nhất).
+
+## Cập nhật 2026-08-06 — rút từ 6 xuống 3 Exam Mode
+
+Tại thời điểm này chỉ Full Exam và Mini Test có code thật; Section Practice,
+Custom Test, Weak Point Test, AI Mock Exam vẫn là stub "đang phát triển"
+(xem `jlpt_exam_mode_screen.dart`). Theo yêu cầu người dùng, rút màn "Chọn
+chế độ thi" từ 6 xuống còn 3:
+
+- **Bỏ hẳn** Weak Point Test — trùng mục đích với "Weak Point Mini" đã có
+  sẵn trong Mini Test (§ Mini Test đã triển khai, xem
+  `docs/JLPT_MINI_TEST_DESIGN.md`).
+- **Bỏ hẳn** AI Mock Exam — cùng lý do đã bỏ AI Mini Test khỏi Mini Test
+  (2026-08-06): AI tự soạn đề không nằm trong phạm vi sản phẩm.
+- **Gộp** Section Practice vào Custom Test — chọn đúng 1 section + không
+  giới hạn giờ trong Custom Test cho kết quả tương đương Section Practice.
+
+§3, §19 ở trên giữ nguyên làm lịch sử đặc tả gốc, không xoá — 3 chế độ còn
+lại (Full Exam/Mini Test/Custom Test) là phạm vi thật hiện tại.

@@ -5,10 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../lesson/providers/level_providers.dart';
 
-/// Bước 2 của "Thi thử JLPT": chọn 1 trong 6 chế độ thi (docs/JLPT_MOCK_EXAM_DESIGN.md §3).
-/// Giai đoạn này (task "route + màn chọn Level/Mode") chỉ dựng khung điều
-/// hướng — exam engine thật (sinh đề, chấm điểm) làm ở các task tiếp theo,
-/// nên mỗi chế độ tạm báo "đang phát triển" khi bấm, thay vì dẫn tới màn hỏng.
+/// Bước 2 của "Thi thử JLPT": chọn 1 trong 3 chế độ thi (docs/JLPT_MOCK_EXAM_DESIGN.md §3).
+/// Rút từ 6 xuống 3 (2026-08-06, theo yêu cầu người dùng — 4 chế độ còn lại
+/// chưa từng có code thật, chỉ toast "đang phát triển"): bỏ hẳn Weak Point
+/// Test (trùng "Weak Point Mini" đã có trong Mini Test) và AI Mock Exam
+/// (cùng lý do đã bỏ AI Mini Test — AI tự soạn đề không nằm trong phạm vi
+/// sản phẩm); gộp Section Practice vào Custom Test (chọn đúng 1 section +
+/// không giới hạn giờ trong Custom Test = Section Practice cũ). Custom Test
+/// vẫn tạm báo "đang phát triển" khi bấm — exam engine cho chế độ này chưa
+/// build, chỉ mới quyết định giữ nó lại.
 class JlptExamModeScreen extends ConsumerWidget {
   const JlptExamModeScreen({required this.levelId, super.key});
 
@@ -60,36 +65,15 @@ class JlptExamModeScreen extends ConsumerWidget {
           _ModeCard(
             icon: Icons.timer_outlined,
             title: 'Mini Test',
-            subtitle: 'Luyện nhanh vài phút — Quick 5/Daily/Weak Point/AI',
+            subtitle: 'Luyện nhanh vài phút — Quick 5/Daily/Weak Point',
             onTap: () => context.push('/review/jlpt-exam/$levelId/mini'),
-          ),
-          const SizedBox(height: 10),
-          _ModeCard(
-            icon: Icons.view_agenda_outlined,
-            title: 'Section Practice',
-            subtitle: 'Luyện riêng từng phần, không giới hạn giờ',
-            onTap: () => notifyInDevelopment('Section Practice'),
           ),
           const SizedBox(height: 10),
           _ModeCard(
             icon: Icons.tune_outlined,
             title: 'Custom Test',
-            subtitle: 'Tự chọn phần và số câu muốn làm',
+            subtitle: 'Tự chọn phần và số câu muốn làm — kể cả luyện riêng 1 phần, không giới hạn giờ',
             onTap: () => notifyInDevelopment('Custom Test'),
-          ),
-          const SizedBox(height: 10),
-          _ModeCard(
-            icon: Icons.trending_down_outlined,
-            title: 'Weak Point Test',
-            subtitle: 'Ưu tiên câu thuộc điểm yếu của bạn',
-            onTap: () => notifyInDevelopment('Weak Point Test'),
-          ),
-          const SizedBox(height: 10),
-          _ModeCard(
-            icon: Icons.auto_awesome_outlined,
-            title: 'AI Mock Exam',
-            subtitle: 'AI soạn đề riêng theo lỗi bạn hay gặp',
-            onTap: () => notifyInDevelopment('AI Mock Exam'),
           ),
         ],
       ),

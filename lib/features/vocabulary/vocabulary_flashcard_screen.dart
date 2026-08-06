@@ -12,18 +12,22 @@ import '../../shared/gradient_card_shell.dart';
 import '../home/providers/mission_providers.dart';
 import '../lesson/providers/content_providers.dart';
 import 'providers/vocab_progress_providers.dart';
+import 'providers/vocab_review_providers.dart' show isSmartPick;
 
 /// Flashcard từ vựng — vuốt phải để đánh dấu đã thuộc, vuốt trái để đánh
 /// dấu chưa thuộc (gom vào danh sách ôn lại cuối phiên). Chạm vào thẻ để
 /// lật xem nghĩa; chạm ngôi sao góc trên để lưu từ xem lại sau.
 ///
-/// [filterIds] khi được truyền (vd. từ Smart Review) chỉ giới hạn bộ thẻ
-/// đúng những từ này thay vì cả cấp độ — dùng để ôn đúng tập từ AI đã chọn
-/// bằng thao tác vuốt thay vì màn chấm điểm SRS cũ.
+/// Gộp từ Smart Review (2026-08-06) — trước đây "Flashcard Từ vựng" (xem
+/// toàn bộ) và Smart Review → Từ vựng (chỉ mục AI chọn) là 2 điểm vào riêng
+/// dẫn tới cùng màn này, chỉ khác bộ lọc, gây trùng lặp trong tab Ôn tập.
+/// Nay gộp thành 1 màn có toggle AI gợi ý/Tất cả — tự tính tập AI gợi ý
+/// bằng [isSmartPick] thay vì nhận `filterIds` cố định từ nơi gọi.
+/// [startSmart] chỉ quyết định toggle nào được chọn sẵn khi mở màn.
 class VocabularyFlashcardScreen extends ConsumerStatefulWidget {
-  const VocabularyFlashcardScreen({super.key, this.filterIds});
+  const VocabularyFlashcardScreen({super.key, this.startSmart = false});
 
-  final Set<String>? filterIds;
+  final bool startSmart;
 
   @override
   ConsumerState<VocabularyFlashcardScreen> createState() =>
@@ -38,6 +42,19 @@ class _VocabularyFlashcardScreenState
   bool _reviewRound = false;
   final Set<String> _unknownIds = {};
   final Map<String, bool> _starredOverride = {};
+  late bool _smartOnly = widget.startSmart;
+
+  void _setSmartOnly(bool smart) {
+    if (_smartOnly == smart) return;
+    setState(() {
+      _smartOnly = smart;
+      _fullDeck = null;
+      _deck = null;
+      _index = 0;
+      _unknownIds.clear();
+      _reviewRound = false;
+    });
+  }
 
   Future<void> _markKnown(
     Vocabulary v,
@@ -132,30 +149,66 @@ class _VocabularyFlashcardScreenState
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Lỗi: $e')),
         data: (all) {
-          final filterIds = widget.filterIds;
-          final source = filterIds == null
-              ? all
-              : all.where((v) => filterIds.contains(v.id)).toList();
-
-          if (source.isEmpty) {
-            return Center(
+          if (all.isEmpty) {
+            return const Center(
               child: Padding(
-                padding: const EdgeInsets.all(24),
+                padding: EdgeInsets.all(24),
                 child: Text(
-                  filterIds == null
-                      ? 'Chưa có từ vựng nào cho cấp độ này.'
-                      : 'Không tìm thấy từ nào cần ôn.',
+                  'Chưa có từ vựng nào cho cấp độ này.',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.inkSoft),
+                  style: TextStyle(color: AppColors.inkSoft),
                 ),
               ),
+            );
+          }
+
+          final progressMap = progressAsync.valueOrNull ?? const {};
+          final smartIds = {
+            for (final e in progressMap.entries)
+              if (isSmartPick(
+                e.value.reviewCount,
+                e.value.easeFactor,
+                e.value.isDueNow,
+              ))
+                e.key,
+          };
+          final source = _smartOnly
+              ? all.where((v) => smartIds.contains(v.id)).toList()
+              : all;
+
+          final modeToggle = _SmartModeToggle(
+            smartOnly: _smartOnly,
+            smartCount: smartIds.length,
+            allCount: all.length,
+            onChanged: _setSmartOnly,
+          );
+
+          if (source.isEmpty) {
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                  child: modeToggle,
+                ),
+                const Expanded(
+                  child: Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text(
+                        'Không có từ nào cần ôn theo AI gợi ý lúc này.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: AppColors.inkSoft),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             );
           }
 
           _fullDeck ??= source;
           _deck ??= List.of(source);
           final deck = _deck!;
-          final progressMap = progressAsync.valueOrNull ?? const {};
 
           if (_index >= deck.length) {
             return _SummaryPanel(
@@ -180,6 +233,8 @@ class _VocabularyFlashcardScreenState
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
             child: Column(
               children: [
+                modeToggle,
+                const SizedBox(height: 10),
                 Row(
                   children: [
                     IconButton(
@@ -276,6 +331,93 @@ class _VocabularyFlashcardScreenState
             ),
           );
         },
+      ),
+    );
+  }
+}
+
+/// Toggle AI gợi ý/Tất cả — thay cho 2 điểm vào riêng biệt trước đây
+/// ("Flashcard Từ vựng" và Smart Review → Từ vựng, xem ghi chú ở
+/// [VocabularyFlashcardScreen]). "AI gợi ý" vô hiệu khi [smartCount] == 0
+/// vì không có gì để lọc.
+class _SmartModeToggle extends StatelessWidget {
+  const _SmartModeToggle({
+    required this.smartOnly,
+    required this.smartCount,
+    required this.allCount,
+    required this.onChanged,
+  });
+
+  final bool smartOnly;
+  final int smartCount;
+  final int allCount;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: _ModeChip(
+            label: '🤖 AI gợi ý ($smartCount)',
+            selected: smartOnly,
+            enabled: smartCount > 0,
+            onTap: () => onChanged(true),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _ModeChip(
+            label: 'Tất cả ($allCount)',
+            selected: !smartOnly,
+            enabled: true,
+            onTap: () => onChanged(false),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _ModeChip extends StatelessWidget {
+  const _ModeChip({
+    required this.label,
+    required this.selected,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Opacity(
+      opacity: enabled ? 1 : 0.45,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(100),
+        onTap: enabled ? onTap : null,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? AppColors.accentSoft : AppColors.chip,
+            borderRadius: BorderRadius.circular(100),
+            border: selected
+                ? Border.all(color: AppColors.accent, width: 1.2)
+                : null,
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: selected ? AppColors.accentStrong : AppColors.inkSoft,
+            ),
+          ),
+        ),
       ),
     );
   }

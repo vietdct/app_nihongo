@@ -5,14 +5,15 @@ import 'package:go_router/go_router.dart';
 import '../../core/theme/app_theme.dart';
 import '../grammar/providers/grammar_progress_providers.dart';
 import '../home/providers/profile_providers.dart';
-import '../kaiwa/providers/kaiwa_conversation_providers.dart';
 import '../kanji/providers/kanji_progress_providers.dart';
 import '../vocabulary/providers/vocab_progress_providers.dart';
 
 /// Tab "Ôn tập" — điểm vào ôn lại nội dung đã học, theo mockup "Nihongo App
 /// Redesign" nhưng phụ đề luôn lấy số liệu thật (số từ/kanji đã thuộc, số
-/// mẫu ngữ pháp đã đánh dấu sao, số buổi Kaiwa đã hội thoại), không bịa như
-/// nội dung tĩnh trong mockup gốc.
+/// mẫu ngữ pháp đã đánh dấu sao), không bịa như nội dung tĩnh trong mockup
+/// gốc. Không có dòng "AI Kaiwa" — trùng đích đến với tab Kaiwa ở footer
+/// (cùng `/kaiwa` → `KaiwaHomeScreen`), đã bỏ theo yêu cầu người dùng
+/// (2026-08-06) để đỡ trùng lặp.
 class ReviewScreen extends ConsumerWidget {
   const ReviewScreen({super.key});
 
@@ -24,12 +25,8 @@ class ReviewScreen extends ConsumerWidget {
         ref.watch(kanjiProgressProvider).valueOrNull ?? const {};
     final grammarProgress =
         ref.watch(grammarProgressProvider).valueOrNull ?? const {};
-    final kaiwaConversations =
-        ref.watch(kaiwaConversationsProvider).valueOrNull ?? const [];
     final profile = ref.watch(profileProvider).valueOrNull;
 
-    final knownVocab =
-        vocabProgress.values.where((p) => p.isKnown == true).length;
     final knownKanji =
         kanjiProgress.values.where((p) => p.isKnown == true).length;
     final starredGrammar =
@@ -87,17 +84,6 @@ class ReviewScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
           _ReviewRow(
-            icon: Icons.style_outlined,
-            iconBg: AppColors.mossSoft,
-            iconColor: AppColors.moss,
-            title: 'Flashcard Từ vựng',
-            subtitle: dueVocab > 0
-                ? '$dueVocab thẻ đến hạn ôn · $knownVocab từ đã thuộc'
-                : '$knownVocab từ đã thuộc · Lật thẻ ôn lại',
-            onTap: () => context.push('/vocabulary/flashcards'),
-          ),
-          const SizedBox(height: 10),
-          _ReviewRow(
             icon: Icons.brush_outlined,
             iconBg: AppColors.indigoSoft,
             iconColor: AppColors.indigo,
@@ -120,15 +106,6 @@ class ReviewScreen extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
           _ReviewRow(
-            icon: Icons.forum_outlined,
-            iconBg: AppColors.tealSoft,
-            iconColor: AppColors.teal,
-            title: 'AI Kaiwa',
-            subtitle: '${kaiwaConversations.length} buổi hội thoại đã lưu',
-            onTap: () => context.push('/kaiwa'),
-          ),
-          const SizedBox(height: 10),
-          _ReviewRow(
             icon: Icons.trending_down_outlined,
             iconBg: AppColors.chip,
             iconColor: AppColors.accentStrong,
@@ -144,15 +121,6 @@ class ReviewScreen extends ConsumerWidget {
             title: 'Sổ tay lỗi',
             subtitle: 'Xem lại các lỗi đã ghi nhận',
             onTap: () => context.push('/review/mistakes'),
-          ),
-          const SizedBox(height: 10),
-          _ReviewRow(
-            icon: Icons.psychology_alt_outlined,
-            iconBg: AppColors.accentSoft,
-            iconColor: AppColors.accentStrong,
-            title: 'AI Review Coach',
-            subtitle: 'Hỏi AI vì sao bạn hay sai, xin ví dụ hoặc quiz',
-            onTap: () => context.push('/review/coach'),
           ),
           const SizedBox(height: 10),
           _ReviewRow(
