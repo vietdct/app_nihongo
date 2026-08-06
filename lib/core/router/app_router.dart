@@ -33,6 +33,13 @@ import '../../features/lesson/lesson_list_screen.dart';
 import '../../features/lesson/lesson_runner_screen.dart';
 import '../../features/lesson/providers/level_providers.dart';
 import '../../features/premium/premium_screen.dart';
+import '../../features/profile/pages/account_screen.dart';
+import '../../features/profile/pages/achievements_screen.dart';
+import '../../features/profile/pages/ai_insights_screen.dart';
+import '../../features/profile/pages/bookmarks_screen.dart';
+import '../../features/profile/pages/edit_profile_screen.dart';
+import '../../features/profile/pages/history_screen.dart';
+import '../../features/profile/pages/learning_overview_screen.dart';
 import '../../features/quiz/providers/quiz_providers.dart';
 import '../../features/review/jlpt_exam/exam_result_screen.dart';
 import '../../features/review/jlpt_exam/exam_review_screen.dart';
@@ -443,6 +450,34 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const KaiwaStatisticsScreen(),
       ),
       GoRoute(path: '/premium', builder: (_, __) => const PremiumScreen()),
+      GoRoute(
+        path: '/profile/edit',
+        builder: (_, __) => const EditProfileScreen(),
+      ),
+      GoRoute(
+        path: '/profile/learning',
+        builder: (_, __) => const LearningOverviewScreen(),
+      ),
+      GoRoute(
+        path: '/profile/bookmarks',
+        builder: (_, __) => const BookmarksScreen(),
+      ),
+      GoRoute(
+        path: '/profile/history',
+        builder: (_, __) => const HistoryScreen(),
+      ),
+      GoRoute(
+        path: '/profile/achievements',
+        builder: (_, __) => const AchievementsScreen(),
+      ),
+      GoRoute(
+        path: '/profile/ai-insights',
+        builder: (_, __) => const AiInsightsScreen(),
+      ),
+      GoRoute(
+        path: '/profile/account',
+        builder: (_, __) => const AccountScreen(),
+      ),
     ],
   );
 });

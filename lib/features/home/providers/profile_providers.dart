@@ -13,7 +13,7 @@ final profileProvider = FutureProvider<Profile?>((ref) async {
   final row = await supabase
       .from('profiles')
       .select(
-        'display_name, xp, streak_count, last_study_date, last_quiz_completed_at, mission_xp_dates',
+        'display_name, xp, streak_count, longest_streak_count, country, created_at, last_study_date, last_quiz_completed_at, mission_xp_dates',
       )
       .eq('id', user.id)
       .single();
@@ -25,6 +25,9 @@ final profileProvider = FutureProvider<Profile?>((ref) async {
     displayName: row['display_name'] as String,
     xp: row['xp'] as int,
     streakCount: row['streak_count'] as int,
+    longestStreakCount: row['longest_streak_count'] as int,
+    country: row['country'] as String?,
+    createdAt: DateTime.parse(row['created_at'] as String),
     lastStudyDate: lastStudyDateStr == null ? null : DateTime.parse(lastStudyDateStr),
     lastQuizCompletedAt:
         lastQuizCompletedAtStr == null ? null : DateTime.parse(lastQuizCompletedAtStr),

@@ -4,7 +4,7 @@ import '../../features/grammar/grammar_home_screen.dart';
 import '../../features/home/home_screen.dart';
 import '../../features/kaiwa/kaiwa_home_screen.dart';
 import '../../features/kanji/kanji_home_screen.dart';
-import '../../features/profile/profile_screen.dart';
+import '../../features/profile/pages/profile_home_screen.dart';
 import '../../features/quiz/quiz_category_screen.dart';
 import '../../features/review/review_screen.dart';
 import '../theme/app_theme.dart';
@@ -66,7 +66,8 @@ class _MainTabShellState extends State<MainTabShell> {
   static Widget _buildKanji(BuildContext context) => const KanjiHomeScreen();
   static Widget _buildKaiwa(BuildContext context) => const KaiwaHomeScreen();
   static Widget _buildReview(BuildContext context) => const ReviewScreen();
-  static Widget _buildProfile(BuildContext context) => const ProfileScreen();
+  static Widget _buildProfile(BuildContext context) =>
+      const ProfileHomeScreen();
 
   void _selectTab(int i) {
     setState(() {

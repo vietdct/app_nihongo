@@ -54,12 +54,15 @@ class MiniTestXpController {
     final today = _todayKey();
     final row = await _sb
         .from('profiles')
-        .select('xp, streak_count, last_study_date, mission_xp_dates')
+        .select(
+          'xp, streak_count, longest_streak_count, last_study_date, mission_xp_dates',
+        )
         .eq('id', _userId)
         .single();
 
     final currentXp = (row['xp'] as num?)?.toInt() ?? 0;
     final currentStreak = (row['streak_count'] as num?)?.toInt() ?? 0;
+    final longestStreak = (row['longest_streak_count'] as num?)?.toInt() ?? 0;
     final lastStudyDateStr = row['last_study_date'] as String?;
     final missionXpDates = row['mission_xp_dates'] == null
         ? <String, String>{}
@@ -79,6 +82,9 @@ class MiniTestXpController {
       effectiveStreak = isConsecutive ? currentStreak + 1 : 1;
       update['streak_count'] = effectiveStreak;
       update['last_study_date'] = today;
+      if (effectiveStreak > longestStreak) {
+        update['longest_streak_count'] = effectiveStreak;
+      }
     }
 
     final dailyBonusAwarded = missionXpDates['mini_test'] != today;

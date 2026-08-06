@@ -1,0 +1,329 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../core/theme/app_theme.dart';
+import '../providers/ai_insights_providers.dart';
+import '../widgets/profile_section_label.dart';
+
+const _sourceTypeLabels = {
+  'vocab': 'Từ vựng',
+  'kanji': 'Kanji',
+  'grammar': 'Ngữ pháp',
+};
+
+/// Nhóm "AI" — Phase 5: gợi ý rule-based dựa 100% trên dữ liệu thật đã có
+/// (ease factor SM-2 + Mistake Notebook), KHÔNG gọi LLM. "AI" ở đây là suy
+/// luận từ số liệu, giống cách "Smart Review" ở tab Ôn tập đã làm — không
+/// phải AI Study Report dùng Claude (để lại phase riêng vì cần thiết kế
+/// prompt + quota + Edge Function, quy mô lớn hơn hẳn phần còn lại của
+/// module Hồ sơ).
+class AiInsightsScreen extends ConsumerWidget {
+  const AiInsightsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final weak = ref.watch(weakAreaCountsProvider);
+    final topMistakes = ref.watch(topMistakesProvider);
+
+    final hasData = weak.total > 0 || topMistakes.isNotEmpty;
+
+    return Scaffold(
+      backgroundColor: AppColors.canvas,
+      appBar: AppBar(
+        backgroundColor: AppColors.canvas,
+        title: const Text('AI Insights'),
+      ),
+      body: !hasData
+          ? const _EmptyState()
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              children: [
+                if (weak.total > 0) ...[
+                  _SuggestionCard(weak: weak),
+                  const SizedBox(height: 22),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const ProfileSectionLabel('Điểm yếu theo kỹ năng'),
+                      InkWell(
+                        onTap: () => context.push('/review/weak-points'),
+                        child: const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 2),
+                          child: Text(
+                            'Xem chi tiết',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.accentStrong,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      _WeakTile(
+                        value: weak.vocab,
+                        label: 'Từ vựng',
+                        color: AppColors.moss,
+                      ),
+                      const SizedBox(width: 8),
+                      _WeakTile(
+                        value: weak.kanji,
+                        label: 'Kanji',
+                        color: AppColors.indigo,
+                      ),
+                      const SizedBox(width: 8),
+                      _WeakTile(
+                        value: weak.grammar,
+                        label: 'Ngữ pháp',
+                        color: AppColors.plum,
+                      ),
+                    ],
+                  ),
+                ],
+                if (topMistakes.isNotEmpty) ...[
+                  const SizedBox(height: 22),
+                  const ProfileSectionLabel('Lỗi lặp lại nhiều nhất'),
+                  const SizedBox(height: 10),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(16),
+                      border:
+                          Border.all(color: AppColors.border, width: 1.0),
+                    ),
+                    child: Column(
+                      children: [
+                        for (var i = 0; i < topMistakes.length; i++) ...[
+                          if (i > 0)
+                            const Divider(
+                              height: 1,
+                              color: AppColors.border,
+                            ),
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        topMistakes[i].correctAnswer,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w800,
+                                          fontSize: 13.5,
+                                          color: AppColors.ink,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        _sourceTypeLabels[
+                                                topMistakes[i].sourceType] ??
+                                            topMistakes[i].sourceType,
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.inkSoft,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Text(
+                                  '${topMistakes[i].occurrenceCount} lần',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                    color: AppColors.danger,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  InkWell(
+                    onTap: () => context.push('/review/mistakes'),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                        'Xem Sổ tay lỗi đầy đủ',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.accentStrong,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+}
+
+class _SuggestionCard extends StatelessWidget {
+  const _SuggestionCard({required this.weak});
+
+  final WeakAreaCounts weak;
+
+  @override
+  Widget build(BuildContext context) {
+    final String label;
+    final String route;
+    if (weak.grammar >= weak.vocab && weak.grammar >= weak.kanji) {
+      label = 'Ngữ pháp';
+      route = '/grammar';
+    } else if (weak.kanji >= weak.vocab) {
+      label = 'Kanji';
+      route = '/kanji/review';
+    } else {
+      label = 'Từ vựng';
+      route = '/vocabulary/review';
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF4C7EF0), Color(0xFF6C5CE7)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 26),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$label đang là điểm yếu nhất của bạn',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 13.5,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                const Text(
+                  'Ôn lại ngay để không quên thêm',
+                  style: TextStyle(color: Colors.white70, fontSize: 11.5),
+                ),
+              ],
+            ),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Colors.white,
+              foregroundColor: AppColors.indigo,
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+            ),
+            onPressed: () => context.push(route),
+            child: const Text('Ôn ngay'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WeakTile extends StatelessWidget {
+  const _WeakTile({
+    required this.value,
+    required this.label,
+    required this.color,
+  });
+
+  final int value;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: AppColors.border, width: 1.0),
+        ),
+        child: Column(
+          children: [
+            Text(
+              '$value',
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 17,
+                color: color,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 10.5,
+                fontWeight: FontWeight.w700,
+                color: AppColors.inkSoft,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.all(20),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.auto_awesome_rounded,
+              size: 40,
+              color: AppColors.indigo,
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Chưa đủ dữ liệu để phân tích',
+              style: TextStyle(
+                fontWeight: FontWeight.w800,
+                fontSize: 15,
+                color: AppColors.ink,
+              ),
+            ),
+            SizedBox(height: 6),
+            Text(
+              'Ôn tập vài buổi để AI Insights bắt đầu\nnhận ra điểm mạnh/yếu của bạn.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
