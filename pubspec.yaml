@@ -43,6 +43,9 @@ dependencies:
   # Biểu đồ cho Review Statistics
   fl_chart: ^0.69.0
 
+  # Chọn ảnh từ thư viện/camera — dùng cho Avatar upload
+  image_picker: ^1.1.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

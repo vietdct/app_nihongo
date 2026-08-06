@@ -5,6 +5,7 @@ class Profile {
     required this.streakCount,
     required this.longestStreakCount,
     required this.createdAt,
+    this.avatarUrl,
     this.country,
     this.lastStudyDate,
     this.lastQuizCompletedAt,
@@ -21,6 +22,10 @@ class Profile {
 
   /// Quốc gia người học tự nhập ở Edit Profile — null nếu chưa từng nhập.
   final String? country;
+
+  /// URL ảnh đại diện trên Supabase Storage (bucket `avatars`) — null nếu
+  /// chưa từng upload, UI fallback về chữ cái đầu tên/email.
+  final String? avatarUrl;
 
   /// Mốc tạo tài khoản (cột `created_at` có sẵn từ Pha 1) — dùng hiển thị
   /// "Học từ ngày..." ở Profile Home, không cần bảng/cột riêng.

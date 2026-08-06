@@ -43,6 +43,7 @@ class ProfileHomeScreen extends ConsumerWidget {
     final xp = profile?.xp ?? 0;
     final country = profile?.country;
     final studySince = profile?.createdAt;
+    final avatarUrl = profile?.avatarUrl;
 
     final knownVocab =
         vocabProgress.values.where((p) => p.isKnown == true).length;
@@ -64,6 +65,7 @@ class ProfileHomeScreen extends ConsumerWidget {
               xp: xp,
               country: country,
               studySince: studySince,
+              avatarUrl: avatarUrl,
               onTap: () => context.push('/profile/edit'),
             ),
             Padding(
@@ -220,6 +222,7 @@ class _HeroHeader extends StatelessWidget {
     required this.onTap,
     this.country,
     this.studySince,
+    this.avatarUrl,
   });
 
   final String initial;
@@ -228,6 +231,7 @@ class _HeroHeader extends StatelessWidget {
   final int xp;
   final String? country;
   final DateTime? studySince;
+  final String? avatarUrl;
   final VoidCallback onTap;
 
   static const _months = [
@@ -252,14 +256,18 @@ class _HeroHeader extends StatelessWidget {
             CircleAvatar(
               radius: 32,
               backgroundColor: AppColors.accent.withValues(alpha: 0.9),
-              child: Text(
-                initial,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 24,
-                ),
-              ),
+              backgroundImage:
+                  avatarUrl != null ? NetworkImage(avatarUrl!) : null,
+              child: avatarUrl == null
+                  ? Text(
+                      initial,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 24,
+                      ),
+                    )
+                  : null,
             ),
             const SizedBox(width: 14),
             Expanded(
