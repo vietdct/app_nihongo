@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/network/supabase_providers.dart';
 import '../../../domain/services/daily_mission.dart';
+import '../../../domain/services/study_day_log.dart';
 import '../../kaiwa/providers/kaiwa_conversation_providers.dart';
 import 'profile_providers.dart';
 
@@ -51,6 +52,13 @@ final dailyMissionStatusProvider =
   final awarded = await DailyMissionXpController(sb, userId)
       .awardIfNeeded(status, profile.missionXpDates);
   if (awarded) ref.invalidate(profileProvider);
+
+  if (status.vocabDone ||
+      status.kanjiDone ||
+      status.quizDone ||
+      status.kaiwaDone) {
+    await markStudyDayToday(sb, userId);
+  }
 
   return status;
 });

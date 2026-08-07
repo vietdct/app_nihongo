@@ -6,10 +6,12 @@ import '../../home/providers/profile_providers.dart';
 import '../../kaiwa/providers/kaiwa_conversation_providers.dart';
 import '../../kanji/providers/kanji_progress_providers.dart';
 import '../../vocabulary/providers/vocab_progress_providers.dart';
+import '../providers/study_heatmap_providers.dart';
 import '../widgets/achievement_badge.dart';
 import '../widgets/coming_soon_row.dart';
 import '../widgets/profile_section_label.dart';
 import '../widgets/profile_stat_tile.dart';
+import '../widgets/study_heatmap.dart';
 
 /// Nhóm "Thành tích" — XP, chuỗi ngày học, huy hiệu dựa trên mốc dữ liệu
 /// thật đã có. Coins/Treasure Box/League vẫn là placeholder "Sắp ra mắt" vì
@@ -28,6 +30,7 @@ class AchievementsScreen extends ConsumerWidget {
         ref.watch(kanjiProgressProvider).valueOrNull ?? const {};
     final kaiwaConversations =
         ref.watch(kaiwaConversationsProvider).valueOrNull ?? const [];
+    final studyDays = ref.watch(studyDaysProvider).valueOrNull;
 
     final streak = profile?.streakCount ?? 0;
     final longestStreak = profile?.longestStreakCount ?? 0;
@@ -132,6 +135,10 @@ class AchievementsScreen extends ConsumerWidget {
               ),
             ],
           ),
+          const SizedBox(height: 22),
+          const ProfileSectionLabel('Lịch học'),
+          const SizedBox(height: 12),
+          if (studyDays != null) StudyHeatmap(studyDays: studyDays),
           const SizedBox(height: 22),
           const ProfileSectionLabel('Huy hiệu'),
           const SizedBox(height: 12),

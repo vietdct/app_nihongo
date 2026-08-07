@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../../core/network/supabase_providers.dart';
+import '../../../../domain/services/study_day_log.dart';
 
 final miniTestXpControllerProvider =
     Provider.autoDispose<MiniTestXpController?>((ref) {
@@ -96,6 +97,7 @@ class MiniTestXpController {
     if (update.isNotEmpty) {
       await _sb.from('profiles').update(update).eq('id', _userId);
     }
+    await markStudyDayToday(_sb, _userId);
     return MiniTestCompletionResult(
       dailyBonusAwarded: dailyBonusAwarded,
       streakCount: effectiveStreak,
