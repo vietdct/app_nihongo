@@ -10,16 +10,14 @@ import '../../vocabulary/providers/vocab_progress_providers.dart';
 import '../providers/study_heatmap_providers.dart';
 import '../providers/treasure_box_providers.dart';
 import '../widgets/achievement_badge.dart';
-import '../widgets/coming_soon_row.dart';
 import '../widgets/profile_section_label.dart';
 import '../widgets/profile_stat_tile.dart';
 import '../widgets/study_heatmap.dart';
 
 /// Nhóm "Thành tích" — XP, Coin, chuỗi ngày học, huy hiệu, rương phần
-/// thưởng dựa trên mốc dữ liệu thật đã có. Giải đấu (League) vẫn là
-/// placeholder "Sắp ra mắt" — phần phức tạp nhất trong 3 mục gamification
-/// treo trước đây (docs/REVIEW_DESIGN.md §11, §16 câu hỏi #4), để lại cho
-/// phiên sau.
+/// thưởng dựa trên mốc dữ liệu thật đã có. Giải đấu (League) — hạng mục
+/// gamification treo còn lại (docs/REVIEW_DESIGN.md §11, §16 câu hỏi #4) —
+/// đã bị bỏ theo quyết định người dùng 2026-08-07, không còn giữ chỗ UI.
 class AchievementsScreen extends ConsumerWidget {
   const AchievementsScreen({super.key});
 
@@ -195,14 +193,6 @@ class AchievementsScreen extends ConsumerWidget {
                 ],
               ],
             ),
-          const SizedBox(height: 22),
-          const ProfileSectionLabel('Sắp ra mắt'),
-          const SizedBox(height: 10),
-          const Column(
-            children: [
-              ComingSoonRow(emoji: '🏆', title: 'Giải đấu (League)'),
-            ],
-          ),
         ],
       ),
     );
