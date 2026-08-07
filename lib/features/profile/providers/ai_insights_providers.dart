@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../grammar/providers/grammar_progress_providers.dart';
+import '../../home/providers/profile_providers.dart';
 import '../../kanji/providers/kanji_progress_providers.dart';
 import '../../lesson/providers/content_providers.dart';
 import '../../review/providers/review_mistakes_providers.dart';
@@ -74,4 +75,51 @@ final topMistakesProvider = Provider.autoDispose((ref) {
   final sorted = [...mistakes]
     ..sort((a, b) => b.occurrenceCount.compareTo(a.occurrenceCount));
   return sorted.take(5).toList();
+});
+
+/// Số liệu thật gửi cho Edge Function `ai-study-report` — streak/XP từ
+/// `profiles` + số mục đã thuộc (isKnown) theo từng kỹ năng, cộng thêm số
+/// mục yếu đã có ở [weakAreaCountsProvider]. Không có nguồn nào tính "tuần
+/// này" nên chỉ gửi số liệu hiện trạng (snapshot), không suy diễn xu hướng.
+class StudyReportStats {
+  const StudyReportStats({
+    required this.streakCount,
+    required this.longestStreakCount,
+    required this.xp,
+    required this.knownVocab,
+    required this.knownKanji,
+    required this.knownGrammar,
+    required this.weak,
+  });
+
+  final int streakCount;
+  final int longestStreakCount;
+  final int xp;
+  final int knownVocab;
+  final int knownKanji;
+  final int knownGrammar;
+  final WeakAreaCounts weak;
+}
+
+final studyReportStatsProvider = Provider.autoDispose<StudyReportStats>((ref) {
+  final profile = ref.watch(profileProvider).valueOrNull;
+  final vocabProgress =
+      ref.watch(vocabProgressProvider).valueOrNull ?? const {};
+  final kanjiProgress =
+      ref.watch(kanjiProgressProvider).valueOrNull ?? const {};
+  final grammarProgress =
+      ref.watch(grammarProgressProvider).valueOrNull ?? const {};
+
+  return StudyReportStats(
+    streakCount: profile?.streakCount ?? 0,
+    longestStreakCount: profile?.longestStreakCount ?? 0,
+    xp: profile?.xp ?? 0,
+    knownVocab:
+        vocabProgress.values.where((p) => p.isKnown == true).length,
+    knownKanji:
+        kanjiProgress.values.where((p) => p.isKnown == true).length,
+    knownGrammar:
+        grammarProgress.values.where((p) => p.isKnown == true).length,
+    weak: ref.watch(weakAreaCountsProvider),
+  );
 });

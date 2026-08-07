@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/network/ai_exception.dart';
 import '../../../core/theme/app_theme.dart';
 import '../providers/ai_insights_providers.dart';
+import '../providers/study_report_service.dart';
 import '../widgets/profile_section_label.dart';
 
 const _sourceTypeLabels = {
@@ -12,12 +14,13 @@ const _sourceTypeLabels = {
   'grammar': 'Ngữ pháp',
 };
 
-/// Nhóm "AI" — Phase 5: gợi ý rule-based dựa 100% trên dữ liệu thật đã có
-/// (ease factor SM-2 + Mistake Notebook), KHÔNG gọi LLM. "AI" ở đây là suy
-/// luận từ số liệu, giống cách "Smart Review" ở tab Ôn tập đã làm — không
-/// phải AI Study Report dùng Claude (để lại phase riêng vì cần thiết kế
-/// prompt + quota + Edge Function, quy mô lớn hơn hẳn phần còn lại của
-/// module Hồ sơ).
+/// Nhóm "AI" — gồm 2 phần: (1) gợi ý rule-based dựa 100% trên dữ liệu thật
+/// đã có (ease factor SM-2 + Mistake Notebook), KHÔNG gọi LLM — giống cách
+/// "Smart Review" ở tab Ôn tập đã làm; (2) AI Study Report — gọi Edge
+/// Function `ai-study-report` (Gemini/Claude, tái dùng hạ tầng quota của
+/// AI Review Coach) để sinh 1 bản nhận xét văn xuôi dựa trên số liệu thật
+/// (streak/XP/số mục đã thuộc/điểm yếu), theo yêu cầu người dùng bấm nút
+/// (2026-08-07) — không tự động gọi vì tốn quota.
 class AiInsightsScreen extends ConsumerWidget {
   const AiInsightsScreen({super.key});
 
@@ -34,11 +37,14 @@ class AiInsightsScreen extends ConsumerWidget {
         backgroundColor: AppColors.canvas,
         title: const Text('AI Insights'),
       ),
-      body: !hasData
-          ? const _EmptyState()
-          : ListView(
-              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-              children: [
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        children: [
+          const _StudyReportSection(),
+          const SizedBox(height: 22),
+          if (!hasData)
+            const _EmptyState()
+          else ...[
                 if (weak.total > 0) ...[
                   _SuggestionCard(weak: weak),
                   const SizedBox(height: 22),
@@ -169,7 +175,129 @@ class AiInsightsScreen extends ConsumerWidget {
                   ),
                 ],
               ],
-            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Nút "Tạo báo cáo" gọi Edge Function `ai-study-report` theo yêu cầu người
+/// dùng bấm — không tự động gọi vì mỗi lần gọi tốn quota AI (2/phút, 5/ngày).
+/// State chỉ tồn tại trong phiên xem màn hình, không lưu lại report cũ.
+class _StudyReportSection extends ConsumerStatefulWidget {
+  const _StudyReportSection();
+
+  @override
+  ConsumerState<_StudyReportSection> createState() =>
+      _StudyReportSectionState();
+}
+
+class _StudyReportSectionState extends ConsumerState<_StudyReportSection> {
+  String? _report;
+  String? _error;
+  bool _loading = false;
+
+  Future<void> _generate() async {
+    final service = ref.read(studyReportServiceProvider);
+    if (service == null) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final stats = ref.read(studyReportStatsProvider);
+      final mistakes = ref.read(topMistakesProvider);
+      final report = await service.generate(
+        stats: stats,
+        topMistakes: mistakes,
+      );
+      if (!mounted) return;
+      setState(() {
+        _report = report;
+        _loading = false;
+      });
+    } on AiException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _error = e.message;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _error = 'Lỗi gọi AI, vui lòng thử lại.';
+        _loading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const ProfileSectionLabel('Báo cáo học tập AI'),
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: AppColors.border, width: 1.0),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (_report == null && _error == null)
+                const Text(
+                  'AI tổng hợp streak, XP, số mục đã thuộc và điểm yếu của '
+                  'bạn thành một bản nhận xét ngắn.',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.inkSoft,
+                    height: 1.4,
+                  ),
+                ),
+              if (_report != null)
+                Text(
+                  _report!,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    height: 1.5,
+                    color: AppColors.ink,
+                  ),
+                ),
+              if (_error != null)
+                Text(
+                  _error!,
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.danger,
+                  ),
+                ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: _loading ? null : _generate,
+                  icon: _loading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.auto_awesome_rounded, size: 18),
+                  label: Text(_report == null ? 'Tạo báo cáo' : 'Tạo lại'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
