@@ -40,6 +40,8 @@ import '../../features/profile/pages/bookmarks_screen.dart';
 import '../../features/profile/pages/edit_profile_screen.dart';
 import '../../features/profile/pages/history_screen.dart';
 import '../../features/profile/pages/learning_overview_screen.dart';
+import '../../features/profile/pages/privacy_policy_screen.dart';
+import '../../features/profile/pages/terms_of_service_screen.dart';
 import '../../features/quiz/providers/quiz_providers.dart';
 import '../../features/review/jlpt_exam/exam_result_screen.dart';
 import '../../features/review/jlpt_exam/exam_review_screen.dart';
@@ -484,6 +486,14 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile/account',
         builder: (_, __) => const AccountScreen(),
+      ),
+      GoRoute(
+        path: '/profile/privacy',
+        builder: (_, __) => const PrivacyPolicyScreen(),
+      ),
+      GoRoute(
+        path: '/profile/terms',
+        builder: (_, __) => const TermsOfServiceScreen(),
       ),
     ],
   );

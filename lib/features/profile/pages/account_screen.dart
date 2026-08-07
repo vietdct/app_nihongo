@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -7,11 +8,13 @@ import '../../auth/auth_controller.dart';
 import '../widgets/profile_section_label.dart';
 import '../widgets/profile_settings_row.dart';
 
-/// Nhóm "Tài khoản" — Settings/Premium/Đăng xuất + Bộ nhớ đệm (Phase 6).
-/// Support/FAQ/Privacy Policy/Terms of Service KHÔNG thêm ở đây vì app chưa
-/// có email hỗ trợ, link chính sách hay app store listing thật nào được
-/// xác nhận — dựng UI trỏ tới nội dung không tồn tại sẽ vi phạm nguyên tắc
-/// honest-data. Thêm khi có giá trị thật.
+/// Nhóm "Tài khoản" — Settings/Premium/Đăng xuất + Bộ nhớ đệm + Hỗ trợ &
+/// Pháp lý (Phase 6). Email hỗ trợ và nội dung Privacy Policy/Terms of
+/// Service là giá trị thật/bản nháp do người dùng xác nhận dùng
+/// (2026-08-07) — không còn là "chưa có giá trị thật" như quyết định ban
+/// đầu. Rate App CHƯA thêm vì app chưa publish lên App Store/Play Store,
+/// chưa có link thật để trỏ tới.
+const _supportEmail = 'tranquocvietdct@gmail.com';
 class AccountScreen extends ConsumerWidget {
   const AccountScreen({super.key});
 
@@ -84,6 +87,49 @@ class AccountScreen extends ConsumerWidget {
                   const SnackBar(content: Text('Đã xoá bộ nhớ đệm hình ảnh')),
                 );
               },
+            ),
+          ),
+          const SizedBox(height: 22),
+          const ProfileSectionLabel('Hỗ trợ & Pháp lý'),
+          const SizedBox(height: 10),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.card,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: AppColors.border, width: 1.0),
+            ),
+            child: Column(
+              children: [
+                ProfileSettingsRow(
+                  icon: Icons.mail_outline_rounded,
+                  label: 'Hỗ trợ',
+                  trailingText: _supportEmail,
+                  onTap: () async {
+                    await Clipboard.setData(
+                      const ClipboardData(text: _supportEmail),
+                    );
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Đã sao chép email hỗ trợ'),
+                        ),
+                      );
+                    }
+                  },
+                ),
+                const Divider(height: 1, color: AppColors.border),
+                ProfileSettingsRow(
+                  icon: Icons.privacy_tip_outlined,
+                  label: 'Chính sách bảo mật',
+                  onTap: () => context.push('/profile/privacy'),
+                ),
+                const Divider(height: 1, color: AppColors.border),
+                ProfileSettingsRow(
+                  icon: Icons.description_outlined,
+                  label: 'Điều khoản dịch vụ',
+                  onTap: () => context.push('/profile/terms'),
+                ),
+              ],
             ),
           ),
         ],
