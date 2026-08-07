@@ -2,22 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../domain/entities/treasure_box.dart';
 import '../../home/providers/profile_providers.dart';
 import '../../kaiwa/providers/kaiwa_conversation_providers.dart';
 import '../../kanji/providers/kanji_progress_providers.dart';
 import '../../vocabulary/providers/vocab_progress_providers.dart';
 import '../providers/study_heatmap_providers.dart';
+import '../providers/treasure_box_providers.dart';
 import '../widgets/achievement_badge.dart';
 import '../widgets/coming_soon_row.dart';
 import '../widgets/profile_section_label.dart';
 import '../widgets/profile_stat_tile.dart';
 import '../widgets/study_heatmap.dart';
 
-/// Nhóm "Thành tích" — XP, chuỗi ngày học, huy hiệu dựa trên mốc dữ liệu
-/// thật đã có. Coins/Treasure Box/League vẫn là placeholder "Sắp ra mắt" vì
-/// chưa có công thức thưởng nào được xác nhận (docs/REVIEW_DESIGN.md §11,
-/// §16 câu hỏi #4) — giữ nguyên quyết định từ bản Hồ sơ cũ, chỉ chuyển sang
-/// trang riêng.
+/// Nhóm "Thành tích" — XP, Coin, chuỗi ngày học, huy hiệu, rương phần
+/// thưởng dựa trên mốc dữ liệu thật đã có. Giải đấu (League) vẫn là
+/// placeholder "Sắp ra mắt" — phần phức tạp nhất trong 3 mục gamification
+/// treo trước đây (docs/REVIEW_DESIGN.md §11, §16 câu hỏi #4), để lại cho
+/// phiên sau.
 class AchievementsScreen extends ConsumerWidget {
   const AchievementsScreen({super.key});
 
@@ -31,10 +33,13 @@ class AchievementsScreen extends ConsumerWidget {
     final kaiwaConversations =
         ref.watch(kaiwaConversationsProvider).valueOrNull ?? const [];
     final studyDays = ref.watch(studyDaysProvider).valueOrNull;
+    final treasureBoxes = ref.watch(treasureBoxesProvider).valueOrNull ?? const [];
+    final pendingBoxes = treasureBoxes.where((b) => !b.isOpened).toList();
 
     final streak = profile?.streakCount ?? 0;
     final longestStreak = profile?.longestStreakCount ?? 0;
     final xp = profile?.xp ?? 0;
+    final coins = profile?.coins ?? 0;
     final knownVocab =
         vocabProgress.values.where((p) => p.isKnown == true).length;
     final knownKanji =
@@ -113,6 +118,12 @@ class AchievementsScreen extends ConsumerWidget {
               ),
               const SizedBox(width: 8),
               ProfileStatTile(
+                value: '$coins',
+                label: 'Coins',
+                color: Colors.amber.shade800,
+              ),
+              const SizedBox(width: 8),
+              ProfileStatTile(
                 value: '$streak',
                 label: 'Chuỗi hiện tại',
                 color: AppColors.accent,
@@ -160,19 +171,112 @@ class AchievementsScreen extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 22),
+          const ProfileSectionLabel('Rương phần thưởng'),
+          const SizedBox(height: 10),
+          if (pendingBoxes.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: AppColors.border, width: 1.0),
+              ),
+              child: const Text(
+                'Đạt chuỗi 3 ngày học liên tiếp để mở rương đầu tiên.',
+                style: TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+              ),
+            )
+          else
+            Column(
+              children: [
+                for (final box in pendingBoxes) ...[
+                  _TreasureBoxRow(box: box),
+                  const SizedBox(height: 8),
+                ],
+              ],
+            ),
+          const SizedBox(height: 22),
           const ProfileSectionLabel('Sắp ra mắt'),
           const SizedBox(height: 10),
           const Column(
             children: [
-              ComingSoonRow(emoji: '💰', title: 'Coins'),
-              SizedBox(height: 8),
-              ComingSoonRow(emoji: '🎁', title: 'Rương phần thưởng'),
-              SizedBox(height: 8),
               ComingSoonRow(emoji: '🏆', title: 'Giải đấu (League)'),
             ],
           ),
         ],
       ),
     );
+  }
+}
+
+class _TreasureBoxRow extends ConsumerWidget {
+  const _TreasureBoxRow({required this.box});
+
+  final TreasureBox box;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: AppColors.border, width: 1.0),
+      ),
+      child: Row(
+        children: [
+          const Text('🎁', style: TextStyle(fontSize: 20)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Rương mốc ${box.milestone} ngày',
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+                color: AppColors.ink,
+              ),
+            ),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.accent,
+              minimumSize: const Size(0, 34),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+            ),
+            onPressed: () => _openBox(context, ref),
+            child: const Text('Mở rương', style: TextStyle(fontSize: 12.5)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openBox(BuildContext context, WidgetRef ref) async {
+    final service = ref.read(treasureBoxServiceProvider);
+    if (service == null) return;
+    try {
+      final reward = await service.open(box.id);
+      ref.invalidate(treasureBoxesProvider);
+      ref.invalidate(profileProvider);
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('🎉 Mở rương thành công!'),
+          content: Text('Bạn nhận được +$reward Coins.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không mở được rương, vui lòng thử lại.')),
+      );
+    }
   }
 }

@@ -10,11 +10,21 @@ class Profile {
     this.lastStudyDate,
     this.lastQuizCompletedAt,
     this.missionXpDates = const {},
+    this.bonusCoins = 0,
   });
 
   final String displayName;
   final int xp;
   final int streakCount;
+
+  /// Thưởng từ mở rương (cột `bonus_coins`) — cộng thêm vào Coin "ăn theo
+  /// XP", không tính vào `xp`. Xem [coins].
+  final int bonusCoins;
+
+  /// Coin hiển thị = floor(xp/10) + bonusCoins — tính trực tiếp từ `xp` mỗi
+  /// lần đọc thay vì cộng dồn thủ công ở từng nơi thưởng XP, để không bao
+  /// giờ lệch số do làm tròn xuống nhiều lần với các khoản XP lẻ nhỏ.
+  int get coins => xp ~/ 10 + bonusCoins;
 
   /// Mốc chuỗi ngày cao nhất từng đạt — không giảm khi streak hiện tại bị
   /// reset, dùng để huy hiệu streak là vĩnh viễn (xem AchievementsScreen).
