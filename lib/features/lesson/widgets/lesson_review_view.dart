@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/network/supabase_providers.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/lesson.dart';
+import '../../../domain/services/lesson_progress_log.dart';
 import '../../../domain/services/srs_scheduler.dart';
 import '../../grammar/providers/grammar_progress_providers.dart';
 import '../../home/providers/mission_providers.dart';
@@ -85,6 +87,15 @@ class _LessonReviewViewState extends ConsumerState<LessonReviewView> {
     });
   }
 
+  /// Đánh dấu bài đã hoàn thành trong `user_lesson_progress` — để thẻ
+  /// "Continue Learning" ở Home bỏ qua bài này và chuyển sang bài kế tiếp.
+  Future<void> _markCompleted() async {
+    final sb = ref.read(supabaseProvider);
+    final userId = ref.read(currentUserProvider)?.id;
+    if (userId == null) return;
+    await markLessonCompleted(sb, userId, widget.lessonId);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_queue.isEmpty) {
@@ -93,6 +104,7 @@ class _LessonReviewViewState extends ConsumerState<LessonReviewView> {
         forgotCount: _forgotCount,
         lessonId: widget.lessonId,
         lessonTitle: widget.lessonTitle,
+        onComplete: _markCompleted,
       );
     }
 
@@ -228,12 +240,14 @@ class _ReviewSummary extends StatelessWidget {
     required this.forgotCount,
     required this.lessonId,
     required this.lessonTitle,
+    required this.onComplete,
   });
 
   final int reviewedCount;
   final int forgotCount;
   final String lessonId;
   final String lessonTitle;
+  final Future<void> Function() onComplete;
 
   @override
   Widget build(BuildContext context) {
@@ -270,7 +284,10 @@ class _ReviewSummary extends StatelessWidget {
         SizedBox(
           width: double.infinity,
           child: FilledButton(
-            onPressed: () => Navigator.of(context).maybePop(),
+            onPressed: () async {
+              await onComplete();
+              if (context.mounted) Navigator.of(context).maybePop();
+            },
             child: const Text('Hoàn thành bài học'),
           ),
         ),

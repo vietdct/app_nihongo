@@ -6,7 +6,10 @@ import '../../core/theme/app_theme.dart';
 import '../grammar/providers/grammar_progress_providers.dart';
 import '../home/providers/profile_providers.dart';
 import '../kanji/providers/kanji_progress_providers.dart';
+import '../lesson/providers/level_providers.dart';
 import '../vocabulary/providers/vocab_progress_providers.dart';
+import 'jlpt_exam/mini_test/models/mini_test_blueprint.dart';
+import 'jlpt_exam/mini_test/models/mini_test_variant.dart';
 
 /// Tab "Ôn tập" — điểm vào ôn lại nội dung đã học, theo mockup "Nihongo App
 /// Redesign" nhưng phụ đề luôn lấy số liệu thật (số từ/kanji đã thuộc, số
@@ -87,7 +90,7 @@ class ReviewScreen extends ConsumerWidget {
             icon: Icons.brush_outlined,
             iconBg: AppColors.indigoSoft,
             iconColor: AppColors.indigo,
-            title: 'Flashcard Kanji',
+            title: 'Kanji',
             subtitle: dueKanji > 0
                 ? '$dueKanji chữ đến hạn ôn · $knownKanji chữ đã thuộc'
                 : '$knownKanji chữ đã thuộc · Nét viết + Hán Việt',
@@ -149,8 +152,77 @@ class ReviewScreen extends ConsumerWidget {
             subtitle: 'Mô phỏng đề thi N5–N1 theo nhiều chế độ',
             onTap: () => context.push('/review/jlpt-exam'),
           ),
+          const SizedBox(height: 10),
+          const _ListeningReviewRow(),
+          const SizedBox(height: 10),
+          _ReviewRow(
+            icon: Icons.mic_none_rounded,
+            iconBg: AppColors.tealSoft,
+            iconColor: AppColors.teal,
+            title: 'Luyện nói',
+            subtitle: 'Nghe mẫu, lặp lại và chấm điểm phát âm',
+            onTap: () => context.push('/review/speaking'),
+          ),
         ],
       ),
+    );
+  }
+}
+
+/// Điểm vào "Nghe hiểu" — chạy thẳng 1 lượt luyện nghe (8 câu, ngẫu nhiên
+/// mỗi lần) qua hạ tầng Mini Test có sẵn (`buildMiniTestRunSections` +
+/// `ExamRunnerScreen`), không có màn cài đặt riêng để "bấm là luyện ngay"
+/// giống Quick 5 (xem `mini_test_home_screen.dart._startQuick5`).
+class _ListeningReviewRow extends ConsumerStatefulWidget {
+  const _ListeningReviewRow();
+
+  @override
+  ConsumerState<_ListeningReviewRow> createState() => _ListeningReviewRowState();
+}
+
+class _ListeningReviewRowState extends ConsumerState<_ListeningReviewRow> {
+  bool _starting = false;
+
+  Future<void> _start() async {
+    if (_starting) return;
+    final levelId = ref.read(currentLevelIdProvider);
+    if (levelId == null) return;
+
+    setState(() => _starting = true);
+    final blueprint = MiniTestBlueprint(
+      levelId: levelId,
+      variant: MiniTestVariant.listening,
+      questionCount: 8,
+      sources: const ['listening'],
+    );
+    final sections = await buildMiniTestRunSections(ref, blueprint);
+    if (!mounted) return;
+    setState(() => _starting = false);
+
+    if (sections.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chưa đủ bài nghe hiểu cho cấp độ này.'),
+        ),
+      );
+      return;
+    }
+
+    context.push(
+      '/review/jlpt-exam/$levelId/session/${blueprint.sessionMode}',
+      extra: sections,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _ReviewRow(
+      icon: Icons.headphones_outlined,
+      iconBg: AppColors.mossSoft,
+      iconColor: AppColors.moss,
+      title: 'Nghe hiểu',
+      subtitle: '8 câu hội thoại JLPT ngẫu nhiên',
+      onTap: _starting ? null : _start,
     );
   }
 }

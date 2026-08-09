@@ -4,9 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/treasure_box.dart';
 import '../../home/providers/profile_providers.dart';
-import '../../kaiwa/providers/kaiwa_conversation_providers.dart';
-import '../../kanji/providers/kanji_progress_providers.dart';
-import '../../vocabulary/providers/vocab_progress_providers.dart';
+import '../providers/achievements_providers.dart';
 import '../providers/study_heatmap_providers.dart';
 import '../providers/treasure_box_providers.dart';
 import '../widgets/achievement_badge.dart';
@@ -24,12 +22,6 @@ class AchievementsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final profile = ref.watch(profileProvider).valueOrNull;
-    final vocabProgress =
-        ref.watch(vocabProgressProvider).valueOrNull ?? const {};
-    final kanjiProgress =
-        ref.watch(kanjiProgressProvider).valueOrNull ?? const {};
-    final kaiwaConversations =
-        ref.watch(kaiwaConversationsProvider).valueOrNull ?? const [];
     final studyDays = ref.watch(studyDaysProvider).valueOrNull;
     final treasureBoxes = ref.watch(treasureBoxesProvider).valueOrNull ?? const [];
     final pendingBoxes = treasureBoxes.where((b) => !b.isOpened).toList();
@@ -38,64 +30,8 @@ class AchievementsScreen extends ConsumerWidget {
     final longestStreak = profile?.longestStreakCount ?? 0;
     final xp = profile?.xp ?? 0;
     final coins = profile?.coins ?? 0;
-    final knownVocab =
-        vocabProgress.values.where((p) => p.isKnown == true).length;
-    final knownKanji =
-        kanjiProgress.values.where((p) => p.isKnown == true).length;
 
-    final achievements = [
-      (
-        // Dùng longestStreak (mốc cao nhất từng đạt), không phải streak hiện
-        // tại — huy hiệu đã đạt phải là vĩnh viễn, không biến mất khi streak
-        // bị reset.
-        earned: longestStreak >= 7,
-        icon: Icons.local_fire_department_rounded,
-        label: '7 ngày',
-        sub: 'Chuỗi học',
-      ),
-      (
-        earned: longestStreak >= 30,
-        icon: Icons.emoji_events_rounded,
-        label: '30 ngày',
-        sub: 'Chuỗi học',
-      ),
-      (
-        earned: knownVocab >= 50,
-        icon: Icons.style_rounded,
-        label: '50 từ',
-        sub: 'Từ vựng',
-      ),
-      (
-        earned: knownVocab >= 200,
-        icon: Icons.style_rounded,
-        label: '200 từ',
-        sub: 'Từ vựng',
-      ),
-      (
-        earned: knownKanji >= 10,
-        icon: Icons.brush_rounded,
-        label: '10 Kanji',
-        sub: 'Kanji',
-      ),
-      (
-        earned: knownKanji >= 50,
-        icon: Icons.brush_rounded,
-        label: '50 Kanji',
-        sub: 'Kanji',
-      ),
-      (
-        earned: kaiwaConversations.isNotEmpty,
-        icon: Icons.forum_rounded,
-        label: 'Kaiwa đầu',
-        sub: 'Hội thoại',
-      ),
-      (
-        earned: xp >= 500,
-        icon: Icons.bolt_rounded,
-        label: '500 XP',
-        sub: 'Kinh nghiệm',
-      ),
-    ];
+    final achievements = ref.watch(achievementsProvider);
     final earnedCount = achievements.where((a) => a.earned).length;
 
     return Scaffold(

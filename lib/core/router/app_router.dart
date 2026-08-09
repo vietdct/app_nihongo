@@ -200,6 +200,13 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const ReviewStatisticsScreen(),
       ),
       GoRoute(
+        // Điểm vào "Luyện nói" ở tab Ôn tập — tái dùng nguyên
+        // KaiwaShadowingScreen (đã tách khỏi ngữ cảnh chat, chỉ cần câu ví
+        // dụ ngữ pháp), không tạo lại pipeline ghi âm/chấm điểm.
+        path: '/review/speaking',
+        builder: (_, __) => const KaiwaShadowingScreen(),
+      ),
+      GoRoute(
         path: '/review/jlpt-exam',
         builder: (_, __) => const JlptExamLevelScreen(),
       ),

@@ -1,9 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/network/supabase_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/lesson.dart';
+import '../../domain/entities/lesson_progress.dart';
 import '../../domain/services/lesson_objectives.dart';
+import '../../domain/services/lesson_progress_log.dart';
 import 'lesson_runner_steps.dart';
 import 'providers/lesson_runner_providers.dart';
 import 'providers/level_providers.dart';
@@ -31,6 +36,7 @@ class LessonRunnerScreen extends ConsumerStatefulWidget {
 
 class _LessonRunnerScreenState extends ConsumerState<LessonRunnerScreen> {
   final _pageController = PageController();
+  bool _restored = false;
 
   @override
   void dispose() {
@@ -45,12 +51,40 @@ class _LessonRunnerScreenState extends ConsumerState<LessonRunnerScreen> {
       duration: const Duration(milliseconds: 320),
       curve: Curves.easeOutCubic,
     );
+    unawaited(_persistStep(index));
+  }
+
+  Future<void> _persistStep(int index) async {
+    final sb = ref.read(supabaseProvider);
+    final userId = ref.read(currentUserProvider)?.id;
+    final totalSteps = ref.read(lessonRunnerStepsProvider(widget.lessonId)).valueOrNull?.length;
+    if (userId == null || totalSteps == null || totalSteps == 0) return;
+    await saveLessonStepProgress(sb, userId, widget.lessonId, index, totalSteps);
+  }
+
+  /// Nhảy thẳng tới bước đã lưu (nếu có, chưa hoàn thành, và hợp lệ với số
+  /// bước hiện tại) đúng 1 lần khi vừa mở bài — không animate vì đây là
+  /// khôi phục vị trí, không phải người dùng bấm "Tiếp".
+  void _restoreIfNeeded(LessonProgress? progress, int totalSteps) {
+    if (_restored || progress == null || progress.isCompleted || totalSteps == 0) return;
+    final target = progress.lastStepIndex.clamp(0, totalSteps - 1);
+    _restored = true;
+    if (target <= 0) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(lessonRunnerControllerProvider(widget.lessonId).notifier).goTo(target);
+      if (_pageController.hasClients) _pageController.jumpToPage(target);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final lessonAsync = ref.watch(lessonByIdProvider(widget.lessonId));
     final stepsAsync = ref.watch(lessonRunnerStepsProvider(widget.lessonId));
+    final progressAsync = ref.watch(lessonProgressProvider(widget.lessonId));
+
+    final steps = stepsAsync.valueOrNull;
+    if (steps != null) _restoreIfNeeded(progressAsync.valueOrNull, steps.length);
 
     return Scaffold(
       backgroundColor: AppColors.canvas,

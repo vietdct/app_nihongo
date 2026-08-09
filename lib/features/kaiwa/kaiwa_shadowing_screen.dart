@@ -647,7 +647,10 @@ class _SessionSummary extends StatelessWidget {
             FilledButton(
               style: FilledButton.styleFrom(backgroundColor: AppColors.teal),
               onPressed: () => Navigator.of(context).popUntil((route) => route.isFirst),
-              child: const Text('Về trang chủ Kaiwa'),
+              // Màn này giờ vào được từ cả Kaiwa (`/kaiwa/shadowing`) và Ôn
+              // tập (`/review/speaking`) — chữ trung lập, không gắn cứng
+              // "Kaiwa" để đúng cả 2 điểm vào.
+              child: const Text('Quay lại'),
             ),
           ],
         ),

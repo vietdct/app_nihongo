@@ -12,7 +12,11 @@ import '../grammar/providers/grammar_progress_providers.dart';
 import '../kanji/providers/kanji_progress_providers.dart';
 import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
+import '../profile/providers/ai_insights_providers.dart';
+import '../profile/providers/study_heatmap_providers.dart';
+import '../profile/widgets/weak_area_suggestion_card.dart';
 import '../vocabulary/providers/vocab_progress_providers.dart';
+import 'providers/continue_learning_providers.dart';
 import 'providers/mission_providers.dart';
 import 'providers/profile_providers.dart';
 import 'widgets/daily_goal_card.dart';
@@ -28,7 +32,7 @@ class HomeScreen extends ConsumerWidget {
     return 'Chào buổi tối';
   }
 
-  static int? _pctKnown<T>(
+  static ({int known, int total})? _knownStats<T>(
     List<T>? items,
     Map<String, dynamic>? progress,
     String Function(T) idOf,
@@ -40,14 +44,14 @@ class HomeScreen extends ConsumerWidget {
       final dynamic isKnown = (p as dynamic).isKnown;
       return isKnown == true;
     }).length;
-    return ((known / items.length) * 100).round();
+    return (known: known, total: items.length);
   }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
     final profileAsync = ref.watch(profileProvider);
-    final lessons = ref.watch(lessonsProvider);
+    final currentLessonAsync = ref.watch(currentLessonProvider);
     final selectedLevel = ref.watch(selectedLevelCodeProvider);
 
     final email = user?.email ?? '';
@@ -62,222 +66,612 @@ class HomeScreen extends ConsumerWidget {
     final kanjiProgress = ref.watch(kanjiProgressProvider).valueOrNull;
     final grammarProgress = ref.watch(grammarProgressProvider).valueOrNull;
 
-    final progressBars = <_ProgressBarData>[
-      if (_pctKnown(vocabList, vocabProgress, (v) => v.id) case final pct?)
-        _ProgressBarData(label: 'Từ vựng', color: AppColors.moss, pct: pct),
-      if (_pctKnown(kanjiList, kanjiProgress, (k) => k.id) case final pct?)
-        _ProgressBarData(label: 'Kanji', color: AppColors.indigo, pct: pct),
-      if (_pctKnown(grammarList, grammarProgress, (g) => g.id) case final pct?)
-        _ProgressBarData(label: 'Ngữ pháp', color: AppColors.plum, pct: pct),
+    final progressGauges = <_ProgressGaugeData>[
+      if (_knownStats(vocabList, vocabProgress, (v) => v.id) case final s?)
+        _ProgressGaugeData(
+          label: 'Từ vựng',
+          color: AppColors.moss,
+          known: s.known,
+          total: s.total,
+          route: '/vocabulary',
+        ),
+      if (_knownStats(kanjiList, kanjiProgress, (k) => k.id) case final s?)
+        _ProgressGaugeData(
+          label: 'Kanji',
+          color: AppColors.indigo,
+          known: s.known,
+          total: s.total,
+          route: '/kanji',
+        ),
+      if (_knownStats(grammarList, grammarProgress, (g) => g.id) case final s?)
+        _ProgressGaugeData(
+          label: 'Ngữ pháp',
+          color: AppColors.plum,
+          known: s.known,
+          total: s.total,
+          route: '/grammar',
+        ),
     ];
 
     final wordOfDay = vocabList == null
         ? null
         : pickWordOfTheDay(pool: vocabList, levelId: selectedLevel);
 
+    final weak = ref.watch(weakAreaCountsProvider);
+
+    final studyDays = ref.watch(studyDaysProvider).valueOrNull;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final monday = today.subtract(Duration(days: today.weekday - 1));
+    final weekStudied = studyDays == null
+        ? null
+        : List.generate(7, (i) => monday.add(Duration(days: i)))
+            .where(studyDays.contains)
+            .length;
+
     return Scaffold(
       backgroundColor: AppColors.canvas,
-      body: ListView(
-        padding: EdgeInsets.zero,
+      body: Stack(
         children: [
-          _HeroHeader(
-            greeting: _greeting,
-            initial: initial,
-            displayName: displayName,
-            streakCount: profile?.streakCount,
-            xp: profile?.xp,
-            onLogout: () => ref.read(authControllerProvider.notifier).signOut(),
+          Positioned(
+            top: 390,
+            right: -72,
+            child: _BackgroundOrb(
+              size: 190,
+              color: AppColors.plum.withValues(alpha: 0.07),
+            ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
-            child: DailyGoalCard(lastStudyDate: profile?.lastStudyDate),
+          Positioned(
+            top: 820,
+            left: -90,
+            child: _BackgroundOrb(
+              size: 220,
+              color: AppColors.indigo.withValues(alpha: 0.06),
+            ),
           ),
-          lessons.maybeWhen(
-            data: (items) => items.isEmpty
-                ? const SizedBox.shrink()
-                : Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+          Builder(
+            builder: (context) {
+              final sections = <Widget>[
+                _HeroHeader(
+                  greeting: _greeting,
+                  initial: initial,
+                  displayName: displayName,
+                  avatarUrl: profile?.avatarUrl,
+                  streakCount: profile?.streakCount,
+                  xp: profile?.xp,
+                  weekStudied: weekStudied,
+                  onLogout: () =>
+                      ref.read(authControllerProvider.notifier).signOut(),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 0),
+                  child: DailyGoalCard(studyDays: studyDays),
+                ),
+                currentLessonAsync.maybeWhen(
+                  data: (current) => current == null
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const _SectionLabel('Continue learning'),
+                              const SizedBox(height: 10),
+                              _ContinueLessonCard(
+                                title: current.lesson.title,
+                                lessonId: current.lesson.id,
+                                ratio: current.progress?.ratio,
+                                isCompleted:
+                                    current.progress?.isCompleted ?? false,
+                              ),
+                            ],
+                          ),
+                        ),
+                  orElse: () => const SizedBox.shrink(),
+                ),
+                const Padding(
+                  padding: EdgeInsets.fromLTRB(20, 26, 20, 0),
+                  child: _TodayMissionSection(),
+                ),
+                if (weak.total > 0)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const _SectionLabel('Continue learning'),
+                        const _SectionLabel('Gợi ý cho bạn'),
                         const SizedBox(height: 10),
-                        _ContinueLessonCard(
-                          title: items.first.title,
-                          lessonId: items.first.id,
-                          levelLabel: selectedLevel,
+                        WeakAreaSuggestionCard(weak: weak),
+                      ],
+                    ),
+                  ),
+                if (progressGauges.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _SectionLabel('Tiến độ học tập'),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            for (var i = 0; i < progressGauges.length; i++) ...[
+                              if (i > 0) const SizedBox(width: 10),
+                              Expanded(
+                                child: _ProgressGaugeCard(
+                                  data: progressGauges[i],
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ],
                     ),
                   ),
-            orElse: () => const SizedBox.shrink(),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 26, 20, 0),
-            child: _TodayMissionSection(),
-          ),
-          if (progressBars.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                if (wordOfDay != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _SectionLabel('Từ vựng hôm nay'),
+                        const SizedBox(height: 10),
+                        _WordOfDayCard(vocab: wordOfDay),
+                      ],
+                    ),
+                  ),
+                const SizedBox(height: 28),
+              ];
+              return ListView(
+                padding: EdgeInsets.zero,
                 children: [
-                  const _SectionLabel('Tiến độ'),
-                  const SizedBox(height: 12),
-                  _ProgressCard(bars: progressBars),
+                  for (var i = 0; i < sections.length; i++)
+                    _StaggerIn(index: i, child: sections[i]),
                 ],
-              ),
-            ),
-          if (wordOfDay != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _SectionLabel('Từ vựng hôm nay'),
-                  const SizedBox(height: 10),
-                  _WordOfDayCard(vocab: wordOfDay),
-                ],
-              ),
-            ),
-          const SizedBox(height: 28),
+              );
+            },
+          ),
         ],
       ),
     );
   }
 }
 
-/// Header gradient hero — thay cho AppBar + thẻ streak riêng cũ. Chứa lời
-/// chào + tên thật, pill streak/XP thật (không có pill xu — app chưa có khái
-/// niệm xu), LevelBadge + nút đăng xuất, và hàng "mascot" + bong bóng chào.
-/// Mascot dùng tạm avatar chữ cái đầu — chờ user cung cấp ảnh linh vật thật.
+/// Header gradient hero, theo bản redesign mới (Claude Design "Home
+/// Prototype") — lời chào + tên thật, LevelBadge + nút đăng xuất, và hàng 3
+/// thẻ thống kê thật (streak/XP/số ngày học trong tuần), không còn bong bóng
+/// chào hay mascot minh hoạ như bản cũ.
 class _HeroHeader extends StatelessWidget {
   const _HeroHeader({
     required this.greeting,
     required this.initial,
     required this.displayName,
+    required this.avatarUrl,
     required this.streakCount,
     required this.xp,
+    required this.weekStudied,
     required this.onLogout,
   });
 
   final String greeting;
   final String initial;
   final String displayName;
+  final String? avatarUrl;
   final int? streakCount;
   final int? xp;
+  final int? weekStudied;
   final VoidCallback onLogout;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          colors: [AppColors.heroGradientStart, AppColors.heroGradientEnd],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
-      ),
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 22),
-          child: Column(
-            children: [
-              Row(
-                children: [
-                  CircleAvatar(
-                    radius: 19,
-                    backgroundColor: Colors.white.withValues(alpha: 0.28),
-                    child: Text(initial,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,),),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(greeting,
-                            style: const TextStyle(
-                                fontSize: 10.5,
-                                color: Colors.white70,
-                                fontWeight: FontWeight.w600,),),
-                        Text(
-                          displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.white,),
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (streakCount != null)
-                    _HeaderPill(
-                        icon: Icons.local_fire_department_rounded,
-                        text: '$streakCount',),
-                  const SizedBox(width: 6),
-                  if (xp != null) _HeaderPill(text: '$xp XP'),
-                  const SizedBox(width: 6),
-                  const LevelBadge(onGradient: true),
-                  const SizedBox(width: 4),
-                  IconButton(
-                    tooltip: 'Đăng xuất',
-                    icon:
-                        const Icon(Icons.logout, color: Colors.white, size: 20),
-                    onPressed: onLogout,
-                  ),
+    return Stack(
+      children: [
+        const Positioned.fill(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  Color(0xFFFF8A50),
+                  Color(0xFFFF6B3A),
+                  Color(0xFFE8445A),
                 ],
+                stops: [0, 0.35, 1],
+                begin: Alignment(-0.3, -1),
+                end: Alignment(0.3, 1),
               ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  CircleAvatar(
-                    radius: 32,
-                    backgroundColor: Colors.white.withValues(alpha: 0.28),
-                    child: Text(initial,
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 22,),),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 13, vertical: 11,),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(16),
-                          topRight: Radius.circular(16),
-                          bottomRight: Radius.circular(16),
-                          bottomLeft: Radius.circular(4),
+            ),
+          ),
+        ),
+        Positioned(
+          top: -40,
+          right: -30,
+          child: _BackgroundOrb(
+            size: 160,
+            color: Colors.white.withValues(alpha: 0.08),
+          ),
+        ),
+        Positioned(
+          top: 30,
+          right: 40,
+          child: _BackgroundOrb(
+            size: 80,
+            color: Colors.white.withValues(alpha: 0.06),
+          ),
+        ),
+        Positioned(
+          bottom: -20,
+          left: 20,
+          child: _BackgroundOrb(
+            size: 100,
+            color: Colors.white.withValues(alpha: 0.05),
+          ),
+        ),
+        SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 10, 20, 22),
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Container(
+                        width: 46,
+                        height: 46,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.4),
+                            width: 2,
+                          ),
+                          image: avatarUrl != null
+                              ? DecorationImage(
+                                  image: NetworkImage(avatarUrl!),
+                                  fit: BoxFit.cover,
+                                )
+                              : null,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.12),
-                              blurRadius: 18,
-                              offset: const Offset(0, 8),),
+                        alignment: Alignment.center,
+                        child: avatarUrl == null
+                            ? Text(
+                                initial,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 20,
+                                ),
+                              )
+                            : null,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            greeting,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.85),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            displayName,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                              letterSpacing: -0.3,
+                            ),
+                          ),
                         ],
                       ),
-                      child: Text(
-                        streakCount != null && streakCount! > 0
-                            ? 'Giữ chuỗi $streakCount ngày nhé!'
-                            : 'Bắt đầu chuỗi học đầu tiên hôm nay!',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 13,
-                            color: AppColors.ink,),
+                    ),
+                    const LevelBadge(onGradient: true),
+                    const SizedBox(width: 2),
+                    IconButton(
+                      tooltip: 'Đăng xuất',
+                      icon: const Icon(
+                        Icons.logout,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                      onPressed: onLogout,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _HeroStat(
+                        value: streakCount == null ? '–' : '$streakCount',
+                        label: '🔥 Streak',
+                        pulse: (streakCount ?? 0) > 0,
                       ),
                     ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _HeroStat(
+                        value: xp == null ? '–' : '$xp',
+                        label: '⚡ XP',
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: _HeroStat(
+                        value: weekStudied == null ? '–' : '$weekStudied',
+                        suffix: '/7',
+                        label: '📅 Tuần',
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BackgroundOrb extends StatelessWidget {
+  const _BackgroundOrb({required this.size, required this.color});
+
+  final double size;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: color),
+      ),
+    );
+  }
+}
+
+/// 1 thẻ thống kê trong header (Streak/XP/Tuần) — số streak nhấp nháy nhẹ
+/// (pulse) khi > 0, mô phỏng `@keyframes pulse-flame` của bản thiết kế gốc.
+class _HeroStat extends StatefulWidget {
+  const _HeroStat({
+    required this.value,
+    required this.label,
+    this.suffix,
+    this.pulse = false,
+  });
+
+  final String value;
+  final String? suffix;
+  final String label;
+  final bool pulse;
+
+  @override
+  State<_HeroStat> createState() => _HeroStatState();
+}
+
+class _HeroStatState extends State<_HeroStat>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 750),
+  );
+  late final Animation<double> _scale = Tween(begin: 1.0, end: 1.18)
+      .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.pulse) _controller.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final number = Text.rich(
+      TextSpan(
+        text: widget.value,
+        style: const TextStyle(
+          fontSize: 22,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+          height: 1,
+        ),
+        children: [
+          if (widget.suffix != null)
+            TextSpan(
+              text: widget.suffix,
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+        ],
+      ),
+    );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        children: [
+          widget.pulse ? ScaleTransition(scale: _scale, child: number) : number,
+          const SizedBox(height: 2),
+          Text(
+            widget.label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              color: Colors.white.withValues(alpha: 0.8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Thẻ "vào học ngay" — trỏ tới bài học thật đang dở (theo
+/// `currentLessonProvider`: bài đầu tiên theo orderIndex chưa có
+/// completed_at trong `user_lesson_progress`). [ratio] null nghĩa là chưa
+/// từng mở bài này (hiện "Bắt đầu"), khác 0% đã mở nhưng chưa qua bước nào.
+class _ContinueLessonCard extends StatefulWidget {
+  const _ContinueLessonCard({
+    required this.title,
+    required this.lessonId,
+    required this.ratio,
+    required this.isCompleted,
+  });
+
+  final String title;
+  final String lessonId;
+  final double? ratio;
+  final bool isCompleted;
+
+  @override
+  State<_ContinueLessonCard> createState() => _ContinueLessonCardState();
+}
+
+class _ContinueLessonCardState extends State<_ContinueLessonCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final title = widget.title;
+    final lessonId = widget.lessonId;
+    final ratio = widget.ratio;
+    final isCompleted = widget.isCompleted;
+    final label = isCompleted
+        ? 'Đã hoàn thành, ôn lại'
+        : ratio == null
+            ? 'Bắt đầu bài học'
+            : 'Tiếp tục học';
+
+    return AnimatedScale(
+      scale: _pressed ? 0.97 : 1,
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOut,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onHighlightChanged: (v) => setState(() => _pressed = v),
+        onTap: () => context.push('/lessons/$lessonId/run'),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppColors.accent, AppColors.accentStrong],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withValues(alpha: 0.3),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Stack(
+            children: [
+              Positioned(
+                right: -34,
+                top: -52,
+                child: Container(
+                  width: 130,
+                  height: 130,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withValues(alpha: 0.09),
+                  ),
+                ),
+              ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    label.toUpperCase(),
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white.withValues(alpha: 0.8),
+                      letterSpacing: 0.8,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.white,
+                              ),
+                            ),
+                            if (ratio != null && !isCompleted) ...[
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(100),
+                                      child: LinearProgressIndicator(
+                                        value: ratio.clamp(0, 1),
+                                        minHeight: 6,
+                                        backgroundColor: Colors.white
+                                            .withValues(alpha: 0.25),
+                                        valueColor:
+                                            const AlwaysStoppedAnimation(
+                                          Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    '${(ratio * 100).round()}%',
+                                    style: const TextStyle(
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      const _GlowPulseCircle(
+                        child: Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -289,128 +683,76 @@ class _HeroHeader extends StatelessWidget {
   }
 }
 
-class _HeaderPill extends StatelessWidget {
-  const _HeaderPill({this.icon, required this.text});
+/// Vòng tròn nút play toả sáng nhấp nháy nhẹ (glow-pulse) quanh viền — mô
+/// phỏng `@keyframes glow-pulse` của bản thiết kế gốc.
+class _GlowPulseCircle extends StatefulWidget {
+  const _GlowPulseCircle({required this.child});
 
-  final IconData? icon;
-  final String text;
+  final Widget child;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-      decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.22),
-          borderRadius: BorderRadius.circular(100),),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 12, color: Colors.white),
-            const SizedBox(width: 4),
-          ],
-          Text(text,
-              style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  color: Colors.white,
-                  fontSize: 11.5,),),
-        ],
-      ),
-    );
-  }
+  State<_GlowPulseCircle> createState() => _GlowPulseCircleState();
 }
 
-/// Thẻ "vào học ngay" nổi bật dưới thẻ mục tiêu — trỏ tới bài học đầu tiên
-/// trong danh sách thật (app chưa lưu "đang học dở bài nào" nên không dùng
-/// chữ "Tiếp tục" ngụ ý đã học dở, chỉ mời vào học bài đầu của cấp độ hiện tại).
-class _ContinueLessonCard extends StatelessWidget {
-  const _ContinueLessonCard(
-      {required this.title, required this.lessonId, required this.levelLabel,});
+class _GlowPulseCircleState extends State<_GlowPulseCircle>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(seconds: 2),
+  )..repeat();
 
-  final String title;
-  final String lessonId;
-  final String levelLabel;
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(20),
-      onTap: () => context.push('/lessons/$lessonId/run'),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [AppColors.accent, AppColors.accentStrong],
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        final t = (1 - (0.5 - _controller.value).abs() * 2).clamp(0.0, 1.0);
+        return Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.25),
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.4),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: AppColors.accent.withValues(alpha: 0.3 * (1 - t)),
+                blurRadius: 1,
+                spreadRadius: 8 * t,
+              ),
+            ],
           ),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.accent.withValues(alpha: 0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(15),
-              ),
-              alignment: Alignment.center,
-              child: const Icon(Icons.menu_book_rounded,
-                  color: Colors.white, size: 24,),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('$levelLabel — Vào học ngay',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                          fontSize: 14,
-                          color: Colors.white,),),
-                  const SizedBox(height: 2),
-                  Text(title,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,),),
-                ],
-              ),
-            ),
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.25),
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: const Icon(Icons.play_arrow_rounded,
-                  color: Colors.white, size: 20,),
-            ),
-          ],
-        ),
-      ),
+          alignment: Alignment.center,
+          child: child,
+        );
+      },
+      child: widget.child,
     );
   }
 }
 
-/// "Today's Mission" — checklist + badge XP mỗi mục + đếm x/y đã xong, nối
-/// dữ liệu thật qua `dailyMissionStatusProvider` (xem `mission_providers.dart`):
-/// không còn tick tay, mỗi mục tự bật khi đạt ngưỡng hoạt động thật hôm nay
-/// và tự cộng XP đúng 1 lần/ngày.
+/// "Today's Mission" — icon số thứ tự mỗi mục đổi trạng thái theo tiến độ
+/// thật: đã xong (check xanh), đang làm — mục chưa xong đầu tiên (cam đậm),
+/// hoặc chưa tới lượt (xám nhạt). Nối dữ liệu thật qua
+/// `dailyMissionStatusProvider` (xem `mission_providers.dart`) — không còn
+/// tick tay, mỗi mục tự bật khi đạt ngưỡng hoạt động thật hôm nay.
+enum _MissionState { done, current, locked }
+
 class _MissionData {
-  const _MissionData({required this.label, required this.xp, required this.done});
+  const _MissionData({
+    required this.label,
+    required this.xp,
+    required this.done,
+  });
 
   final String label;
   final int xp;
@@ -424,12 +766,29 @@ class _TodayMissionSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final status = ref.watch(dailyMissionStatusProvider).valueOrNull;
     final missions = [
-      _MissionData(label: 'Học 10 từ vựng mới', xp: 10, done: status?.vocabDone ?? false),
-      _MissionData(label: 'Ôn tập 5 chữ Kanji', xp: 10, done: status?.kanjiDone ?? false),
-      _MissionData(label: 'Hoàn thành 1 bài Quiz', xp: 15, done: status?.quizDone ?? false),
-      _MissionData(label: 'Trò chuyện cùng AI Kaiwa', xp: 15, done: status?.kaiwaDone ?? false),
+      _MissionData(
+        label: 'Học 10 từ vựng mới',
+        xp: 10,
+        done: status?.vocabDone ?? false,
+      ),
+      _MissionData(
+        label: 'Ôn tập 5 chữ Kanji',
+        xp: 10,
+        done: status?.kanjiDone ?? false,
+      ),
+      _MissionData(
+        label: 'Hoàn thành 1 bài Quiz',
+        xp: 15,
+        done: status?.quizDone ?? false,
+      ),
+      _MissionData(
+        label: 'Trò chuyện cùng AI Kaiwa',
+        xp: 15,
+        done: status?.kaiwaDone ?? false,
+      ),
     ];
     final doneCount = missions.where((m) => m.done).length;
+    final firstPendingIdx = missions.indexWhere((m) => !m.done);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -438,12 +797,23 @@ class _TodayMissionSection extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const _SectionLabel("Today's Mission"),
-            Text(
-              '$doneCount/${missions.length}',
-              style: const TextStyle(
-                fontSize: 10.5,
-                fontWeight: FontWeight.w700,
-                color: AppColors.accent,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [AppColors.accent, AppColors.accentStrong],
+                ),
+                borderRadius: BorderRadius.circular(100),
+              ),
+              child: Text(
+                '$doneCount/${missions.length}',
+                style: const TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
+                ),
               ),
             ),
           ],
@@ -458,9 +828,16 @@ class _TodayMissionSection extends ConsumerWidget {
           child: Column(
             children: [
               for (var i = 0; i < missions.length; i++) ...[
-                if (i > 0)
-                  const Divider(height: 1, color: AppColors.canvas),
-                _MissionRow(mission: missions[i]),
+                if (i > 0) const Divider(height: 1, color: AppColors.canvas),
+                _MissionRow(
+                  mission: missions[i],
+                  index: i,
+                  state: missions[i].done
+                      ? _MissionState.done
+                      : i == firstPendingIdx
+                          ? _MissionState.current
+                          : _MissionState.locked,
+                ),
               ],
             ],
           ),
@@ -471,52 +848,105 @@ class _TodayMissionSection extends ConsumerWidget {
 }
 
 class _MissionRow extends StatelessWidget {
-  const _MissionRow({required this.mission});
+  const _MissionRow({
+    required this.mission,
+    required this.index,
+    required this.state,
+  });
 
   final _MissionData mission;
+  final int index;
+  final _MissionState state;
 
   @override
   Widget build(BuildContext context) {
-    final done = mission.done;
+    final done = state == _MissionState.done;
+    final current = state == _MissionState.current;
+    final iconBg = done
+        ? AppColors.moss
+        : current
+            ? AppColors.accent
+            : AppColors.chip;
+    final textColor = done
+        ? AppColors.moss
+        : state == _MissionState.locked
+            ? AppColors.inkSoft
+            : AppColors.ink;
+    final badgeColor = done
+        ? AppColors.moss
+        : current
+            ? AppColors.accent
+            : AppColors.inkSoft;
+    final badgeBg = done
+        ? AppColors.mossSoft
+        : current
+            ? AppColors.accentSoft
+            : AppColors.chip;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
       child: Row(
         children: [
-          Container(
-            width: 24,
-            height: 24,
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            curve: Curves.easeOut,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
-              color: done ? AppColors.moss : Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: done ? AppColors.moss : AppColors.border,
-                width: 2,
-              ),
+              color: iconBg,
+              shape: BoxShape.circle,
+              boxShadow: done || current
+                  ? [
+                      BoxShadow(
+                        color: (done ? AppColors.moss : AppColors.accent)
+                            .withValues(alpha: 0.3),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
             ),
             alignment: Alignment.center,
-            child: done
-                ? const Icon(Icons.check_rounded,
-                    size: 14, color: Colors.white,)
-                : null,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (child, anim) =>
+                  ScaleTransition(scale: anim, child: child),
+              child: done
+                  ? const Icon(
+                      Icons.check_rounded,
+                      key: ValueKey('check'),
+                      size: 15,
+                      color: Colors.white,
+                    )
+                  : Text(
+                      '${index + 1}',
+                      key: const ValueKey('num'),
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 13,
+                        color: current ? Colors.white : AppColors.inkSoft,
+                      ),
+                    ),
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              mission.label,
+            child: AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 250),
               style: TextStyle(
                 fontWeight: FontWeight.w700,
                 fontSize: 13,
-                color: done ? AppColors.inkFaint : AppColors.ink,
+                color: textColor,
                 decoration:
                     done ? TextDecoration.lineThrough : TextDecoration.none,
               ),
+              child: Text(mission.label),
             ),
           ),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 250),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
             decoration: BoxDecoration(
-              color: done ? AppColors.mossSoft : AppColors.chip,
+              color: badgeBg,
               borderRadius: BorderRadius.circular(100),
             ),
             child: Text(
@@ -524,7 +954,7 @@ class _MissionRow extends StatelessWidget {
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w800,
-                color: done ? AppColors.moss : AppColors.inkFaint,
+                color: badgeColor,
               ),
             ),
           ),
@@ -534,91 +964,104 @@ class _MissionRow extends StatelessWidget {
   }
 }
 
-/// 1 thanh phần trăm trong thẻ "Tiến độ" — [pct] tính thật từ
-/// known-count/total của progress provider tương ứng (đồng bộ cách tính với
-/// banner "x/y đã thuộc" ở các màn danh sách), không có kỹ năng nào bị bịa số.
-class _ProgressBarData {
-  const _ProgressBarData(
-      {required this.label, required this.color, required this.pct,});
+/// 1 vòng tròn tiến độ trong "Tiến độ học tập" — [known]/[total] tính thật
+/// từ progress provider tương ứng (đồng bộ cách tính với banner "x/y đã
+/// thuộc" ở các màn danh sách), không có kỹ năng nào bị bịa số.
+class _ProgressGaugeData {
+  const _ProgressGaugeData({
+    required this.label,
+    required this.color,
+    required this.known,
+    required this.total,
+    required this.route,
+  });
 
   final String label;
   final Color color;
-  final int pct;
+  final int known;
+  final int total;
+  final String route;
+
+  int get pct => total == 0 ? 0 : ((known / total) * 100).round();
 }
 
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({required this.bars});
+class _ProgressGaugeCard extends StatelessWidget {
+  const _ProgressGaugeCard({required this.data});
 
-  final List<_ProgressBarData> bars;
+  final _ProgressGaugeData data;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.card,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: AppColors.border, width: 1.0),
-      ),
-      child: Column(
-        children: [
-          for (var i = 0; i < bars.length; i++) ...[
-            if (i > 0) const SizedBox(height: 14),
-            _ProgressBarRow(bar: bars[i]),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-class _ProgressBarRow extends StatelessWidget {
-  const _ProgressBarRow({required this.bar});
-
-  final _ProgressBarData bar;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return InkWell(
+      borderRadius: BorderRadius.circular(18),
+      onTap: () => context.push(data.route),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: AppColors.border, width: 1.0),
+        ),
+        child: Column(
           children: [
-            Row(
-              children: [
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration:
-                      BoxDecoration(color: bar.color, shape: BoxShape.circle),
-                ),
-                const SizedBox(width: 8),
-                Text(bar.label,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12.5,
-                        color: AppColors.ink,),),
-              ],
+            SizedBox(
+              width: 60,
+              height: 60,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  const SizedBox.expand(
+                    child: CircularProgressIndicator(
+                      value: 1,
+                      strokeWidth: 5,
+                      color: AppColors.chip,
+                    ),
+                  ),
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: data.pct / 100),
+                    duration: const Duration(milliseconds: 800),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, value, _) => SizedBox.expand(
+                      child: CircularProgressIndicator(
+                        value: value,
+                        strokeWidth: 5,
+                        strokeCap: StrokeCap.round,
+                        color: data.color,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    '${data.pct}%',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w800,
+                      color: data.color,
+                    ),
+                  ),
+                ],
+              ),
             ),
-            Text('${bar.pct}%',
-                style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    fontSize: 11,
-                    color: bar.color,),),
+            const SizedBox(height: 8),
+            Text(
+              data.label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: AppColors.ink,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              '${data.known}/${data.total}',
+              style: const TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.inkSoft,
+              ),
+            ),
           ],
         ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(100),
-          child: LinearProgressIndicator(
-            value: bar.pct / 100,
-            minHeight: 8,
-            backgroundColor: AppColors.chip,
-            valueColor: AlwaysStoppedAnimation(bar.color),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }
@@ -665,9 +1108,10 @@ class _WordOfDayCard extends StatelessWidget {
               child: Text(
                 vocab.word.isEmpty ? '' : vocab.word[0],
                 style: AppFonts.zenMaruGothic(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w900,
-                    color: AppColors.moss,),
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
+                  color: AppColors.moss,
+                ),
               ),
             ),
             const SizedBox(width: 14),
@@ -677,40 +1121,57 @@ class _WordOfDayCard extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Text(vocab.word,
-                          style: AppFonts.zenMaruGothic(
-                              fontSize: 17,
-                              fontWeight: FontWeight.w800,
-                              color: AppColors.ink,),),
+                      Text(
+                        vocab.word,
+                        style: AppFonts.zenMaruGothic(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.ink,
+                        ),
+                      ),
                       const SizedBox(width: 6),
                       Expanded(
-                        child: Text(vocab.reading,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppFonts.zenMaruGothic(
-                                fontSize: 10.5, color: AppColors.inkSoft,),),
+                        child: Text(
+                          vocab.reading,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppFonts.zenMaruGothic(
+                            fontSize: 10.5,
+                            color: AppColors.inkSoft,
+                          ),
+                        ),
                       ),
                     ],
                   ),
                   const SizedBox(height: 2),
-                  Text(meaningVi,
-                      style: const TextStyle(
-                          fontSize: 12, color: AppColors.inkSoft,),),
+                  Text(
+                    meaningVi,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.inkSoft,
+                    ),
+                  ),
                   if (meaning?.exampleJp != null) ...[
                     const SizedBox(height: 4),
-                    Text(meaning!.exampleJp!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 10.5,
-                            color: AppColors.inkFaint,
-                            fontStyle: FontStyle.italic,),),
+                    Text(
+                      meaning!.exampleJp!,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 10.5,
+                        color: AppColors.inkSoft,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
                   ],
                 ],
               ),
             ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.inkFaint, size: 20,),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: AppColors.inkFaint,
+              size: 20,
+            ),
           ],
         ),
       ),
@@ -730,9 +1191,61 @@ class _SectionLabel extends StatelessWidget {
       style: const TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w700,
-        color: AppColors.inkFaint,
+        color: AppColors.inkSoft,
         letterSpacing: 0.6,
       ),
+    );
+  }
+}
+
+/// Hiệu ứng vào màn hình so le (fade + trượt nhẹ từ dưới lên) cho từng
+/// section — chỉ chạy 1 lần khi mục đó lần đầu build, độ trễ tăng dần theo
+/// [index] để tạo cảm giác "premium" khi mở Home.
+class _StaggerIn extends StatefulWidget {
+  const _StaggerIn({required this.index, required this.child});
+
+  final int index;
+  final Widget child;
+
+  @override
+  State<_StaggerIn> createState() => _StaggerInState();
+}
+
+class _StaggerInState extends State<_StaggerIn>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 420),
+  );
+  late final Animation<double> _fade = CurvedAnimation(
+    parent: _controller,
+    curve: Curves.easeOut,
+  );
+  late final Animation<Offset> _slide = Tween<Offset>(
+    begin: const Offset(0, 0.06),
+    end: Offset.zero,
+  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
+
+  @override
+  void initState() {
+    super.initState();
+    final delay = Duration(milliseconds: (widget.index * 55).clamp(0, 380));
+    Future.delayed(delay, () {
+      if (mounted) _controller.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(position: _slide, child: widget.child),
     );
   }
 }

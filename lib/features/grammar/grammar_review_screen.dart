@@ -92,10 +92,15 @@ class _GrammarReviewScreenState extends ConsumerState<GrammarReviewScreen> {
             );
           }
 
-          _queue ??= [
+          // Giới hạn tối đa 10 mẫu/lượt (random trong tập due) — hàng đợi
+          // không giới hạn trước đây khiến người mới dễ nản khi có quá nhiều
+          // mẫu due cùng lúc (yêu cầu người dùng 2026-08-07).
+          _queue ??= ([
             for (final g in all)
               if (progress[g.id]?.isDueNow ?? true) g,
-          ];
+          ]..shuffle())
+              .take(10)
+              .toList();
           final queue = _queue!;
 
           if (queue.isEmpty) {

@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/network/supabase_providers.dart';
 import '../../../domain/entities/lesson.dart';
+import '../../../domain/entities/lesson_progress.dart';
 import '../../../domain/services/dialogue_listening_generator.dart';
 import '../../../domain/services/grammar_practice_generator.dart';
 import '../../../domain/services/lesson_mission_generator.dart';
@@ -76,8 +78,34 @@ final lessonRunnerStepsProvider =
   );
 });
 
-/// Vị trí bước hiện tại trong phiên học — reset về 0 mỗi khi vào lại bài
-/// (autoDispose, không lưu tiến trình dở dang giữa các phiên trong Đợt 1).
+/// Tiến trình đã lưu của 1 bài (nếu có) — đọc từ `user_lesson_progress` để
+/// [LessonRunnerScreen] khôi phục đúng bước đang dừng lại khi mở lại bài.
+final lessonProgressProvider =
+    FutureProvider.family.autoDispose<LessonProgress?, String>((ref, lessonId) async {
+  final sb = ref.watch(supabaseProvider);
+  final userId = ref.watch(currentUserProvider)?.id;
+  if (userId == null) return null;
+
+  final row = await sb
+      .from('user_lesson_progress')
+      .select('last_step_index, total_steps, completed_at')
+      .eq('user_id', userId)
+      .eq('lesson_id', lessonId)
+      .maybeSingle();
+  if (row == null) return null;
+
+  return LessonProgress(
+    lastStepIndex: row['last_step_index'] as int,
+    totalSteps: row['total_steps'] as int,
+    completedAt: row['completed_at'] == null
+        ? null
+        : DateTime.parse(row['completed_at'] as String),
+  );
+});
+
+/// Vị trí bước hiện tại trong phiên học — bắt đầu ở 0, được đồng bộ về đúng
+/// bước đã lưu ở [lessonProgressProvider] ngay khi mở bài (xem
+/// `_LessonRunnerScreenState._restoreIfNeeded`).
 class LessonRunnerController extends StateNotifier<int> {
   LessonRunnerController() : super(0);
 
