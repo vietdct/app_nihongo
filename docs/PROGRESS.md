@@ -6,81 +6,63 @@
 
 Đổ toàn bộ dữ liệu N5 (kanji, từ vựng, ngữ pháp) từ 4 PDF người dùng cung cấp
 vào Supabase production, tổ chức theo khung 25 bài Minna no Nihongo Shokyu I.
-Đã hoàn tất, đã apply production. Không có việc dở dang.
+Nội dung đã đủ; đang cải thiện độ chính xác gắn dữ liệu vào đúng bài bằng
+nguồn tham khảo thật (jes.edu.vn). Không có việc dở dang khẩn cấp.
 
-## Trạng thái — đã apply production (chưa commit git)
+## Trạng thái hiện tại — đã apply production, CHƯA commit git
 
-- **Trích xuất + seed nội dung mới**: 57 kanji, 1276 từ vựng, 60 ngữ pháp mới
-  từ PDF (vision-read, không OCR vì PDF là ảnh scan). File:
-  `supabase/seed_content_n5_full.sql` (đã apply, có patch UUID trùng cho 2
-  điểm ngữ pháp `~に~`/`~と~` — xem comment đầu file).
-- **Bài 11-23**: tạo mới 13 bài, gắn 60 điểm ngữ pháp mới + 2 điểm patch vào
-  đúng bài theo chủ đề ngữ pháp thực tế (tự nhóm, KHÔNG phải mục lục SGK gốc
-  vì WebSearch lỗi trong phiên, không tra cứu đối chiếu được). File:
-  `supabase/seed_content_n5_lessons_11_23.sql` (đã apply).
-- **Bài 24-25 + gắn từ vựng/kanji vào bài**: tạo thêm Bài 24-25, gắn 315 từ
-  vựng + 71 kanji (khớp string với danh sách từ-theo-bài MNN tái hiện từ trí
-  nhớ, độ tin cậy Bài 1-13 cao, Bài 14-25 thấp hơn) vào lesson_items. File:
-  `supabase/seed_content_n5_lesson_links.sql` (đã apply).
-- **Bài 24-25 (ngữ pháp)**: 2 bài này ban đầu gần như trống (PDF ngữ pháp
-  nguồn không có nội dung giáp ranh N4). Theo yêu cầu người dùng, đã tự viết
-  4 điểm ngữ pháp từ trí nhớ (~ば, ~ば~ほど, ~のに cho Bài 24; 受身形 giới
-  thiệu cho Bài 25) — độ tin cậy THẤP hơn phần trích trực tiếp từ PDF, coi là
-  bản nháp. File: `supabase/seed_content_n5_lesson24_25_grammar.sql` (đã
-  apply). Người dùng đã xác nhận CHỐT ở mức này cho từ vựng (Bài 24 = 3 từ +
-  1 kanji, Bài 25 = 1 từ — chỉ đúng số khớp được thật, không bịa thêm từ mới
-  ngoài PDF nguồn) — không cần làm thêm việc này nữa trừ khi có nguồn mới.
-- **Bug refresh dữ liệu về máy (đã tìm và sửa)**: `ContentRepositoryImpl.
-  refreshFromRemote` (lib/data/repositories/content_repository_impl.dart)
-  bị 2 lỗi khiến app không bao giờ đồng bộ đủ dữ liệu mới: (1) fetch
-  `vocabulary` không phân trang → PostgREST cắt còn đúng 1000/1530 dòng;
-  (2) fetch `vocabulary_meanings` bằng `.inFilter` với ~1000-1530 ID cùng
-  lúc → URL quá dài, server trả 400, exception làm dừng luôn các bước sau
-  (kanji/grammar/lessons không bao giờ được refresh). Đã sửa: thêm
-  `_fetchAllRows()` phân trang bằng `.range()` cho vocabulary/kanji/
-  grammar_points/lessons, và chia `vocabulary_meanings` thành lô 150 ID/lần.
-  Đã verify logic đúng bằng cách gọi thử REST API trực tiếp (lấy đủ
-  1530/1530 vocab, 1534 meanings, không lỗi). **Chưa verify lại qua UI thật**
-  vì simulator bị lỗi input kẹt suốt phiên (xem "Vấn đề còn lại").
-- Số liệu hiện tại trên production: `lessons`=25, `kanji`=91,
-  `vocabulary`=1530, `grammar_points`=118, `lesson_items` (vocab=443,
-  kanji=96, grammar=118).
-- **Giới hạn đã biết**: phần lớn 1530 từ vựng (~1087 từ) và 20 kanji còn lại
-  CHƯA gắn vào bài cụ thể nào — vì kho từ lõi MNN (~400 từ/25 bài theo trí
-  nhớ tái hiện) nhỏ hơn nhiều so với tổng từ trích từ 4 PDF nguồn (nhiều từ
-  bổ sung/trùng nghĩa ngoài SGK lõi). Các từ này vẫn dùng được bình thường
-  qua tìm kiếm/ôn tập/quiz, chỉ không hiện trong danh sách "từ vựng của bài".
-  Nghe/Đọc (listening/reading) chưa có PDF nguồn nên chưa làm.
+- **Nội dung N5**: `lessons`=25, `kanji`=91, `vocabulary`=1530,
+  `grammar_points`=119. `lesson_items`: vocabulary=959 (869 khớp chính xác từ
+  nguồn thật jes.edu.vn), kanji=96 (96 dòng / 78 kanji duy nhất có gắn bài,
+  13/91 kanji CHƯA gắn bài nào — xem mục Kanji bên dưới), grammar=119.
+- **Tiêu đề 25 bài (2026-08-10, mới xong)**: đối chiếu lại toàn bộ chủ đề ngữ
+  pháp thật từng bài (`scratchpad/grammar_titles_by_lesson.json`, ngoài repo)
+  và phát hiện nhiều tiêu đề cũ (viết từ trí nhớ ở phiên trước) bị lệch/đảo
+  chủ đề — rõ nhất là Bài 24-25 vẫn giữ tiêu đề cũ "Giả định, tuy nhiên" /
+  "Thể bị động" dù nội dung grammar_points đã sửa đúng (cho-nhận/たら) từ
+  trước. Đã viết lại đúng cả 25 tiêu đề theo chủ đề thật. File:
+  `supabase/fix_lesson_titles.sql` (đã apply, đã verify lại bằng SQL).
+- **Kiểm tra Kanji (2026-08-10)**: dump toàn bộ 91 kanji (onyomi/kunyomi/hán
+  việt/nghĩa/số nét), đối chiếu kiến thức N5 chuẩn — **không phát hiện lỗi sai
+  âm đọc/nghĩa/số nét**. Vấn đề còn lại là GẮN BÀI (lesson_items), không phải
+  dữ liệu kanji: chỉ 78/91 kanji có gắn vào bài nào đó, 13 kanji chưa gắn bài,
+  nhiều bài (12,14,16-21,25) không có kanji nào cả — cách gắn này là suy đoán
+  từ phiên trước, không có nguồn thật để đối chiếu (jes.edu.vn chỉ có
+  từ vựng+ngữ pháp theo bài, không có danh sách kanji theo bài). **Chưa sửa**,
+  cần quyết định của người dùng nếu muốn làm tiếp (xem Bước tiếp theo).
+- **Đối chiếu nguồn thật jes.edu.vn (đợt trước)**: relink 869/1530 từ vựng
+  đúng bài (`supabase/relink_vocab_bai1_25_from_source.sql`, đã apply). Sửa
+  ngữ pháp Bài 24-25 sai chủ đề, viết lại đúng chủ đề
+  (`supabase/fix_lesson24_25_grammar.sql`, đã apply). Ngữ pháp Bài 1-23: thử
+  fuzzy-match nhưng ~30% khớp sai → không áp dụng, giữ nguyên cách gắn cũ.
+- **Bug refresh dữ liệu (đã sửa, đã verify qua ảnh chụp thật)**:
+  `ContentRepositoryImpl.refreshFromRemote` (lib/data/repositories/
+  content_repository_impl.dart) thiếu phân trang cho vocabulary + `.inFilter`
+  quá dài cho vocabulary_meanings. Đã sửa, user xác nhận qua ảnh: Từ vựng
+  1530/1530, Kanji 91/91, Ngữ pháp 118/118, đủ 25 bài.
+- **Giới hạn đã biết**: ~660 từ vựng và 13 kanji vẫn chưa gắn vào bài cụ thể
+  (vẫn dùng được qua tìm kiếm/quiz). Nghe/Đọc chưa có PDF nguồn nên chưa làm.
+
+## File mới/sửa chưa commit
+
+`content_repository_impl.dart`, `seed_content_n5_full.sql`,
+`seed_content_n5_lessons_11_23.sql`, `seed_content_n5_lesson_links.sql`,
+`seed_content_n5_lesson24_25_grammar.sql`, `relink_vocab_bai1_25_from_source.sql`,
+`fix_lesson24_25_grammar.sql`, `fix_lesson_titles.sql`.
 
 ## Kiểm tra
 
-- Verify bằng SQL trực tiếp trên production (không test được local vì máy
-  không có Docker) — đã confirm số liệu ở trên qua `supabase db query
-  --linked`.
-- Verify UI bằng simulator: Home, danh sách Kanji hiển thị đúng dữ liệu mới.
-  Grammar/Lesson tab bị cản bởi lỗi input kẹt định kỳ của simulator (vấn đề
-  môi trường đã gặp nhiều lần) — không verify sâu được qua UI, đã bù bằng
-  verify SQL trực tiếp.
-
-## Vấn đề còn lại
-
-- 5 file SQL seed (`seed_content_n5_full.sql`,
-  `seed_content_n5_lessons_11_23.sql`, `seed_content_n5_lesson_links.sql`,
-  `seed_content_n5_lesson24_25_grammar.sql`) đã apply production nhưng
-  **chưa commit git**. Code fix `content_repository_impl.dart` cũng **chưa
-  commit**.
-- Đã verify bằng ảnh chụp màn hình thật từ người dùng: Từ vựng 1530/1530,
-  Kanji 91/91, Ngữ pháp 118/118, dropdown chọn bài lên tới Bài 25 — bug
-  refresh đã hết, xác nhận OK trên simulator sau khi sửa
-  `content_repository_impl.dart`.
-- Việc gắn bài cho Bài 11-25 và cho phần lớn từ vựng/kanji, cùng 4 điểm ngữ
-  pháp Bài 24-25, dựa trên trí nhớ tái hiện, không đối chiếu được nguồn
-  chính thức — nên coi là bản nháp tổ chức ban đầu, có thể cần rà soát lại
-  nếu người dùng có bản mục lục MNN gốc.
+Verify bằng SQL trực tiếp trên production (`supabase db query --linked`,
+không test local được vì máy không có Docker) + ảnh chụp simulator thật từ
+người dùng xác nhận UI hiển thị đúng số liệu (đợt trước, chưa chụp lại sau
+đợt sửa tiêu đề lần này).
 
 ## Bước tiếp theo
 
-1. Hỏi người dùng có muốn commit toàn bộ (5 file seed SQL + code fix
-   `content_repository_impl.dart`) vào git không.
-2. (Tuỳ chọn) Nếu người dùng có PDF/nguồn Nghe-Đọc N5, tiếp tục làm nốt phần
-   đó theo đúng scope ban đầu.
+1. Hỏi người dùng có muốn commit các file trên vào git không (vẫn đang chờ).
+2. Hỏi người dùng có muốn gắn nốt 13 kanji + làm lại gắn-bài cho kanji ở các
+   bài đang trống (12,14,16-21,25) không — cần nguồn thật hoặc chấp nhận suy
+   đoán như trước.
+3. (Tuỳ chọn) Nếu có PDF/nguồn Nghe-Đọc N5, làm nốt phần đó.
+4. (Tuỳ chọn, không gấp) Tay-curate lại gắn ngữ pháp Bài 11-23 bằng dữ liệu
+   thật đã lấy được, thay vì fuzzy-match tự động.
