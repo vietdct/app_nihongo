@@ -203,10 +203,32 @@ class ContentRepositoryImpl implements ContentRepository {
     );
   }
 
+  /// PostgREST giới hạn tối đa 1000 dòng/response theo mặc định — với >1000
+  /// từ vựng 1 cấp độ thì `.select()` đơn thuần sẽ bị cắt bớt âm thầm, nên
+  /// phải phân trang bằng `.range()` cho tới khi hết dữ liệu.
+  Future<List<Map<String, dynamic>>> _fetchAllRows(
+    String table,
+    String levelId,
+  ) async {
+    const pageSize = 1000;
+    final result = <Map<String, dynamic>>[];
+    var from = 0;
+    while (true) {
+      final page = await _supabase
+          .from(table)
+          .select()
+          .eq('level_id', levelId)
+          .range(from, from + pageSize - 1);
+      result.addAll(page.cast<Map<String, dynamic>>());
+      if (page.length < pageSize) break;
+      from += pageSize;
+    }
+    return result;
+  }
+
   @override
   Future<void> refreshFromRemote(String levelId) async {
-    final vocabRows =
-        await _supabase.from('vocabulary').select().eq('level_id', levelId);
+    final vocabRows = await _fetchAllRows('vocabulary', levelId);
     await _db.replaceVocabulary(levelId, [
       for (final r in vocabRows)
         VocabularyTableCompanion.insert(
@@ -222,10 +244,21 @@ class ContentRepositoryImpl implements ContentRepository {
 
     final vocabIds = [for (final r in vocabRows) r['id'] as String];
     if (vocabIds.isNotEmpty) {
-      final meaningRows = await _supabase
-          .from('vocabulary_meanings')
-          .select()
-          .inFilter('vocabulary_id', vocabIds);
+      // Danh sách ID dài (>~200) làm URL `in.(...)` vượt giới hạn của
+      // PostgREST/gateway và trả về 400 — chia nhỏ theo lô để tránh lỗi.
+      const chunkSize = 150;
+      final meaningRows = <Map<String, dynamic>>[];
+      for (var i = 0; i < vocabIds.length; i += chunkSize) {
+        final chunk = vocabIds.sublist(
+          i,
+          i + chunkSize > vocabIds.length ? vocabIds.length : i + chunkSize,
+        );
+        final rows = await _supabase
+            .from('vocabulary_meanings')
+            .select()
+            .inFilter('vocabulary_id', chunk);
+        meaningRows.addAll(rows.cast<Map<String, dynamic>>());
+      }
       await _db.replaceVocabularyMeanings(vocabIds, [
         for (final r in meaningRows)
           VocabularyMeaningsTableCompanion.insert(
@@ -239,8 +272,7 @@ class ContentRepositoryImpl implements ContentRepository {
       ]);
     }
 
-    final kanjiRows =
-        await _supabase.from('kanji').select().eq('level_id', levelId);
+    final kanjiRows = await _fetchAllRows('kanji', levelId);
     await _db.replaceKanji(levelId, [
       for (final r in kanjiRows)
         KanjiTableCompanion.insert(
@@ -262,8 +294,7 @@ class ContentRepositoryImpl implements ContentRepository {
         ),
     ]);
 
-    final grammarRows =
-        await _supabase.from('grammar_points').select().eq('level_id', levelId);
+    final grammarRows = await _fetchAllRows('grammar_points', levelId);
     await _db.replaceGrammar(levelId, [
       for (final r in grammarRows)
         GrammarPointsTableCompanion.insert(
@@ -281,8 +312,7 @@ class ContentRepositoryImpl implements ContentRepository {
         ),
     ]);
 
-    final lessonRows =
-        await _supabase.from('lessons').select().eq('level_id', levelId);
+    final lessonRows = await _fetchAllRows('lessons', levelId);
     await _db.replaceLessons(levelId, [
       for (final r in lessonRows)
         LessonsTableCompanion.insert(

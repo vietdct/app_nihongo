@@ -4,61 +4,83 @@
 
 ## Mục tiêu
 
-JLPT Mock Exam + Mini Test module (`docs/JLPT_MOCK_EXAM_DESIGN.md`,
-`docs/JLPT_MINI_TEST_DESIGN.md`), sau đó dọn dẹp trùng lặp trong tab "Ôn
-tập" theo phản hồi người dùng.
+Đổ toàn bộ dữ liệu N5 (kanji, từ vựng, ngữ pháp) từ 4 PDF người dùng cung cấp
+vào Supabase production, tổ chức theo khung 25 bài Minna no Nihongo Shokyu I.
+Đã hoàn tất, đã apply production. Không có việc dở dang.
 
-## Trạng thái — module chính đã xong, đang ở Task 12 (QA)
+## Trạng thái — đã apply production (chưa commit git)
 
-- **Task 1-11** (Mini Test: Quick 5/Daily/Weak Point, Đọc hiểu/Nghe hiểu,
-  bỏ AI Mini Test): xong, người dùng đã xác nhận trên máy.
-- **Dọn "Chọn chế độ thi" JLPT**: rút từ 6 xuống 3 (Full Exam/Mini
-  Test/Custom Test) — bỏ Section Practice (gộp vào Custom Test), Weak
-  Point Test (trùng Weak Point Mini), AI Mock Exam (cùng lý do bỏ AI Mini
-  Test). Người dùng đã xác nhận trên máy.
-- **Dọn tab "Ôn tập"**: bỏ "Flashcard Từ vựng" (gộp vào Smart Review — màn
-  `VocabularyFlashcardScreen` giờ tự tính tập AI gợi ý bằng `isSmartPick`,
-  có toggle "AI gợi ý/Tất cả"), bỏ "AI Kaiwa" (trùng tab Kaiwa ở footer),
-  xoá hẳn "AI Review Coach" (`review_coach_screen.dart` +
-  `providers/review_coach_service.dart` — không dùng nữa, Edge Function
-  `ai-review-coach` vẫn để deployed dormant). Đã xác nhận bằng mắt trên
-  simulator.
-- **Delay 3s trước khi tự phát audio nghe hiểu** (toàn app, không riêng
-  JLPT): `quiz_screen.dart` + `exam_runner_screen.dart`. Code xong,
-  `flutter analyze` sạch, **chưa live-verify** (chưa vào được đúng 1 câu
-  nghe hiểu trong phiên test này).
-- **Task 12 (QA Accessibility + Responsive)**: audit tĩnh xong (thêm 2
-  tooltip Bookmark/Flag còn thiếu ở `exam_runner_screen.dart`; các layout
-  mới đều đã bọc `Expanded`/`Wrap` nên không thấy nguy cơ tràn chữ). Chưa
-  test màn hình nhỏ thật — máy chỉ có simulator iPhone 17 series (không có
-  iPhone SE/màn nhỏ) nên chưa verify responsive trên thiết bị nhỏ.
+- **Trích xuất + seed nội dung mới**: 57 kanji, 1276 từ vựng, 60 ngữ pháp mới
+  từ PDF (vision-read, không OCR vì PDF là ảnh scan). File:
+  `supabase/seed_content_n5_full.sql` (đã apply, có patch UUID trùng cho 2
+  điểm ngữ pháp `~に~`/`~と~` — xem comment đầu file).
+- **Bài 11-23**: tạo mới 13 bài, gắn 60 điểm ngữ pháp mới + 2 điểm patch vào
+  đúng bài theo chủ đề ngữ pháp thực tế (tự nhóm, KHÔNG phải mục lục SGK gốc
+  vì WebSearch lỗi trong phiên, không tra cứu đối chiếu được). File:
+  `supabase/seed_content_n5_lessons_11_23.sql` (đã apply).
+- **Bài 24-25 + gắn từ vựng/kanji vào bài**: tạo thêm Bài 24-25, gắn 315 từ
+  vựng + 71 kanji (khớp string với danh sách từ-theo-bài MNN tái hiện từ trí
+  nhớ, độ tin cậy Bài 1-13 cao, Bài 14-25 thấp hơn) vào lesson_items. File:
+  `supabase/seed_content_n5_lesson_links.sql` (đã apply).
+- **Bài 24-25 (ngữ pháp)**: 2 bài này ban đầu gần như trống (PDF ngữ pháp
+  nguồn không có nội dung giáp ranh N4). Theo yêu cầu người dùng, đã tự viết
+  4 điểm ngữ pháp từ trí nhớ (~ば, ~ば~ほど, ~のに cho Bài 24; 受身形 giới
+  thiệu cho Bài 25) — độ tin cậy THẤP hơn phần trích trực tiếp từ PDF, coi là
+  bản nháp. File: `supabase/seed_content_n5_lesson24_25_grammar.sql` (đã
+  apply). Người dùng đã xác nhận CHỐT ở mức này cho từ vựng (Bài 24 = 3 từ +
+  1 kanji, Bài 25 = 1 từ — chỉ đúng số khớp được thật, không bịa thêm từ mới
+  ngoài PDF nguồn) — không cần làm thêm việc này nữa trừ khi có nguồn mới.
+- **Bug refresh dữ liệu về máy (đã tìm và sửa)**: `ContentRepositoryImpl.
+  refreshFromRemote` (lib/data/repositories/content_repository_impl.dart)
+  bị 2 lỗi khiến app không bao giờ đồng bộ đủ dữ liệu mới: (1) fetch
+  `vocabulary` không phân trang → PostgREST cắt còn đúng 1000/1530 dòng;
+  (2) fetch `vocabulary_meanings` bằng `.inFilter` với ~1000-1530 ID cùng
+  lúc → URL quá dài, server trả 400, exception làm dừng luôn các bước sau
+  (kanji/grammar/lessons không bao giờ được refresh). Đã sửa: thêm
+  `_fetchAllRows()` phân trang bằng `.range()` cho vocabulary/kanji/
+  grammar_points/lessons, và chia `vocabulary_meanings` thành lô 150 ID/lần.
+  Đã verify logic đúng bằng cách gọi thử REST API trực tiếp (lấy đủ
+  1530/1530 vocab, 1534 meanings, không lỗi). **Chưa verify lại qua UI thật**
+  vì simulator bị lỗi input kẹt suốt phiên (xem "Vấn đề còn lại").
+- Số liệu hiện tại trên production: `lessons`=25, `kanji`=91,
+  `vocabulary`=1530, `grammar_points`=118, `lesson_items` (vocab=443,
+  kanji=96, grammar=118).
+- **Giới hạn đã biết**: phần lớn 1530 từ vựng (~1087 từ) và 20 kanji còn lại
+  CHƯA gắn vào bài cụ thể nào — vì kho từ lõi MNN (~400 từ/25 bài theo trí
+  nhớ tái hiện) nhỏ hơn nhiều so với tổng từ trích từ 4 PDF nguồn (nhiều từ
+  bổ sung/trùng nghĩa ngoài SGK lõi). Các từ này vẫn dùng được bình thường
+  qua tìm kiếm/ôn tập/quiz, chỉ không hiện trong danh sách "từ vựng của bài".
+  Nghe/Đọc (listening/reading) chưa có PDF nguồn nên chưa làm.
 
 ## Kiểm tra
 
-- `flutter analyze` toàn repo: sạch (chỉ còn 4 info deprecation cũ
-  `RadioListTile.groupValue`, không liên quan phiên làm việc này).
-- Build `flutter run --dart-define-from-file=env.json` trên iPhone 17 Pro
-  Max: thành công nhiều lần trong phiên.
-- Xác nhận bằng mắt trên simulator: 3 mode JLPT, tab Ôn tập rút gọn, toggle
-  AI gợi ý/Tất cả ở Flashcard Từ vựng.
+- Verify bằng SQL trực tiếp trên production (không test được local vì máy
+  không có Docker) — đã confirm số liệu ở trên qua `supabase db query
+  --linked`.
+- Verify UI bằng simulator: Home, danh sách Kanji hiển thị đúng dữ liệu mới.
+  Grammar/Lesson tab bị cản bởi lỗi input kẹt định kỳ của simulator (vấn đề
+  môi trường đã gặp nhiều lần) — không verify sâu được qua UI, đã bù bằng
+  verify SQL trực tiếp.
 
 ## Vấn đề còn lại
 
-- **Delay 3s audio nghe hiểu**: chưa live-verify.
-- **Responsive màn nhỏ**: chưa test (thiếu simulator màn nhỏ).
-- Simulator tap bị đứng input định kỳ trong suốt phiên (vấn đề môi
-  trường, không phải bug code) — nhiều lần phải retry/detach-attach.
+- 5 file SQL seed (`seed_content_n5_full.sql`,
+  `seed_content_n5_lessons_11_23.sql`, `seed_content_n5_lesson_links.sql`,
+  `seed_content_n5_lesson24_25_grammar.sql`) đã apply production nhưng
+  **chưa commit git**. Code fix `content_repository_impl.dart` cũng **chưa
+  commit**.
+- Đã verify bằng ảnh chụp màn hình thật từ người dùng: Từ vựng 1530/1530,
+  Kanji 91/91, Ngữ pháp 118/118, dropdown chọn bài lên tới Bài 25 — bug
+  refresh đã hết, xác nhận OK trên simulator sau khi sửa
+  `content_repository_impl.dart`.
+- Việc gắn bài cho Bài 11-25 và cho phần lớn từ vựng/kanji, cùng 4 điểm ngữ
+  pháp Bài 24-25, dựa trên trí nhớ tái hiện, không đối chiếu được nguồn
+  chính thức — nên coi là bản nháp tổ chức ban đầu, có thể cần rà soát lại
+  nếu người dùng có bản mục lục MNN gốc.
 
 ## Bước tiếp theo
 
-1. Vào 1 câu Nghe hiểu thật (Daily/Weak Point Mini có bật nguồn "Nghe
-   hiểu", hoặc Full Exam phần Listening) để xác nhận delay 3s hoạt động
-   đúng và không tự phát đè khi chuyển câu nhanh.
-2. Nếu muốn verify responsive kỹ hơn: boot thêm 1 simulator màn nhỏ (vd.
-   `xcrun simctl create` iPhone SE) rồi kiểm tra Settings sheet Weak Point
-   Mini (label Đọc hiểu/Nghe hiểu khá dài) + Exam Runner có đoạn văn đọc
-   hiểu dài.
-3. Hỏi người dùng có muốn gỡ luôn Edge Function `ai-review-coach` (đang để
-   dormant) hay giữ.
-4. Sau khi xong, hỏi người dùng có muốn `git commit`/`git push` không —
-   hiện tại các thay đổi trong phiên này **chưa commit**.
+1. Hỏi người dùng có muốn commit toàn bộ (5 file seed SQL + code fix
+   `content_repository_impl.dart`) vào git không.
+2. (Tuỳ chọn) Nếu người dùng có PDF/nguồn Nghe-Đọc N5, tiếp tục làm nốt phần
+   đó theo đúng scope ban đầu.
