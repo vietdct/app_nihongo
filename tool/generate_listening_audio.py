@@ -215,8 +215,8 @@ def main():
     env = "GEMINI_API_KEY" if gemini else "GOOGLE_TTS_API_KEY"
     key = os.environ.get(env, "")
     # vocab/--cloud chỉ dùng Cloud TTS → không cần key Gemini
-    cloud_only = ("--cloud" in sys.argv or "vocab" in sys.argv) and \
-        os.environ.get("GOOGLE_TTS_API_KEY")
+    cloud_only = ("--cloud" in sys.argv or "vocab" in sys.argv or "practice" in sys.argv) and \
+        (os.environ.get("GOOGLE_TTS_API_KEY") or os.environ.get("GOOGLE_TTS_ACCESS_TOKEN"))
     if not dry and not key and not cloud_only:
         sys.exit(f"Thiếu {env} (hoặc dùng --dry-run).")
     voices = GEMINI_VOICES if gemini else VOICES
