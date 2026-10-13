@@ -34,7 +34,6 @@ class ProfileHomeScreen extends ConsumerWidget {
         ref.watch(grammarProgressProvider).valueOrNull ?? const {};
     final kaiwaConversations =
         ref.watch(kaiwaConversationsProvider).valueOrNull ?? const [];
-    final levelProgress = ref.watch(jlptLevelProgressProvider).valueOrNull;
 
     final email = user?.email ?? '';
     final initial = email.isNotEmpty ? email[0].toUpperCase() : '?';
@@ -90,7 +89,11 @@ class ProfileHomeScreen extends ConsumerWidget {
                     color: AppColors.indigo,
                   ),
                   const SizedBox(width: 8),
-                  ProfileStatTile(value: '$xp', label: 'XP', color: AppColors.plum),
+                  ProfileStatTile(
+                    value: '$xp',
+                    label: 'XP',
+                    color: AppColors.plum,
+                  ),
                 ],
               ),
             ),
@@ -116,8 +119,8 @@ class ProfileHomeScreen extends ConsumerWidget {
                       borderRadius: BorderRadius.circular(16),
                       border: Border.all(color: AppColors.border, width: 1.0),
                     ),
-                    child: levelProgress == null
-                        ? const Padding(
+                    child: ref.watch(jlptLevelProgressProvider).when(
+                          loading: () => const Padding(
                             padding: EdgeInsets.symmetric(vertical: 10),
                             child: Center(
                               child: SizedBox(
@@ -127,14 +130,19 @@ class ProfileHomeScreen extends ConsumerWidget {
                                     CircularProgressIndicator(strokeWidth: 2),
                               ),
                             ),
-                          )
-                        : Row(
+                          ),
+                          error: (_, __) => _LevelProgressError(
+                            onRetry: () =>
+                                ref.invalidate(jlptLevelProgressProvider),
+                          ),
+                          data: (levels) => Row(
                             mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
-                              for (final lp in levelProgress)
+                              for (final lp in levels)
                                 JlptProgressRing(progress: lp),
                             ],
                           ),
+                        ),
                   ),
                 ],
               ),
@@ -213,6 +221,30 @@ class _SeeAllButton extends StatelessWidget {
   }
 }
 
+class _LevelProgressError extends StatelessWidget {
+  const _LevelProgressError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          const Expanded(
+            child: Text(
+              'Không thể tải tiến độ. Kiểm tra mạng rồi thử lại.',
+              style: TextStyle(fontSize: 12, color: AppColors.inkSoft),
+            ),
+          ),
+          TextButton(onPressed: onRetry, child: const Text('Thử lại')),
+        ],
+      ),
+    );
+  }
+}
+
 class _HeroHeader extends StatelessWidget {
   const _HeroHeader({
     required this.initial,
@@ -235,18 +267,32 @@ class _HeroHeader extends StatelessWidget {
   final VoidCallback onTap;
 
   static const _months = [
-    'T1', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'T8', 'T9', 'T10', 'T11', 'T12',
+    'T1',
+    'T2',
+    'T3',
+    'T4',
+    'T5',
+    'T6',
+    'T7',
+    'T8',
+    'T9',
+    'T10',
+    'T11',
+    'T12',
   ];
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return InkWell(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 22),
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [Color(0xFF241C15), Color(0xFF3D2F22)],
+            colors: isDark
+                ? const [Color(0xFF0F2A2E), Color(0xFF0E1416)]
+                : const [Color(0xFF241C15), Color(0xFF3D2F22)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),

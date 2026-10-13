@@ -6,23 +6,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/services/dialogue_audio.dart';
+import '../../core/services/dialogue_player.dart';
 import '../../core/services/jp_voice_prefs.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/lesson.dart' show LessonItemType;
-import '../../domain/entities/listening_dialogue.dart';
 import '../../domain/services/quiz_generator.dart';
 import '../home/providers/mission_providers.dart';
 import '../home/providers/profile_providers.dart';
 import 'providers/quiz_providers.dart';
 import 'widgets/countdown_ring.dart';
+import 'widgets/listening_question_body.dart';
 
 /// Màn quiz trắc nghiệm dùng chung cho cả 3 lối vào (theo bài học / theo
 /// trình độ / nghe hiểu) — chỉ nhận [questions] đã resolve sẵn, không tự
 /// watch provider bên trong để tách biệt UI/state khỏi nguồn dữ liệu.
 ///
-/// Mọi câu hỏi đều được đọc bằng `flutter_tts` (đã dùng ở AI Kaiwa) khi vào
-/// câu — giúp học phát âm ngay cả ở quiz chữ bình thường, không cần thêm dữ
-/// liệu audio thật.
+/// Không tự phát âm ở bất kỳ thời điểm nào (vào câu, chọn đáp án, mở script,
+/// xem kết quả): chỉ nút loa/Play do người dùng bấm mới đọc, và chỉ đọc đúng
+/// nội dung gắn với nút đó.
 ///
 /// [listeningMode]: ẩn chữ Nhật cho tới khi trả lời — biến đúng bộ câu hỏi đó
 /// thành bài luyện nghe thay vì luyện đọc.
@@ -68,6 +70,22 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
 
   late final AnimationController _timerController;
   late final FlutterTts _tts;
+  final DialoguePlayer _player = DialoguePlayer();
+
+  /// Audio cloud tạo sẵn (giọng tự nhiên) cho câu đơn; chưa có file → TTS máy.
+  final DialogueAudio _audio = DialogueAudio();
+
+  /// Đang đọc 1 câu đơn (không phải hội thoại) — để nút nghe đổi thành tạm dừng.
+  bool _speakingSingle = false;
+  AudioPlaybackSpeed _speed = AudioPlaybackSpeed.x100;
+  int _singleToken = 0;
+
+  /// Nghe hiểu hội thoại: người học đã bấm "Scriptを見る" ở câu hiện tại chưa.
+  /// Luôn về false khi sang câu mới ([_startTimerForCurrentQuestion]) — cùng
+  /// với [_answered] quyết định [ListeningPhase], nên script không thể lộ ra
+  /// khi đang nghe dù widget bị rebuild.
+  bool _scriptOpen = false;
+  final ScrollController _listeningScroll = ScrollController();
   Timer? _wholeQuizTimer;
   int? _wholeQuizSecondsLeft;
 
@@ -116,11 +134,8 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
       vsync: this,
       duration: const Duration(seconds: _secondsPerQuestion),
     )..addStatusListener(_onTimerStatusChanged);
-    _tts = FlutterTts()
-      ..setLanguage('ja-JP')
-      ..setVolume(1.0)
-      ..setSpeechRate(0.45)
-      ..awaitSpeakCompletion(true);
+    _tts = FlutterTts();
+    _player.state.addListener(_onPlayerStateChanged);
     unawaited(_loadVoices());
     if (_hasQuestions) _startTimerForCurrentQuestion();
     if (widget.timedMode && _hasQuestions) _startWholeQuizTimer();
@@ -147,13 +162,13 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
   }
 
   Future<void> _loadVoices() async {
-    final voices = await loadJapaneseVoices(_tts);
-    final saved = await loadSavedJpVoice(voices);
-    if (saved != null) await _tts.setVoice(saved);
+    final cfg = await configureJpTts(_tts);
+    final speed = await loadJpSpeechSpeed();
     if (!mounted) return;
     setState(() {
-      _japaneseVoices = voices;
-      _selectedVoice = saved;
+      _japaneseVoices = cfg.voices;
+      _selectedVoice = cfg.saved;
+      _speed = speed;
     });
   }
 
@@ -162,7 +177,6 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
     await saveJpVoice(voice);
     if (!mounted) return;
     setState(() => _selectedVoice = voice);
-    unawaited(_speakCurrent());
   }
 
   void _openVoicePicker() {
@@ -171,6 +185,12 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
       voices: _japaneseVoices,
       selected: _selectedVoice,
       onSelected: _selectVoice,
+      speed: _speed,
+      onSpeedChanged: (s) {
+        _speed = s;
+        // Nghe hiểu hội thoại dùng DialoguePlayer riêng; câu đơn đọc ở lần sau.
+        unawaited(_player.setSpeed(s));
+      },
     );
   }
 
@@ -179,47 +199,64 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
     _timerController.dispose();
     _wholeQuizTimer?.cancel();
     unawaited(_tts.stop());
+    unawaited(_audio.dispose());
+    _player.state.removeListener(_onPlayerStateChanged);
+    _player.dispose();
+    _listeningScroll.dispose();
     super.dispose();
   }
 
-  /// Câu thường: đọc nguyên [QuizQuestion.displayJp] 1 lần. Hội thoại nghe
-  /// hiểu (`dialogueTurns` khác null): đọc lần lượt từng lượt thoại, đổi cao
-  /// độ giọng theo speaker để nghe như 2 người khác nhau — không có audio
-  /// thu sẵn nên TTS là cách duy nhất tạo hiệu ứng "2 giọng".
-  ///
-  /// [auto]: true khi gọi tự động lúc vào câu (không phải người dùng chủ
-  /// động bấm nghe) — câu Typing (`typedAnswerMode == exact`, gõ lại cách
-  /// đọc) bị chặn ở lượt tự động vì đọc to chính là lộ đáp án ngay khi câu
-  /// hiện ra; nút nghe thủ công vẫn hoạt động bình thường (người dùng tự
-  /// chọn nghe như 1 dạng gợi ý, không bị ép).
-  Future<void> _speakCurrent({bool auto = false}) async {
+  /// Âm thanh chỉ phát khi người dùng chủ động bấm nút loa/Play — không bao
+  /// giờ tự phát khi vào câu, chọn đáp án, mở script hay xem kết quả.
+  void _stopAudio() {
+    unawaited(_tts.stop());
+    unawaited(_audio.stop());
+    unawaited(_player.stop());
+  }
+
+  Future<void> _speakCurrent() async {
     if (!_hasQuestions || _isDone) return;
     final question = widget.questions[_index];
-    if (auto && question.typedAnswerMode == TypedAnswerMode.exact) return;
     final turns = question.dialogueTurns;
     // Câu đảo chiều (displayIsJapanese == false) hiện nghĩa tiếng Việt to
     // giữa màn — không đọc bằng giọng tiếng Nhật vì sẽ phát âm sai hoàn
     // toàn, không phải im lặng do lỗi.
     if (turns == null && !question.displayIsJapanese) return;
-    // Câu Nghe hiểu tự phát (auto, không phải bấm nút "Nghe lại" thủ công):
-    // đợi 3s trước khi phát để người làm kịp đọc câu hỏi/đáp án, giống hành
-    // vi thi thật — không áp dụng cho câu thường (đọc 1 từ/câu ngắn) vì sẽ
-    // làm chậm nhịp làm bài không cần thiết.
-    if (auto && turns != null && turns.isNotEmpty) {
-      final startIndex = _index;
-      await Future<void>.delayed(const Duration(seconds: 3));
-      if (!mounted || _isDone || _index != startIndex) return;
-    }
+    // Câu điền chỗ trống chưa trả lời: đọc sẽ vô nghĩa/lộ đáp án.
+    if (turns == null && question.hasBlank && !_answered) return;
+    _runTimerIfWaitingForAudio();
     await applyIosTtsPlaybackCategory(_tts);
     await _tts.stop();
+    await _audio.stop();
     if (turns == null || turns.isEmpty) {
-      await _tts.speak(question.displayJp);
+      final token = ++_singleToken;
+      if (mounted) setState(() => _speakingSingle = true);
+      final jp = question.spokenJp;
+      // Ưu tiên file cloud tạo sẵn (cùng bộ với nút loa ở màn Từ vựng/Ngữ
+      // pháp); không có file hoặc mất mạng thì mới dùng giọng máy.
+      final played = await _audio.playSentence(jp, _speed.multiplier);
+      if (!played && mounted && token == _singleToken) {
+        await _tts.setSpeechRate(_speed.ttsRate);
+        await _tts.speak(prepareJpForSpeech(jp));
+      }
+      if (mounted && token == _singleToken) {
+        setState(() => _speakingSingle = false);
+      }
       return;
     }
-    for (final turn in turns) {
-      if (!mounted || _index >= widget.questions.length) return;
-      await _tts.setPitch(turn.speaker == 'A' ? 1.15 : 0.8);
-      await _tts.speak(turn.jp);
+    // Hội thoại: mỗi nhân vật 1 giọng, có tạm dừng — xem [DialoguePlayer].
+    await _player.play(turns);
+  }
+
+  /// Nút nghe của câu đơn: đang đọc thì bấm để dừng, không thì đọc.
+  void _toggleSingleAudio() {
+    if (_speakingSingle) {
+      _singleToken++;
+      setState(() => _speakingSingle = false);
+      unawaited(_tts.stop());
+      unawaited(_audio.stop());
+    } else {
+      unawaited(_speakCurrent());
     }
   }
 
@@ -229,8 +266,50 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
     }
   }
 
+  bool _isListeningQuestion(QuizQuestion q) =>
+      q.dialogueTurns != null && q.dialogueTurns!.isNotEmpty;
+
+  /// Hạn thời gian của câu hiện tại. Hội thoại nghe hiểu dài hơn nhiều so với
+  /// 15s của câu thường nên cộng thêm theo độ dài script (tối đa 3 phút) —
+  /// nếu không thì hết giờ trước khi kịp nghe xong.
+  int get _secondsForCurrent {
+    if (!_hasQuestions || _isDone) return _secondsPerQuestion;
+    final q = widget.questions[_index];
+    if (!_isListeningQuestion(q)) return _secondsPerQuestion;
+    final chars = q.dialogueTurns!.fold<int>(0, (n, t) => n + t.jp.length);
+    return (20 + chars * 0.2).round().clamp(30, 180);
+  }
+
+  ListeningPhase get _listeningPhase {
+    if (!_answered) return ListeningPhase.listening;
+    if (_scriptOpen) return ListeningPhase.reviewing;
+    return _timedOut ? ListeningPhase.timeout : ListeningPhase.answered;
+  }
+
+  /// Câu nghe (hội thoại, hoặc chế độ nghe) chỉ bắt đầu đếm giờ khi người học
+  /// bấm Play lần đầu — không thì thời gian trôi trước khi họ kịp nghe.
+  bool _timerWaitsForAudio(QuizQuestion q) =>
+      widget.listeningMode || _isListeningQuestion(q);
+
+  bool _timerStarted = false;
+
+  void _runTimerIfWaitingForAudio() {
+    if (_timerStarted || _answered || !_hasQuestions || _isDone) return;
+    if (!_timerWaitsForAudio(widget.questions[_index])) return;
+    _timerStarted = true;
+    _timerController.reverse(from: 1.0);
+  }
+
+  void _onPlayerStateChanged() {
+    if (_player.state.value != DialoguePlayState.idle) {
+      _runTimerIfWaitingForAudio();
+    }
+  }
+
   void _startTimerForCurrentQuestion() {
+    _timerController.duration = Duration(seconds: _secondsForCurrent);
     setState(() {
+      _scriptOpen = false;
       _selectedOption = null;
       _answered = false;
       _timedOut = false;
@@ -240,14 +319,17 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
       _hintUsed = false;
     });
     _timerController.value = 1.0;
-    _timerController.reverse(from: 1.0);
-    unawaited(_speakCurrent(auto: true));
+    _timerStarted = false;
+    if (!_timerWaitsForAudio(widget.questions[_index])) {
+      _timerStarted = true;
+      _timerController.reverse(from: 1.0);
+    }
   }
 
   void _onSelectOption(int optionIndex) {
     if (_answered) return;
     _timerController.stop();
-    unawaited(_tts.stop());
+    _stopAudio();
     final question = widget.questions[_index];
     _selectedOption = optionIndex;
     _recordAnswer(
@@ -265,7 +347,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
     final mode = question.typedAnswerMode;
     if (mode == null) return;
     _timerController.stop();
-    unawaited(_tts.stop());
+    _stopAudio();
     _recordAnswer(
       isTypedAnswerCorrect(rawText, question.typedAcceptedAnswers, mode),
       givenAnswerLabel: rawText.trim(),
@@ -280,7 +362,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
     final question = widget.questions[_index];
     if (question.orderTiles == null) return;
     _timerController.stop();
-    unawaited(_tts.stop());
+    _stopAudio();
     _recordAnswer(
       isOrderCorrect(sequence, question.orderCorrectSequence),
       givenAnswerLabel: sequence.join(''),
@@ -350,6 +432,32 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
         question: widget.questions[_index],
         givenAnswerLabel: 'Hết giờ',
       ),);
+    });
+    final question = widget.questions[_index];
+    if (_isListeningQuestion(question)) {
+      _stopAudio();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_answered || !_timedOut) return;
+        unawaited(showListeningTimeoutSheet(
+          context,
+          correctLetter: String.fromCharCode(65 + question.correctIndex),
+          correctLabel: question.options[question.correctIndex],
+          onShowScript: _openScript,
+          onContinue: _onContinue,
+        ),);
+      });
+    }
+  }
+
+  void _openScript() {
+    setState(() => _scriptOpen = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_listeningScroll.hasClients) return;
+      _listeningScroll.animateTo(
+        _listeningScroll.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
     });
   }
 
@@ -474,8 +582,37 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
     );
   }
 
+  Widget _buildListeningBody(QuizQuestion question) {
+    return ListeningQuestionBody(
+      title: widget.title,
+      index: _index,
+      total: widget.questions.length,
+      hearts: _hearts,
+      timerController: _timerController,
+      timerSeconds: _secondsForCurrent,
+      question: question,
+      player: _player,
+      phase: _listeningPhase,
+      selectedOption: _selectedOption,
+      hiddenOptions: _hiddenOptions,
+      hintUsed: _hintUsed,
+      isCorrect: !_timedOut && _isCorrect,
+      timedOut: _timedOut,
+      xpGained: _lastXpGained,
+      combo: _combo,
+      scrollController: _listeningScroll,
+      onClose: _onBackPressed,
+      onVoicePicker: _openVoicePicker,
+      onSelect: _onSelectOption,
+      onHint: _useHint,
+      onShowScript: _openScript,
+      onContinue: _onContinue,
+    );
+  }
+
   Widget _buildQuizBody(BuildContext context) {
     final question = widget.questions[_index];
+    if (_isListeningQuestion(question)) return _buildListeningBody(question);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
       child: Column(
@@ -548,17 +685,16 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
                     const SizedBox(height: 16),
                     CountdownRing(
                         controller: _timerController,
-                        totalSeconds: _secondsPerQuestion,),
+                        totalSeconds: _secondsForCurrent,),
                     const SizedBox(height: 14),
                     if (widget.listeningMode && !_answered)
-                      _ListenButton(onTap: () => unawaited(_speakCurrent()))
-                    else if (question.dialogueTurns != null)
-                      _DialogueTranscript(
-                        turns: question.dialogueTurns!,
-                        onReplay: () => unawaited(_speakCurrent()),
+                      _ListenButton(
+                        onTap: _toggleSingleAudio,
+                        playing: _speakingSingle,
                       )
                     else ...[
-                      if (question.displayIsJapanese) ...[
+                      if (question.displayIsJapanese &&
+                          (!question.hasBlank || _answered)) ...[
                         _AudioPlayButton(
                             onTap: () => unawaited(_speakCurrent()),),
                         const SizedBox(height: 14),
@@ -640,6 +776,8 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
               combo: _combo,
               correctAnswerLabel: question.options[question.correctIndex],
               onContinue: _onContinue,
+              explanation: question.explanationVi,
+              sourceNote: question.sourceNote,
             ),
           ],
         ],
@@ -760,9 +898,10 @@ class _AudioPlayButton extends StatelessWidget {
 /// Nút phát/nghe lại âm thanh trong [QuizScreen.listeningMode] — thay cho
 /// hiển thị chữ Nhật, buộc người học phải nghe thay vì đọc.
 class _ListenButton extends StatelessWidget {
-  const _ListenButton({required this.onTap});
+  const _ListenButton({required this.onTap, required this.playing});
 
   final VoidCallback onTap;
+  final bool playing;
 
   @override
   Widget build(BuildContext context) {
@@ -778,90 +917,20 @@ class _ListenButton extends StatelessWidget {
             decoration: const BoxDecoration(
                 color: AppColors.accentSoft, shape: BoxShape.circle,),
             alignment: Alignment.center,
-            child: const Icon(Icons.volume_up_rounded,
-                size: 32, color: AppColors.accentStrong,),
+            child: Icon(
+              playing ? Icons.pause_rounded : Icons.volume_up_rounded,
+              size: 32,
+              color: AppColors.accentStrong,
+            ),
           ),
         ),
         const SizedBox(height: 8),
-        const Text('Chạm để nghe lại',
+        Text(playing ? 'Chạm để tạm dừng' : 'Chạm để nghe lại',
             textAlign: TextAlign.center,
-            style: TextStyle(
+            style: const TextStyle(
                 fontSize: 11.5,
                 fontWeight: FontWeight.w600,
                 color: AppColors.inkSoft,),),
-      ],
-    );
-  }
-}
-
-/// Bản chép lời hội thoại nghe hiểu — chỉ hiện sau khi trả lời (học từ
-/// script thật), tô màu khác theo từng speaker để dễ theo dõi ai nói gì.
-class _DialogueTranscript extends StatelessWidget {
-  const _DialogueTranscript({required this.turns, required this.onReplay});
-
-  final List<ListeningTurn> turns;
-  final VoidCallback onReplay;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('NỘI DUNG ĐÃ NGHE',
-                style: TextStyle(
-                    fontSize: 10.5,
-                    fontWeight: FontWeight.w800,
-                    color: AppColors.inkFaint,
-                    letterSpacing: 0.6,),),
-            const SizedBox(width: 4),
-            InkWell(
-              borderRadius: BorderRadius.circular(100),
-              onTap: onReplay,
-              child: const Padding(
-                padding: EdgeInsets.all(4),
-                child: Icon(Icons.volume_up_rounded,
-                    size: 18, color: AppColors.accentStrong,),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: AppColors.card,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.border, width: 0.6),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (var i = 0; i < turns.length; i++) ...[
-                if (i > 0) const SizedBox(height: 8),
-                Text.rich(
-                  TextSpan(
-                    children: [
-                      TextSpan(
-                        text: '${turns[i].speaker}: ',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w800,
-                            color: turns[i].speaker == 'A'
-                                ? AppColors.accentStrong
-                                : AppColors.indigo,),
-                      ),
-                      TextSpan(text: turns[i].jp),
-                    ],
-                  ),
-                  style: AppFonts.zenMaruGothic(
-                      fontSize: 15.5, color: AppColors.ink,),
-                ),
-              ],
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -1270,6 +1339,8 @@ class _FeedbackPanel extends StatelessWidget {
     required this.combo,
     required this.correctAnswerLabel,
     required this.onContinue,
+    this.explanation,
+    this.sourceNote,
   });
 
   final bool isCorrect;
@@ -1278,6 +1349,10 @@ class _FeedbackPanel extends StatelessWidget {
   final int combo;
   final String correctAnswerLabel;
   final VoidCallback onContinue;
+
+  /// Lời giải + nguồn câu hỏi (nếu dữ liệu có) — chỉ hiện sau khi đã trả lời.
+  final String? explanation;
+  final String? sourceNote;
 
   @override
   Widget build(BuildContext context) {
@@ -1373,6 +1448,40 @@ class _FeedbackPanel extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                           fontSize: 14,
                           color: AppColors.ink,),),
+                ],
+              ),
+            ),
+          ],
+          if ((explanation ?? '').trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Container(
+              key: const ValueKey('quiz-explanation'),
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: AppColors.card.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Giải thích:',
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.inkSoft,),),
+                  const SizedBox(height: 2),
+                  Text(explanation!.trim(),
+                      style: const TextStyle(
+                          fontSize: 13,
+                          height: 1.4,
+                          color: AppColors.ink,),),
+                  if ((sourceNote ?? '').isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Text(sourceNote!,
+                        style: const TextStyle(
+                            fontSize: 11, color: AppColors.inkSoft,),),
+                  ],
                 ],
               ),
             ),

@@ -1,10 +1,12 @@
 import 'dart:math';
 
 import '../entities/grammar_point.dart';
+import '../entities/grammar_practice_question.dart';
 import '../entities/kaiwa_message.dart';
 import '../entities/lesson.dart';
 import '../entities/listening_dialogue.dart';
 import '../entities/review_mistake.dart';
+import '../entities/vocabulary.dart';
 
 /// 1 câu hỏi trắc nghiệm được sinh ra từ 1 [LessonContentItem] thật (từ
 /// vựng/Kanji/ngữ pháp) — không có nội dung nào bịa, chỉ trình bày lại
@@ -25,6 +27,8 @@ class QuizQuestion {
     this.typedAcceptedAnswers = const [],
     this.orderTiles,
     this.orderCorrectSequence = const [],
+    this.explanationVi,
+    this.sourceNote,
   });
 
   /// Dòng hướng dẫn/câu hỏi phía trên — tiếng Việt cho câu hỏi Vocab/Kanji/
@@ -92,6 +96,26 @@ class QuizQuestion {
   /// Thứ tự đúng của các từ trong [orderTiles] (chính là `practiceTokens`
   /// gốc, chưa xáo trộn). Rỗng ở câu hỏi không phải Sentence Ordering.
   final List<String> orderCorrectSequence;
+
+  /// Lời giải tiếng Việt, chỉ hiện SAU khi người học trả lời. null = dữ liệu
+  /// chưa có lời giải (không bịa).
+  final String? explanationVi;
+
+  /// Nguồn câu hỏi hiển thị kèm lời giải (VD "第8課 練習① 第2項"). null = không ghi.
+  final String? sourceNote;
+
+  static final _blank = RegExp(r'＿+|_{2,}|（\s*）|\(\s*\)');
+
+  /// Câu điền chỗ trống: [displayJp] có chỗ trống nên không thể đọc nguyên văn
+  /// (đọc ra vô nghĩa, hoặc lộ đáp án) — chỉ đọc được sau khi đã trả lời.
+  bool get hasBlank =>
+      displayIsJapanese && typedAnswerMode == null && _blank.hasMatch(displayJp);
+
+  /// Chuỗi để đọc: câu hoàn chỉnh (điền đáp án đúng vào chỗ trống) hoặc
+  /// nguyên [displayJp] nếu không có chỗ trống.
+  String get spokenJp => hasBlank
+      ? displayJp.replaceFirst(_blank, options[correctIndex])
+      : displayJp;
 }
 
 /// 1 cặp (câu người học thật đã nói, câu AI thật đã trả lời tiếp theo) trong
@@ -145,7 +169,9 @@ bool isTypedAnswerCorrect(
   for (final raw in accepted) {
     final a = _normalizeTypedAnswer(raw);
     if (a.isEmpty) continue;
-    final match = mode == TypedAnswerMode.exact ? t == a : (t.contains(a) || a.contains(t));
+    final match = mode == TypedAnswerMode.exact
+        ? t == a
+        : (t.contains(a) || a.contains(t));
     if (match) return true;
   }
   return false;
@@ -174,7 +200,13 @@ enum _Direction { termToMeaning, meaningToTerm, termToReading, readingToTerm }
 /// sẵn (Vocabulary/Kanji/GrammarPoint) — app chưa có ngân hàng câu hỏi
 /// riêng nên không bịa nội dung mới, chỉ hỏi lại đúng dữ liệu thật đã có,
 /// dưới nhiều góc hỏi khác nhau (xem [_Direction]).
+const int _maxPickTitleLength = 20;
+const int _maxPickExampleLength = 60;
+
 class QuizGenerator {
+  /// Câu ví dụ tiếng Việt ngắn hơn mức này không đủ ngữ cảnh "tình huống".
+  static const _minSituationLength = 15;
+
   const QuizGenerator({Random? random}) : _random = random;
 
   final Random? _random;
@@ -218,6 +250,239 @@ class QuizGenerator {
     ];
   }
 
+  /// Sinh câu "Điền từ vào chỗ trống" từ câu ví dụ thật của từ vựng: chỉ dùng
+  /// ví dụ có chứa NGUYÊN VĂN `word` (từ chia đuôi khác thì bỏ qua, không đoán
+  /// dạng biến đổi). Nhiễu là từ của các từ vựng khác trong [pool].
+  List<QuizQuestion> generateVocabCloze({
+    required List<Vocabulary> pool,
+    int questionCount = 10,
+  }) {
+    final rng = _random ?? Random();
+    final words = {for (final v in pool) v.word.trim()}.toList();
+    if (words.length < 3) return const [];
+
+    final candidates = <(Vocabulary, String, String?)>[];
+    for (final v in pool) {
+      final word = v.word.trim();
+      if (word.length < 2) continue;
+      for (final m in v.meanings) {
+        for (final (jp, vi) in m.allExamples) {
+          if (jp.contains(word)) {
+            candidates.add((v, jp, vi));
+            break;
+          }
+        }
+      }
+    }
+    candidates.shuffle(rng);
+
+    final out = <QuizQuestion>[];
+    final used = <String>{};
+    for (final (v, jp, vi) in candidates) {
+      if (out.length >= questionCount) break;
+      final word = v.word.trim();
+      if (!used.add(word)) continue;
+      // Nhiễu ưu tiên từ cùng loại từ (danh từ với danh từ...) để các lựa
+      // chọn cùng kiểu ngữ nghĩa; thiếu thì lấy thêm từ khác loại.
+      final others = [
+        for (final o in pool)
+          if (o.word.trim() != word) o,
+      ]..shuffle(rng);
+      final sameType = [
+        for (final o in others)
+          if (v.partOfSpeech != null && o.partOfSpeech == v.partOfSpeech)
+            o.word.trim(),
+      ];
+      final rest = [
+        for (final o in others)
+          if (v.partOfSpeech == null || o.partOfSpeech != v.partOfSpeech)
+            o.word.trim(),
+      ];
+      final distractors = <String>{...sameType, ...rest}.take(3).toList();
+      final options = [word, ...distractors]..shuffle(rng);
+      final meaning = v.primaryMeaning;
+      out.add(
+        QuizQuestion(
+          promptVi: 'Điền từ thích hợp vào chỗ trống',
+          displayJp: jp.replaceFirst(word, '＿＿＿'),
+          options: options,
+          correctIndex: options.indexOf(word),
+          sourceType: LessonItemType.vocabulary,
+          displayIsJapanese: true,
+          explanationVi: [
+            '$jp${(vi ?? '').trim().isEmpty ? '' : '\n$vi'}',
+            if (meaning.isNotEmpty) '「$word」: $meaning',
+          ].join('\n'),
+        ),
+      );
+    }
+    return out;
+  }
+
+  /// Sinh câu "Tình huống → thuật ngữ": hiện câu ví dụ tiếng Việt (tình huống
+  /// công việc thật của từ) và hỏi thuật ngữ tiếng Nhật phù hợp. Chỉ dùng ví
+  /// dụ có đủ cả câu Nhật chứa nguyên văn từ lẫn bản dịch Việt. Nhiễu là từ
+  /// cùng loại từ (nếu có), bỏ từ nào có nghĩa chính xuất hiện ngay trong câu
+  /// tình huống hoặc có mặt trong câu Nhật gốc (tránh 2 đáp án cùng đúng).
+  /// Từ không đủ 3 nhiễu hợp lệ bị bỏ qua thay vì độn đáp án giả.
+  List<QuizQuestion> generateVocabSituation({
+    required List<Vocabulary> pool,
+    int questionCount = 10,
+  }) {
+    final rng = _random ?? Random();
+    final candidates = <(Vocabulary, String, String)>[];
+    for (final v in pool) {
+      final word = v.word.trim();
+      if (word.length < 2) continue;
+      var picked = false;
+      for (final m in v.meanings) {
+        if (picked) break;
+        for (final (jp, vi) in m.allExamples) {
+          final viText = (vi ?? '').trim();
+          if (jp.contains(word) && viText.length >= _minSituationLength) {
+            candidates.add((v, jp, viText));
+            picked = true;
+            break;
+          }
+        }
+      }
+    }
+    candidates.shuffle(rng);
+
+    final out = <QuizQuestion>[];
+    for (final (v, jp, vi) in candidates) {
+      if (out.length >= questionCount) break;
+      final word = v.word.trim();
+      final viLower = vi.toLowerCase();
+      bool usable(Vocabulary o) {
+        final ow = o.word.trim();
+        if (ow.isEmpty || ow == word || jp.contains(ow)) return false;
+        final key = o.primaryMeaning
+            .split(RegExp(r'[,;/(（]'))
+            .first
+            .trim()
+            .toLowerCase();
+        return key.length < 3 || !viLower.contains(key);
+      }
+
+      final others = pool.where(usable).toList()..shuffle(rng);
+      final sameType = [
+        for (final o in others)
+          if (v.partOfSpeech != null && o.partOfSpeech == v.partOfSpeech)
+            o.word.trim(),
+      ];
+      final rest = [
+        for (final o in others)
+          if (v.partOfSpeech == null || o.partOfSpeech != v.partOfSpeech)
+            o.word.trim(),
+      ];
+      final distractors = <String>{...sameType, ...rest}.take(3).toList();
+      if (distractors.length < 3) continue;
+      final options = [word, ...distractors]..shuffle(rng);
+      final meaning = v.primaryMeaning;
+      final reading = v.reading.trim();
+      out.add(
+        QuizQuestion(
+          promptVi: 'Tình huống công việc — chọn thuật ngữ tiếng Nhật phù hợp',
+          displayJp: vi,
+          options: options,
+          correctIndex: options.indexOf(word),
+          sourceType: LessonItemType.vocabulary,
+          displayIsJapanese: false,
+          explanationVi: [
+            jp,
+            '「$word」${reading.isEmpty || reading == word ? '' : '（$reading）'}'
+                '${meaning.isEmpty ? '' : ': $meaning'}',
+          ].join('\n'),
+        ),
+      );
+    }
+    return out;
+  }
+
+  /// Sinh câu "Câu nào dùng đúng mẫu X?" từ chính câu ví dụ của từng mẫu
+  /// ngữ pháp — không cần `practiceTokens`. Đáp án đúng là `exampleJp` của
+  /// mẫu; nhiễu là `exampleJp` của mẫu khác, loại câu nào có chứa phần lõi
+  /// của mẫu đang hỏi (bỏ "〜") để tránh 2 đáp án cùng đúng. Mẫu không đủ
+  /// 2 nhiễu hợp lệ thì bị bỏ qua thay vì độn đáp án giả.
+  List<QuizQuestion> generateGrammarSentencePick({
+    required List<GrammarPoint> pool,
+    int questionCount = 10,
+  }) {
+    final rng = _random ?? Random();
+    // Chỉ dùng mẫu có tiêu đề ngắn (là mẫu câu thật) và ví dụ vừa phải —
+    // tiêu đề/ví dụ dài cả đoạn hội thoại không hợp dạng này.
+    final withExample = pool
+        .where(
+          (g) =>
+              g.title.trim().length <= _maxPickTitleLength &&
+              (g.exampleJp ?? '').trim().isNotEmpty &&
+              g.exampleJp!.trim().length <= _maxPickExampleLength,
+        )
+        .toList();
+    if (withExample.length < 3) return const [];
+
+    final chosen = withExample.toList()..shuffle(rng);
+    final out = <QuizQuestion>[];
+    for (final g in chosen) {
+      if (out.length >= questionCount) break;
+      final core = g.title.replaceAll(RegExp(r'[〜～~\s]'), '');
+      final correct = g.exampleJp!.trim();
+      final distractors = <String>{
+        for (final o in withExample)
+          if (o.id != g.id &&
+              !(core.isNotEmpty && o.exampleJp!.contains(core)) &&
+              o.exampleJp!.trim() != correct)
+            o.exampleJp!.trim(),
+      }.toList()
+        ..shuffle(rng);
+      if (distractors.length < 2) continue;
+      final options = [correct, ...distractors.take(3)]..shuffle(rng);
+      out.add(
+        QuizQuestion(
+          promptVi: 'Câu nào dùng đúng mẫu này?',
+          displayJp: g.title,
+          options: options,
+          correctIndex: options.indexOf(correct),
+          sourceType: LessonItemType.grammar,
+        ),
+      );
+    }
+    return out;
+  }
+
+  /// Câu Ngữ pháp điền chỗ trống đã soạn sẵn (có nhiễu, lời giải, nguồn) →
+  /// [QuizQuestion]. Chỉ xáo thứ tự lựa chọn, không sửa nội dung; câu dữ liệu
+  /// hỏng (nhiễu trùng, đáp án ngoài danh sách) bị bỏ qua.
+  List<QuizQuestion> generateCuratedGrammarCloze({
+    required List<GrammarPracticeQuestion> pool,
+    int questionCount = 10,
+  }) {
+    final rng = _random ?? Random();
+    final valid = pool.where((q) => q.isValid).toList()..shuffle(rng);
+    final out = <QuizQuestion>[];
+    for (final q in valid.take(questionCount)) {
+      final correct = q.options[q.correctIndex];
+      final options = q.options.toList()..shuffle(rng);
+      out.add(
+        QuizQuestion(
+          promptVi: 'Chọn cách diễn đạt đúng để điền vào chỗ trống',
+          displayJp: q.promptJp,
+          options: options,
+          correctIndex: options.indexOf(correct),
+          sourceType: LessonItemType.grammar,
+          explanationVi: q.explanationVi,
+          sourceNote: q.sourceRef == null
+              ? null
+              : (q.source == 'book'
+                  ? 'Câu trích từ sách · ${q.sourceRef}'
+                  : 'Câu soạn thêm · ${q.sourceRef}'),
+        ),
+      );
+    }
+    return out;
+  }
+
   /// Sinh câu hỏi Điền từ (fill blank) cho Ngữ pháp — tái dùng đúng cơ chế
   /// `practiceTokens`/`practiceBlankIndex` mà `grammar_practice_generator.dart`
   /// đã dùng cho màn Luyện tập ngữ pháp (chỗ trống + nhiễu lấy từ token cùng
@@ -233,10 +498,12 @@ class QuizGenerator {
     final rng = _random ?? Random();
 
     final eligible = pool
-        .where((g) =>
-            g.practiceBlankIndex != null &&
-            g.practiceBlankIndex! >= 0 &&
-            g.practiceBlankIndex! < g.practiceTokens.length,)
+        .where(
+          (g) =>
+              g.practiceBlankIndex != null &&
+              g.practiceBlankIndex! >= 0 &&
+              g.practiceBlankIndex! < g.practiceTokens.length,
+        )
         .toList();
     if (eligible.length < 2) return const [];
 
@@ -386,8 +653,11 @@ class QuizGenerator {
   }) {
     final rng = _random ?? Random();
     final eligible = pool
-        .where((g) =>
-            g.practiceTokens.length >= 3 && (g.exampleVi ?? '').trim().isNotEmpty,)
+        .where(
+          (g) =>
+              g.practiceTokens.length >= 3 &&
+              (g.exampleVi ?? '').trim().isNotEmpty,
+        )
         .toList();
     if (eligible.isEmpty) return const [];
 
@@ -435,16 +705,20 @@ class QuizGenerator {
   }) {
     final rng = _random ?? Random();
     final eligible = pool
-        .where((g) => (g.exampleJp ?? '').trim().isNotEmpty && g.title.trim().isNotEmpty)
+        .where((g) =>
+            (g.exampleJp ?? '').trim().isNotEmpty && g.title.trim().isNotEmpty)
         .toList();
-    final distinctTitles = <String>{for (final g in eligible) g.title.trim().toLowerCase()};
+    final distinctTitles = <String>{
+      for (final g in eligible) g.title.trim().toLowerCase()
+    };
     if (eligible.length < 2 || distinctTitles.length < 2) return const [];
 
     final chosen = eligible.toList()..shuffle(rng);
     final selected = chosen.take(min(questionCount, chosen.length));
 
     return [
-      for (final g in selected) _buildGrammarSelectionQuestion(g, eligible, rng),
+      for (final g in selected)
+        _buildGrammarSelectionQuestion(g, eligible, rng),
     ];
   }
 
@@ -459,7 +733,8 @@ class QuizGenerator {
     }..removeWhere((t) => t.toLowerCase() == correctTitle.toLowerCase());
 
     final distractors = distractorPool.toList()..shuffle(rng);
-    final options = <String>[correctTitle, ...distractors.take(3)]..shuffle(rng);
+    final options = <String>[correctTitle, ...distractors.take(3)]
+      ..shuffle(rng);
 
     return QuizQuestion(
       promptVi: 'Câu này minh hoạ cho mẫu ngữ pháp nào?',
@@ -475,7 +750,18 @@ class QuizGenerator {
   /// làm nhiễu dự phòng khi pool không đủ trợ từ thật khác cho 1 vị trí —
   /// đây là kiến thức ngữ pháp cố định (giống cách `_promptFor` cố định
   /// chuỗi hỏi), không phải nội dung học bịa ra.
-  static const _particleSet = {'は', 'が', 'を', 'に', 'で', 'へ', 'と', 'も', 'の', 'や'};
+  static const _particleSet = {
+    'は',
+    'が',
+    'を',
+    'に',
+    'で',
+    'へ',
+    'と',
+    'も',
+    'の',
+    'や'
+  };
 
   /// Sinh câu hỏi Chọn trợ từ (Particle Selection) — ẩn đúng 1 token là trợ
   /// từ thật trong `practiceTokens` (nhận diện qua [_particleSet], không
@@ -531,7 +817,8 @@ class QuizGenerator {
     final distractorPool = <String>{...particlesInPool, ..._particleSet}
       ..remove(correctAnswer);
     final distractors = distractorPool.toList()..shuffle(rng);
-    final options = <String>[correctAnswer, ...distractors.take(3)]..shuffle(rng);
+    final options = <String>[correctAnswer, ...distractors.take(3)]
+      ..shuffle(rng);
 
     return QuizQuestion(
       promptVi: 'Chọn trợ từ đúng vào chỗ trống:',
@@ -558,8 +845,11 @@ class QuizGenerator {
   }) {
     final rng = _random ?? Random();
     final eligible = pool
-        .where((m) =>
-            (m.originalAnswer ?? '').trim().isNotEmpty && m.correctAnswer.trim().isNotEmpty,)
+        .where(
+          (m) =>
+              (m.originalAnswer ?? '').trim().isNotEmpty &&
+              m.correctAnswer.trim().isNotEmpty,
+        )
         .toList();
     final distinctAnswers = <String>{
       for (final m in eligible) m.correctAnswer.trim().toLowerCase(),
@@ -570,7 +860,8 @@ class QuizGenerator {
     final selected = chosen.take(min(questionCount, chosen.length));
 
     return [
-      for (final m in selected) _buildMistakeCorrectionQuestion(m, eligible, rng),
+      for (final m in selected)
+        _buildMistakeCorrectionQuestion(m, eligible, rng),
     ];
   }
 
@@ -584,7 +875,8 @@ class QuizGenerator {
       for (final other in allCandidates) other.correctAnswer.trim(),
     }..removeWhere((a) => a.toLowerCase() == correctAnswer.toLowerCase());
     final distractors = distractorPool.toList()..shuffle(rng);
-    final options = <String>[correctAnswer, ...distractors.take(3)]..shuffle(rng);
+    final options = <String>[correctAnswer, ...distractors.take(3)]
+      ..shuffle(rng);
 
     return QuizQuestion(
       promptVi: 'Bạn từng trả lời sai câu này — đáp án đúng là gì?',
@@ -641,7 +933,8 @@ class QuizGenerator {
       for (final other in allCandidates) other.feedback!.betterPhrasing.trim(),
     }..removeWhere((a) => a.toLowerCase() == correctAnswer.toLowerCase());
     final distractors = distractorPool.toList()..shuffle(rng);
-    final options = <String>[correctAnswer, ...distractors.take(3)]..shuffle(rng);
+    final options = <String>[correctAnswer, ...distractors.take(3)]
+      ..shuffle(rng);
 
     return QuizQuestion(
       promptVi: 'Câu này có thể nói tự nhiên hơn — chọn cách nói đúng:',
@@ -665,8 +958,11 @@ class QuizGenerator {
   }) {
     final rng = _random ?? Random();
     final eligible = pool
-        .where((t) =>
-            t.promptContextJp.trim().isNotEmpty && t.nextAiReplyJp.trim().isNotEmpty,)
+        .where(
+          (t) =>
+              t.promptContextJp.trim().isNotEmpty &&
+              t.nextAiReplyJp.trim().isNotEmpty,
+        )
         .toList();
     final distinctReplies = <String>{
       for (final t in eligible) t.nextAiReplyJp.trim().toLowerCase(),
@@ -692,10 +988,12 @@ class QuizGenerator {
       for (final other in allCandidates) other.nextAiReplyJp.trim(),
     }..removeWhere((r) => r.toLowerCase() == correctReply.toLowerCase());
     final distractors = distractorPool.toList()..shuffle(rng);
-    final options = <String>[correctReply, ...distractors.take(3)]..shuffle(rng);
+    final options = <String>[correctReply, ...distractors.take(3)]
+      ..shuffle(rng);
 
     return QuizQuestion(
-      promptVi: 'Bạn vừa nói câu này trong hội thoại — AI đã trả lời gì tiếp theo?',
+      promptVi:
+          'Bạn vừa nói câu này trong hội thoại — AI đã trả lời gì tiếp theo?',
       displayJp: t.promptContextJp.trim(),
       options: options,
       correctIndex: options.indexOf(correctReply),
@@ -730,7 +1028,8 @@ class QuizGenerator {
       ],
     ];
     final eligible = candidates
-        .where((d) => _dedupeBy(allCandidates, (c) => _axisOf(c, d)).length >= 2)
+        .where(
+            (d) => _dedupeBy(allCandidates, (c) => _axisOf(c, d)).length >= 2)
         .toList();
     if (eligible.isEmpty) return _Direction.termToMeaning;
     return eligible[rng.nextInt(eligible.length)];
@@ -748,9 +1047,11 @@ class QuizGenerator {
     final optionSlots = min(4, optionPool.length);
 
     final distractors = optionPool
-        .where((c) =>
-            _axisOf(c, direction).trim().toLowerCase() !=
-            correctValue.trim().toLowerCase(),)
+        .where(
+          (c) =>
+              _axisOf(c, direction).trim().toLowerCase() !=
+              correctValue.trim().toLowerCase(),
+        )
         .toList()
       ..shuffle(rng);
 
@@ -781,7 +1082,8 @@ class QuizGenerator {
   }
 
   /// Giá trị dùng làm đáp án/lựa chọn theo từng trục hỏi.
-  String _axisOf(_ContentItem item, _Direction direction) => switch (direction) {
+  String _axisOf(_ContentItem item, _Direction direction) =>
+      switch (direction) {
         _Direction.termToMeaning => item.meaning,
         _Direction.meaningToTerm => item.term,
         _Direction.termToReading => item.reading ?? '',
@@ -834,7 +1136,9 @@ class QuizGenerator {
   }
 
   List<_ContentItem> _dedupeBy(
-      Iterable<_ContentItem> items, String Function(_ContentItem) key,) {
+    Iterable<_ContentItem> items,
+    String Function(_ContentItem) key,
+  ) {
     final seen = <String>{};
     final result = <_ContentItem>[];
     for (final item in items) {
@@ -863,10 +1167,9 @@ class QuizGenerator {
   /// tự chọn đại diện 1 âm (tránh bịa ra "đáp án đúng duy nhất" không có
   /// thật trong dữ liệu).
   String? _readingOf(LessonContentItem item) => switch (item.type) {
-        LessonItemType.vocabulary =>
-          item.vocabulary!.reading.trim().isEmpty
-              ? null
-              : item.vocabulary!.reading.trim(),
+        LessonItemType.vocabulary => item.vocabulary!.reading.trim().isEmpty
+            ? null
+            : item.vocabulary!.reading.trim(),
         LessonItemType.kanji => () {
             final readings = [...item.kanji!.onyomi, ...item.kanji!.kunyomi]
                 .map((r) => r.trim())

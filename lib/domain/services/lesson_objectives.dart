@@ -15,8 +15,14 @@ List<String> deriveLessonObjectives(List<LessonContentItem> items) {
       .map((i) => i.grammar!.title)
       .toList();
 
+  // Tiêu đề ngắn (N5–N1: "は", "〜ます"...) liệt kê được; mẫu câu dài (khóa IT:
+  // nguyên câu hội thoại) chỉ nêu số lượng để mục tiêu không thành một khối chữ.
+  final joined = grammarTitles.join(', ');
+  final listable = grammarTitles.length <= 5 && joined.length <= 60;
+
   return [
-    if (grammarTitles.isNotEmpty) 'Sử dụng đúng: ${grammarTitles.join(", ")}',
+    if (grammarTitles.isNotEmpty)
+      listable ? 'Sử dụng đúng: $joined' : 'Nắm vững ${grammarTitles.length} mẫu câu trọng tâm',
     if (vocabCount > 0) 'Học $vocabCount từ vựng mới',
     if (kanjiCount > 0) 'Nhận biết $kanjiCount chữ Kanji',
   ];

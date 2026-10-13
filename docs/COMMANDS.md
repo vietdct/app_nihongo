@@ -16,6 +16,21 @@
 | `flutter analyze` | `No issues found!` |
 | `flutter test` (toàn bộ, không giới hạn file) | 139/139 pass (sau Task 9) |
 
+## Đã xác nhận (chạy thành công trong phiên 2026-08-10, seed N4)
+
+| Lệnh | Kết quả |
+|---|---|
+| `supabase db query --linked -f supabase/seed_content_n4_full.sql` | Apply thành công lên production, không lỗi (verify lại bằng SQL count) |
+
+## Đã xác nhận (chạy thành công trong phiên 2026-08-10, làm giàu nội dung ngữ pháp)
+
+| Lệnh | Kết quả |
+|---|---|
+| `supabase db query --linked -f supabase/migrations/20260810100000_grammar_extra_examples.sql` | Migration apply thành công |
+| `dart run build_runner build --delete-conflicting-outputs` | Regenerate Drift code thành công (406 outputs) sau khi đổi schema local |
+| `flutter analyze` | 0 lỗi liên quan; 8 info deprecated RadioGroup có sẵn từ trước |
+| `supabase db query --linked -f supabase/seed_grammar_extra_content.sql` | Apply 236 UPDATE + insert comparison pairs thành công lên production |
+
 ## Cần xác minh trước khi coi là đáng tin
 
 | Lệnh | Mục đích | Thay đổi dữ liệu | Cần network |

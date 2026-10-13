@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/services/dialogue_player.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/listening_dialogue.dart';
 import '../../../domain/services/quiz_generator.dart';
-import '../../../shared/jp_speak_button.dart';
+import '../../../shared/dialogue_script_view.dart';
 
 /// Bước nghe hiểu trong pha Practice — hội thoại thật (`ListeningDialogue`
-/// qua `DialogueListeningGenerator`) ẩn transcript mặc định để khuyến khích
-/// nghe trước khi đọc (đúng kỹ năng cần luyện), người học có thể bấm loa
-/// từng lượt thoại hoặc "Hiện hội thoại" để đọc lại bất cứ lúc nào. Bấm
-/// "Kiểm tra" mới lộ đúng/sai — cùng nhịp thao tác với Grammar Practice để
-/// nhất quán cảm giác luyện tập trong toàn app.
+/// qua `DialogueListeningGenerator`): nghe cả đoạn (mỗi nhân vật 1 giọng, có
+/// tạm dừng), script bị che bằng ＊ và chỉ hiện từng lượt khi bấm nút mắt cuối
+/// dòng (xem `DialogueListeningPanel`). Bấm "Kiểm tra" mới lộ đúng/sai và hiện
+/// toàn bộ script — cùng nhịp thao tác với Grammar Practice.
 class LessonListeningView extends StatefulWidget {
   const LessonListeningView({super.key, required this.question, required this.onDone});
 
@@ -22,7 +22,7 @@ class LessonListeningView extends StatefulWidget {
 }
 
 class _LessonListeningViewState extends State<LessonListeningView> {
-  bool _revealed = false;
+  final DialoguePlayer _player = DialoguePlayer();
   int? _selected;
   bool _checked = false;
   bool _wasCorrect = false;
@@ -31,8 +31,13 @@ class _LessonListeningViewState extends State<LessonListeningView> {
     setState(() {
       _checked = true;
       _wasCorrect = _selected == widget.question.correctIndex;
-      _revealed = true;
     });
+  }
+
+  @override
+  void dispose() {
+    _player.dispose();
+    super.dispose();
   }
 
   @override
@@ -56,33 +61,10 @@ class _LessonListeningViewState extends State<LessonListeningView> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (var i = 0; i < turns.length; i++) ...[
-                        if (i > 0) const SizedBox(height: 10),
-                        _TurnRow(turn: turns[i], revealed: _revealed),
-                      ],
-                      if (turns.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Center(
-                          child: TextButton.icon(
-                            onPressed: () => setState(() => _revealed = !_revealed),
-                            icon: Icon(_revealed ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18),
-                            label: Text(_revealed ? 'Ẩn hội thoại' : 'Hiện hội thoại'),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
+                DialogueListeningPanel(
+                  turns: turns,
+                  player: _player,
+                  revealAll: _checked,
                 ),
                 const SizedBox(height: 20),
                 Container(
@@ -134,36 +116,6 @@ class _LessonListeningViewState extends State<LessonListeningView> {
             child: Text(_checked ? 'Tiếp tục' : 'Kiểm tra'),
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _TurnRow extends StatelessWidget {
-  const _TurnRow({required this.turn, required this.revealed});
-
-  final ListeningTurn turn;
-  final bool revealed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        SizedBox(
-          width: 54,
-          child: Text(
-            turn.speaker,
-            style: const TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.inkFaint),
-          ),
-        ),
-        Expanded(
-          child: Text(
-            revealed ? turn.jp : '・・・・・・',
-            style: AppFonts.zenMaruGothic(fontSize: 15, color: revealed ? AppColors.ink : AppColors.inkFaint),
-          ),
-        ),
-        JpSpeakButton(text: turn.jp, color: AppColors.moss, size: 20),
       ],
     );
   }

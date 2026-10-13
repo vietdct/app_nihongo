@@ -17,7 +17,8 @@ const _quizGenerator = QuizGenerator();
 /// Tìm 1 [Lesson] theo id trong danh sách bài học của cấp độ đang chọn —
 /// không cần thêm phương thức repository riêng, [lessonsProvider] đã watch
 /// đúng cấp độ hiện tại và bài học luôn thuộc cấp độ đó.
-final lessonByIdProvider = Provider.family<AsyncValue<Lesson?>, String>((ref, lessonId) {
+final lessonByIdProvider =
+    Provider.family<AsyncValue<Lesson?>, String>((ref, lessonId) {
   final lessonsAsync = ref.watch(lessonsProvider);
   return lessonsAsync.whenData((list) {
     for (final l in list) {
@@ -48,8 +49,19 @@ final lessonRunnerStepsProvider =
   }
   if (lesson == null) return const [];
 
-  final dialogues = await ref.watch(listeningDialoguesForLevelProvider(lesson.levelId).future);
-  final listeningQuestions = _dialogueGenerator.generate(dialogues: dialogues, questionCount: 2);
+  var dialogues =
+      await ref.watch(listeningDialoguesForLessonProvider(lesson.id).future);
+  // Các bài N5 đã có từ trước chưa gắn `lesson_id`, nên tiếp tục dùng pool
+  // nghe theo cấp độ. Khóa IT mới có hội thoại riêng sẽ luôn ưu tiên đúng bài.
+  if (dialogues.isEmpty) {
+    dialogues = await ref
+        .watch(listeningDialoguesForLevelProvider(lesson.levelId).future);
+  }
+  final listeningQuestions = _dialogueGenerator.generate(
+    dialogues: dialogues,
+    questionCount: 2,
+    allowSingle: true,
+  );
 
   final quizQuestions = _quizGenerator.generate(pool: items, questionCount: 6);
   final grammarPool = [
@@ -80,8 +92,8 @@ final lessonRunnerStepsProvider =
 
 /// Tiến trình đã lưu của 1 bài (nếu có) — đọc từ `user_lesson_progress` để
 /// [LessonRunnerScreen] khôi phục đúng bước đang dừng lại khi mở lại bài.
-final lessonProgressProvider =
-    FutureProvider.family.autoDispose<LessonProgress?, String>((ref, lessonId) async {
+final lessonProgressProvider = FutureProvider.family
+    .autoDispose<LessonProgress?, String>((ref, lessonId) async {
   final sb = ref.watch(supabaseProvider);
   final userId = ref.watch(currentUserProvider)?.id;
   if (userId == null) return null;
@@ -120,7 +132,7 @@ class LessonRunnerController extends StateNotifier<int> {
   }
 }
 
-final lessonRunnerControllerProvider =
-    StateNotifierProvider.autoDispose.family<LessonRunnerController, int, String>(
+final lessonRunnerControllerProvider = StateNotifierProvider.autoDispose
+    .family<LessonRunnerController, int, String>(
   (ref, lessonId) => LessonRunnerController(),
 );

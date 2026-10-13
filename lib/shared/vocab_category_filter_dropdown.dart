@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
+import 'filter_pill_button.dart';
 
 /// Huy hiệu chọn chủ đề (category) để lọc Từ vựng — cùng kiểu tương tác với
 /// [LessonFilterDropdown] (chạm mở bottom sheet chọn), nhưng nguồn dữ liệu là
@@ -14,6 +15,7 @@ class VocabCategoryFilterDropdown extends StatelessWidget {
     required this.hasUncategorized,
     required this.onSelected,
     required this.accentColor,
+    this.fillWidth = false,
   });
 
   final List<String> categories;
@@ -21,38 +23,16 @@ class VocabCategoryFilterDropdown extends StatelessWidget {
   final bool hasUncategorized;
   final ValueChanged<String?> onSelected;
   final Color accentColor;
+  final bool fillWidth;
 
   @override
   Widget build(BuildContext context) {
     if (categories.isEmpty) return const SizedBox.shrink();
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(100),
-        onTap: () => _showPicker(context),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          decoration: BoxDecoration(
-            color: accentColor,
-            borderRadius: BorderRadius.circular(100),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                selected ?? 'Tất cả chủ đề',
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13.5,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.expand_more, size: 18, color: Colors.white),
-            ],
-          ),
-        ),
-      ),
+    return FilterPillButton(
+      label: selected ?? 'Tất cả chủ đề',
+      accentColor: accentColor,
+      fillWidth: fillWidth,
+      onTap: () => _showPicker(context),
     );
   }
 

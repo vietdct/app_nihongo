@@ -237,7 +237,8 @@ class _ContinueKanjiCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return InkWell(
       borderRadius: BorderRadius.circular(20),
-      onTap: () => context.push('/kanji/${kanji.id}'),
+      // extra khác null = mở bộ thẻ vuốt (học tiếp), không phải xem 1 chữ.
+      onTap: () => context.push('/kanji/${kanji.id}', extra: 'deck'),
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(

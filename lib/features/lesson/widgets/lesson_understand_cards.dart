@@ -8,6 +8,7 @@ import '../../../domain/entities/vocabulary.dart';
 import '../../../shared/jp_speak_button.dart';
 import '../../../shared/kanji_stroke_canvas.dart';
 import '../../grammar/widgets/grammar_content_sections.dart';
+import '../../../shared/jp_example_text.dart';
 
 /// 3 thẻ "Understand" — cố ý xây MỚI, nhẹ, chỉ đọc (không có swipe/star/SRS
 /// như `VocabularyFlashcardScreen`/`KanjiDetailScreen`) thay vì tách widget
@@ -141,7 +142,7 @@ class _VocabMeaningBlock extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(meaning.exampleJp!, style: AppFonts.zenMaruGothic(fontSize: 14, color: AppColors.ink)),
+                JpExampleText(meaning.exampleJp!, style: AppFonts.zenMaruGothic(fontSize: 14, color: AppColors.ink)),
                 if (meaning.exampleVi != null) ...[
                   const SizedBox(height: 4),
                   Text(meaning.exampleVi!, style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft)),
@@ -222,7 +223,7 @@ class _LessonKanjiUnderstandCardState extends State<LessonKanjiUnderstandCard> {
           ],
           if (kanji.exampleJp != null) ...[
             const SizedBox(height: 10),
-            Text(kanji.exampleJp!, style: AppFonts.zenMaruGothic(fontSize: 14, color: AppColors.ink)),
+            JpExampleText(kanji.exampleJp!, style: AppFonts.zenMaruGothic(fontSize: 14, color: AppColors.ink)),
             if (kanji.exampleVi != null) ...[
               const SizedBox(height: 4),
               Text(kanji.exampleVi!, style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft)),
@@ -281,7 +282,13 @@ class LessonGrammarUnderstandCard extends StatelessWidget {
               Expanded(
                 child: Text(
                   grammar.title,
-                  style: AppFonts.zenMaruGothic(fontSize: 24, fontWeight: FontWeight.w800, color: AppColors.ink),
+                  // Tiêu đề ngắn (は, 〜ます...) giữ cỡ lớn; mẫu câu dài (khóa IT) thu nhỏ để
+                  // không chiếm hết màn hình.
+                  style: AppFonts.zenMaruGothic(
+                    fontSize: grammar.title.length > 30 ? 16 : (grammar.title.length > 14 ? 20 : 24),
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.ink,
+                  ),
                 ),
               ),
               JpSpeakButton(text: grammar.title, color: AppColors.plum),
@@ -299,7 +306,7 @@ class LessonGrammarUnderstandCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(grammar.exampleJp!, style: AppFonts.zenMaruGothic(fontSize: 14.5, color: AppColors.ink)),
+                    JpExampleText(grammar.exampleJp!, style: AppFonts.zenMaruGothic(fontSize: 14.5, color: AppColors.ink)),
                     if (grammar.exampleVi != null) ...[
                       const SizedBox(height: 6),
                       Text(grammar.exampleVi!, style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft)),

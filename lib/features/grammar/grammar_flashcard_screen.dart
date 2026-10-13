@@ -7,6 +7,7 @@ import '../../domain/entities/grammar_point.dart';
 import '../lesson/providers/content_providers.dart';
 import 'providers/grammar_progress_providers.dart';
 import 'widgets/grammar_content_sections.dart';
+import '../../shared/jp_example_text.dart';
 
 /// Bộ thẻ ngữ pháp vuốt qua — vuốt phải để đánh dấu đã thuộc, vuốt trái để
 /// đánh dấu chưa thuộc (gom vào danh sách ôn lại cuối phiên). Mỗi thẻ là 1
@@ -611,22 +612,42 @@ class _GrammarCardContent extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            GrammarSection(
-              color: AppColors.plum,
-              label: 'Ý NGHĨA',
-              child: GrammarInfoBox(
-                child: Text(
-                  grammar.explanation,
-                  style: const TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
-                    color: AppColors.ink,
-                    height: 1.4,
+            if (grammar.meanings.isNotEmpty)
+              GrammarSection(
+                color: AppColors.plum,
+                label: 'Ý NGHĨA',
+                child: Column(
+                  children: [
+                    for (final (i, meaning) in grammar.meanings.indexed)
+                      Padding(
+                        padding: EdgeInsets.only(
+                          bottom: i == grammar.meanings.length - 1 ? 0 : 10,
+                        ),
+                        child: GrammarMeaningCard(
+                          index: i + 1,
+                          meaning: meaning,
+                        ),
+                      ),
+                  ],
+                ),
+              )
+            else
+              GrammarSection(
+                color: AppColors.plum,
+                label: 'Ý NGHĨA',
+                child: GrammarInfoBox(
+                  child: Text(
+                    grammar.explanation,
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.ink,
+                      height: 1.4,
+                    ),
                   ),
                 ),
               ),
-            ),
-            if (grammar.exampleJp != null) ...[
+            if (grammar.meanings.isEmpty && grammar.exampleJp != null) ...[
               const SizedBox(height: 14),
               GrammarSection(
                 color: AppColors.indigo,
@@ -635,7 +656,7 @@ class _GrammarCardContent extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                      JpExampleText(
                         grammar.exampleJp!,
                         style: AppFonts.zenMaruGothic(
                           fontSize: 15,

@@ -5,7 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/services/dialogue_player.dart'
+    show speakerTransitionPause;
 import '../../../core/services/jp_voice_prefs.dart';
+import '../../../core/services/speaker_voices.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/listening_dialogue.dart';
 import '../../../domain/services/quiz_generator.dart';
@@ -187,6 +190,7 @@ class _ExamBodyState extends ConsumerState<_ExamBody> {
   String? _lastSpokenKey;
   List<Map<String, String>> _japaneseVoices = [];
   Map<String, String>? _selectedVoice;
+  AudioPlaybackSpeed _speed = AudioPlaybackSpeed.x100;
 
   /// Tăng mỗi khi cần huỷ 1 lượt đọc đang chạy dở (đổi câu/section). Vòng lặp
   /// trong [_speakListening] kiểm tra token này sau mỗi `await` — nếu đã đổi
@@ -195,25 +199,6 @@ class _ExamBodyState extends ConsumerState<_ExamBody> {
   /// làm Future đó resolve ngay lập tức, nên nếu không chặn bằng token thì
   /// vòng lặp cũ vẫn chạy tiếp và tự phát đè câu thoại tiếp theo của câu CŨ.
   int _speakGeneration = 0;
-
-  /// Chữ cái Latin đơn lẻ (placeholder tên nhân vật kiểu "Aさん"/"Bさん" trong
-  /// hội thoại) đứng trước "さん" hay bị TTS tiếng Nhật lướt qua/bỏ qua vì
-  /// không nhận diện được ngôn ngữ của 1 ký tự Latin lạc giữa câu tiếng Nhật
-  /// — đổi sang cách đọc katakana tương ứng để đọc được trọn vẹn.
-  static const _latinLetterKana = {
-    'A': 'エー', 'B': 'ビー', 'C': 'シー', 'D': 'ディー', 'E': 'イー',
-    'F': 'エフ', 'G': 'ジー', 'H': 'エイチ', 'I': 'アイ', 'J': 'ジェー',
-    'K': 'ケー', 'L': 'エル', 'M': 'エム', 'N': 'エヌ', 'O': 'オー',
-    'P': 'ピー', 'Q': 'キュー', 'R': 'アール', 'S': 'エス', 'T': 'ティー',
-    'U': 'ユー', 'V': 'ブイ', 'W': 'ダブリュー', 'X': 'エックス',
-    'Y': 'ワイ', 'Z': 'ゼット',
-  };
-  static final _latinLetterBeforeSan = RegExp(r'(?<![A-Za-z])([A-Z])(?=さん)');
-
-  String _prepareForSpeech(String text) => text.replaceAllMapped(
-        _latinLetterBeforeSan,
-        (m) => _latinLetterKana[m[1]] ?? m[1]!,
-      );
 
   ExamRunSection get _currentSection => widget.sections[_sectionIndex];
   QuizQuestion get _currentQuestion =>
@@ -227,37 +212,30 @@ class _ExamBodyState extends ConsumerState<_ExamBody> {
     super.initState();
     _startSectionTimer();
     unawaited(_createSession());
-    _tts = FlutterTts()
-      ..setLanguage('ja-JP')
-      ..setVolume(1.0)
-      ..setSpeechRate(0.45)
-      ..awaitSpeakCompletion(true);
+    _tts = FlutterTts();
     unawaited(_loadTtsVoice());
   }
 
   /// Dùng chung khoá lưu giọng đọc với AI Kaiwa/Quiz (`jp_voice_prefs.dart`)
   /// — người dùng chọn giọng ở màn nào cũng áp dụng cho Nghe hiểu Mock Exam.
   Future<void> _loadTtsVoice() async {
-    final voices = await loadJapaneseVoices(_tts);
-    final saved = await loadSavedJpVoice(voices);
-    if (saved != null) await _tts.setVoice(saved);
+    final cfg = await configureJpTts(_tts);
+    final speed = await loadJpSpeechSpeed();
     if (!mounted) return;
     setState(() {
-      _japaneseVoices = voices;
-      _selectedVoice = saved;
+      _japaneseVoices = cfg.voices;
+      _selectedVoice = cfg.saved;
+      _speed = speed;
     });
   }
 
   /// Đổi giọng đọc — mở picker dùng chung với Kaiwa/Quiz, lưu lại lựa chọn
-  /// rồi đọc lại ngay câu hiện tại bằng giọng mới để nghe thử liền.
+  /// (áp dụng cho lần nghe sau, không tự phát).
   Future<void> _selectVoice(Map<String, String> voice) async {
     await _tts.setVoice(voice);
     await saveJpVoice(voice);
     if (!mounted) return;
     setState(() => _selectedVoice = voice);
-    if (_currentQuestion.dialogueTurns != null) {
-      unawaited(_speakListening(_currentQuestion));
-    }
   }
 
   void _openVoicePicker() {
@@ -266,34 +244,52 @@ class _ExamBodyState extends ConsumerState<_ExamBody> {
       voices: _japaneseVoices,
       selected: _selectedVoice,
       onSelected: _selectVoice,
+      speed: _speed,
+      onSpeedChanged: (s) => _speed = s,
     );
   }
 
   /// Đọc to 1 câu hỏi Nghe hiểu (Task 5 mở rộng): lần lượt từng lượt thoại,
-  /// đổi cao độ giọng theo speaker để nghe như 2 người khác nhau (không có
-  /// audio thu sẵn — xem docs/JLPT_MOCK_EXAM_DESIGN.md §9), sau đó đọc câu
-  /// hỏi (`promptVi` — chính là `questionJa`, xem `DialogueListeningGenerator`)
-  /// để mô phỏng đúng "nghe rồi trả lời" của thi thật, không chỉ đọc hội
-  /// thoại rồi im lặng.
+  /// mỗi speaker 1 giọng riêng để nghe như người khác nhau (không có
+  /// audio thu sẵn — xem docs/JLPT_MOCK_EXAM_DESIGN.md §9). Chỉ đọc hội thoại,
+  /// không đọc câu hỏi/đáp án; chỉ chạy khi người dùng bấm "Nghe".
   Future<void> _speakListening(QuizQuestion question) async {
     final turns = question.dialogueTurns;
     if (turns == null) return;
     final generation = ++_speakGeneration;
     await applyIosTtsPlaybackCategory(_tts);
     await _tts.stop();
-    for (final turn in turns) {
+    // Mỗi nhân vật 1 giọng ja-JP thật khác nhau (chỉ tách bằng cao độ khi máy
+    // thiếu giọng) — cùng bảng gán giọng với màn Nghe hiểu (`speaker_voices.dart`).
+    final voices = assignSpeakerVoices(
+      turns.speakerOrder,
+      _japaneseVoices,
+      _selectedVoice,
+    );
+    for (var i = 0; i < turns.length; i++) {
       if (!mounted || generation != _speakGeneration) return;
-      await _tts.setPitch(turn.speaker == 'A' ? 1.15 : 0.8);
-      await _tts.speak(_prepareForSpeech(turn.jp));
+      final assigned = voices[turns[i].speaker];
+      if (assigned?.voice != null) await _tts.setVoice(assigned!.voice!);
+      await _tts.setPitch(assigned?.pitch ?? 1.0);
+      await _tts.setSpeechRate(
+        (_speed.ttsRate * (assigned?.rateFactor ?? 1.0)).clamp(0.1, 1.0),
+      );
+      await _tts.speak(prepareJpForSpeech(turns[i].jp));
+      if (!mounted || generation != _speakGeneration) return;
+      if (i + 1 < turns.length && turns[i + 1].speaker != turns[i].speaker) {
+        await Future<void>.delayed(speakerTransitionPause);
+      }
     }
     if (!mounted || generation != _speakGeneration) return;
+    if (_selectedVoice != null) await _tts.setVoice(_selectedVoice!);
     await _tts.setPitch(1.0);
-    await _tts.speak(_prepareForSpeech(question.promptVi));
+    await _tts.setSpeechRate(_speed.ttsRate);
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _speakGeneration++;
     unawaited(_tts.stop());
     super.dispose();
   }
@@ -604,30 +600,15 @@ class _ExamBodyState extends ConsumerState<_ExamBody> {
     final isLastQuestionOfExam = _sectionIndex == widget.sections.length - 1 &&
         _questionIndex == _currentSection.questions.length - 1;
 
-    // Tự đọc to câu Nghe hiểu đúng 1 LẦN mỗi khi vào câu mới (không phải mỗi
-    // lần build lại do setState khác) — so `_lastSpokenKey` với `_answerKey`
-    // hiện tại, đủ để bắt mọi đường vào câu (Next/Prev/nhảy từ Bảng câu hỏi)
-    // mà không cần gắn hook riêng ở từng hàm điều hướng. LUÔN `_tts.stop()`
-    // ngay khi rời câu cũ (kể cả sang câu không phải Nghe hiểu, VD Đọc hiểu)
-    // — trước đây chỉ dừng tiếng khi câu MỚI cũng là Nghe hiểu (do
-    // `_speakListening` tự gọi `stop()` ở đầu), nên tiếng đọc dở của câu cũ
-    // vẫn tiếp tục phát đè khi đã chuyển sang phần khác.
+    // Âm thanh chỉ phát khi người dùng bấm "Nghe" — không tự phát khi vào câu.
+    // Khi đổi câu (Next/Prev/nhảy từ Bảng câu hỏi) thì dừng ngay tiếng đang
+    // đọc dở của câu cũ, kể cả khi sang câu không phải Nghe hiểu (VD Đọc hiểu);
+    // so `_lastSpokenKey` với `_answerKey` bắt được mọi đường vào câu mà không
+    // cần gắn hook riêng ở từng hàm điều hướng.
     if (_lastSpokenKey != _answerKey) {
       _lastSpokenKey = _answerKey;
       _speakGeneration++;
       unawaited(_tts.stop());
-      if (question.dialogueTurns != null) {
-        // Đợi 3s trước khi tự phát để người làm kịp đọc đề/đáp án trước khi
-        // nghe, giống hành vi thi thật. Chốt token TRƯỚC khi addPostFrameCallback
-        // (không phải trong callback) để không đợi "trượt" theo build khác.
-        final generation = _speakGeneration;
-        WidgetsBinding.instance.addPostFrameCallback((_) async {
-          await Future<void>.delayed(const Duration(seconds: 3));
-          if (mounted && generation == _speakGeneration) {
-            unawaited(_speakListening(question));
-          }
-        });
-      }
     }
 
     return Column(
@@ -692,7 +673,7 @@ class _ExamBodyState extends ConsumerState<_ExamBody> {
                           onPressed: () =>
                               unawaited(_speakListening(question)),
                           icon: const Icon(Icons.volume_up_rounded, size: 18),
-                          label: const Text('Nghe lại'),
+                          label: const Text('Nghe'),
                         ),
                         IconButton(
                           onPressed: _openVoicePicker,

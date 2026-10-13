@@ -87,4 +87,20 @@ void main() {
       );
     });
   });
+
+  test('mẫu câu quá dài chỉ nêu số lượng, không nối thành 1 khối chữ', () {
+    final items = [
+      for (var i = 0; i < 3; i++)
+        LessonContentItem.grammar(_grammar('g$i', 'この度は、ご来社くださり、まことにありがとうございます$i')),
+    ];
+    expect(deriveLessonObjectives(items), ['Nắm vững 3 mẫu câu trọng tâm']);
+  });
+
+  test('mẫu câu ngắn vẫn được liệt kê', () {
+    final items = [
+      LessonContentItem.grammar(_grammar('g1', 'は')),
+      LessonContentItem.grammar(_grammar('g2', 'が')),
+    ];
+    expect(deriveLessonObjectives(items), ['Sử dụng đúng: は, が']);
+  });
 }

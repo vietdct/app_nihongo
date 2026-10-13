@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../domain/entities/lesson.dart';
 import '../../domain/entities/vocab_meaning.dart';
 import '../../domain/entities/vocabulary.dart';
 import '../../shared/card_dot_progress.dart';
@@ -9,6 +10,7 @@ import '../../shared/card_known_stats.dart';
 import '../../shared/card_stamp_label.dart';
 import '../../shared/flip_card.dart';
 import '../../shared/gradient_card_shell.dart';
+import '../../shared/lesson_filter_dropdown.dart';
 import '../home/providers/mission_providers.dart';
 import '../lesson/providers/content_providers.dart';
 import 'providers/vocab_progress_providers.dart';
@@ -24,10 +26,20 @@ import 'providers/vocab_review_providers.dart' show isSmartPick;
 /// Nay gộp thành 1 màn có toggle AI gợi ý/Tất cả — tự tính tập AI gợi ý
 /// bằng [isSmartPick] thay vì nhận `filterIds` cố định từ nơi gọi.
 /// [startSmart] chỉ quyết định toggle nào được chọn sẵn khi mở màn.
+///
+/// Ôn theo bài: [initialLessonId] chọn sẵn 1 bài (đổi được bằng bộ lọc bài
+/// học trên màn), [startShuffled] bật sẵn chế độ xáo trộn thứ tự thẻ.
 class VocabularyFlashcardScreen extends ConsumerStatefulWidget {
-  const VocabularyFlashcardScreen({super.key, this.startSmart = false});
+  const VocabularyFlashcardScreen({
+    super.key,
+    this.startSmart = false,
+    this.initialLessonId,
+    this.startShuffled = false,
+  });
 
   final bool startSmart;
+  final String? initialLessonId;
+  final bool startShuffled;
 
   @override
   ConsumerState<VocabularyFlashcardScreen> createState() =>
@@ -43,16 +55,38 @@ class _VocabularyFlashcardScreenState
   final Set<String> _unknownIds = {};
   final Map<String, bool> _starredOverride = {};
   late bool _smartOnly = widget.startSmart;
+  late String? _lessonId = widget.initialLessonId;
+  late bool _shuffle = widget.startShuffled;
+
+  void _resetDeck() {
+    _fullDeck = null;
+    _deck = null;
+    _index = 0;
+    _unknownIds.clear();
+    _reviewRound = false;
+  }
 
   void _setSmartOnly(bool smart) {
     if (_smartOnly == smart) return;
     setState(() {
       _smartOnly = smart;
-      _fullDeck = null;
-      _deck = null;
-      _index = 0;
-      _unknownIds.clear();
-      _reviewRound = false;
+      _resetDeck();
+    });
+  }
+
+  void _setLesson(String? lessonId) {
+    if (_lessonId == lessonId) return;
+    setState(() {
+      _lessonId = lessonId;
+      _resetDeck();
+    });
+  }
+
+  void _setShuffle(bool shuffle) {
+    if (_shuffle == shuffle) return;
+    setState(() {
+      _shuffle = shuffle;
+      _resetDeck();
     });
   }
 
@@ -130,6 +164,7 @@ class _VocabularyFlashcardScreenState
   void _restart() {
     setState(() {
       _deck = List.of(_fullDeck!);
+      if (_shuffle) _deck!.shuffle();
       _unknownIds.clear();
       _index = 0;
       _reviewRound = false;
@@ -141,6 +176,13 @@ class _VocabularyFlashcardScreenState
     final vocabAsync = ref.watch(vocabularyListProvider);
     final progressAsync = ref.watch(vocabProgressProvider);
     final controller = ref.watch(vocabProgressControllerProvider);
+    final assignmentsAsync = ref.watch(vocabularyLessonAssignmentsProvider);
+    final assignments =
+        assignmentsAsync.valueOrNull ?? const <String, LessonAssignment>{};
+    final vocabLessonIds = assignments.values.map((a) => a.lessonId).toSet();
+    final lessons = (ref.watch(lessonsProvider).valueOrNull ?? const <Lesson>[])
+        .where((l) => vocabLessonIds.contains(l.id))
+        .toList();
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
@@ -172,16 +214,42 @@ class _VocabularyFlashcardScreenState
               ))
                 e.key,
           };
+          var scoped = all;
+          final lessonId = _lessonId;
+          if (lessonId != null) {
+            // Chờ map bài học tải xong, tránh chốt bộ thẻ khi chưa lọc được.
+            if (!assignmentsAsync.hasValue) {
+              return const Center(child: CircularProgressIndicator());
+            }
+            scoped = all
+                .where((v) => assignments[v.id]?.lessonId == lessonId)
+                .toList()
+              ..sort(
+                (a, b) => (assignments[a.id]?.orderIndex ?? 0)
+                    .compareTo(assignments[b.id]?.orderIndex ?? 0),
+              );
+          }
+          final smartCount =
+              scoped.where((v) => smartIds.contains(v.id)).length;
           final source = _smartOnly
-              ? all.where((v) => smartIds.contains(v.id)).toList()
-              : all;
+              ? scoped.where((v) => smartIds.contains(v.id)).toList()
+              : scoped;
 
           final modeToggle = _SmartModeToggle(
             smartOnly: _smartOnly,
-            smartCount: smartIds.length,
-            allCount: all.length,
+            smartCount: smartCount,
+            allCount: scoped.length,
             onChanged: _setSmartOnly,
           );
+          final lessonBar = lessons.isEmpty
+              ? null
+              : _LessonShuffleBar(
+                  lessons: lessons,
+                  selectedLessonId: lessonId,
+                  shuffle: _shuffle,
+                  onLessonChanged: _setLesson,
+                  onShuffleChanged: _setShuffle,
+                );
 
           if (source.isEmpty) {
             return Column(
@@ -190,12 +258,17 @@ class _VocabularyFlashcardScreenState
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
                   child: modeToggle,
                 ),
+                if (lessonBar != null)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                    child: lessonBar,
+                  ),
                 const Expanded(
                   child: Center(
                     child: Padding(
                       padding: EdgeInsets.all(24),
                       child: Text(
-                        'Không có từ nào cần ôn theo AI gợi ý lúc này.',
+                        'Không có từ nào để ôn với bộ lọc hiện tại.',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: AppColors.inkSoft),
                       ),
@@ -206,8 +279,8 @@ class _VocabularyFlashcardScreenState
             );
           }
 
-          _fullDeck ??= source;
-          _deck ??= List.of(source);
+          _fullDeck ??= _shuffle ? (List.of(source)..shuffle()) : source;
+          _deck ??= List.of(_fullDeck!);
           final deck = _deck!;
 
           if (_index >= deck.length) {
@@ -234,6 +307,10 @@ class _VocabularyFlashcardScreenState
             child: Column(
               children: [
                 modeToggle,
+                if (lessonBar != null) ...[
+                  const SizedBox(height: 10),
+                  lessonBar,
+                ],
                 const SizedBox(height: 10),
                 Row(
                   children: [
@@ -372,6 +449,53 @@ class _SmartModeToggle extends StatelessWidget {
             selected: !smartOnly,
             enabled: true,
             onTap: () => onChanged(false),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Hàng "chọn bài + xáo trộn" của flashcard — ôn từ vựng riêng từng bài,
+/// thứ tự thẻ theo sách hoặc ngẫu nhiên.
+class _LessonShuffleBar extends StatelessWidget {
+  const _LessonShuffleBar({
+    required this.lessons,
+    required this.selectedLessonId,
+    required this.shuffle,
+    required this.onLessonChanged,
+    required this.onShuffleChanged,
+  });
+
+  final List<Lesson> lessons;
+  final String? selectedLessonId;
+  final bool shuffle;
+  final ValueChanged<String?> onLessonChanged;
+  final ValueChanged<bool> onShuffleChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          flex: 3,
+          child: LessonFilterDropdown(
+            lessons: lessons,
+            selected: selectedLessonId,
+            hasUnassigned: false,
+            onSelected: onLessonChanged,
+            accentColor: AppColors.moss,
+            fillWidth: true,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          flex: 2,
+          child: _ModeChip(
+            label: shuffle ? '🔀 Ngẫu nhiên' : '🔀 Theo sách',
+            selected: shuffle,
+            enabled: true,
+            onTap: () => onShuffleChanged(!shuffle),
           ),
         ),
       ],
@@ -745,9 +869,9 @@ class _VocabFront extends StatelessWidget {
   Widget build(BuildContext context) {
     return GradientCardShell(
       gradientColors: const [
-        Color(0xFFFF9C5A),
-        Color(0xFFFF7A45),
-        Color(0xFFD85A93),
+        AppColors.heroGradientStart,
+        AppColors.accent,
+        AppColors.heroGradientEnd,
       ],
       shadowColor: AppColors.accent.withValues(alpha: 0.25),
       child: Column(

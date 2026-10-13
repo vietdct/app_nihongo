@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../shared/level_badge.dart';
+import 'it_learning_hub.dart';
 import 'providers/content_providers.dart';
 import 'providers/level_providers.dart';
 
@@ -14,6 +15,7 @@ class LessonListScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final lessons = ref.watch(lessonsProvider);
     final selectedLevel = ref.watch(selectedLevelCodeProvider);
+    if (selectedLevel == 'IT') return const ItLearningHub();
 
     return Scaffold(
       appBar: AppBar(

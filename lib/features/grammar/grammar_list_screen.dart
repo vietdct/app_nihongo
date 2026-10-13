@@ -28,10 +28,13 @@ class GrammarListScreen extends ConsumerWidget {
     final showStarredOnly = ref.watch(_showStarredOnlyProvider);
     final progressMap = ref.watch(grammarProgressProvider).valueOrNull ??
         const <String, GrammarProgress>{};
-    final lessons = ref.watch(lessonsProvider).valueOrNull ?? const [];
     final assignments =
         ref.watch(grammarLessonAssignmentsProvider).valueOrNull ??
             const <String, LessonAssignment>{};
+    final grammarLessonIds = assignments.values.map((a) => a.lessonId).toSet();
+    final lessons = (ref.watch(lessonsProvider).valueOrNull ?? const [])
+        .where((l) => grammarLessonIds.contains(l.id))
+        .toList();
     final rawSelectedLesson = ref.watch(_selectedLessonFilterProvider);
     final selectedLesson = rawSelectedLesson == null ||
             rawSelectedLesson == unassignedLessonFilter ||
@@ -41,7 +44,11 @@ class GrammarListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Ngữ pháp'),
+        title: Text(
+          selectedLevel == 'IT'
+              ? 'Ngữ pháp IT${grammarAsync.valueOrNull == null ? '' : ' · ${grammarAsync.valueOrNull!.length} mẫu câu'}'
+              : 'Ngữ pháp',
+        ),
         actions: [
           IconButton(
             tooltip: 'Học bằng flashcard',

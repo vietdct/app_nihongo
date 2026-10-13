@@ -1,3 +1,5 @@
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
@@ -24,42 +26,118 @@ class KanjiDrawCanvas extends StatefulWidget {
 }
 
 class KanjiDrawCanvasState extends State<KanjiDrawCanvas> {
+  static const _minPointDistanceSquared = 1.5;
+
   final List<List<Offset>> _strokes = [];
+  final List<Path> _completedPaths = [];
+  final ValueNotifier<int> _inkRevision = ValueNotifier(0);
   List<Offset>? _current;
+  Path? _currentPath;
+  ui.Picture? _baseLayer;
 
   bool get isEmpty => _strokes.isEmpty;
 
+  @override
+  void initState() {
+    super.initState();
+    _rebuildBaseLayer();
+  }
+
+  @override
+  void didUpdateWidget(covariant KanjiDrawCanvas oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.size != widget.size ||
+        oldWidget.guideData != widget.guideData) {
+      _rebuildBaseLayer();
+    }
+  }
+
+  @override
+  void dispose() {
+    _baseLayer?.dispose();
+    _inkRevision.dispose();
+    super.dispose();
+  }
+
   void undoStroke() {
     if (_strokes.isEmpty) return;
-    setState(() => _strokes.removeLast());
+    _strokes.removeLast();
+    _completedPaths.removeLast();
+    _rebuildBaseLayer();
+    setState(() {});
     widget.onStrokesChanged(List.of(_strokes));
   }
 
   void clear() {
-    setState(() {
-      _strokes.clear();
-      _current = null;
-    });
+    _strokes.clear();
+    _completedPaths.clear();
+    _current = null;
+    _currentPath = null;
+    _rebuildBaseLayer();
+    setState(() {});
     widget.onStrokesChanged(const []);
+  }
+
+  void _startStroke(DragStartDetails details) {
+    final point = details.localPosition;
+    setState(() {
+      _current = [point];
+      _currentPath = Path()..moveTo(point.dx, point.dy);
+    });
+  }
+
+  void _extendStroke(DragUpdateDetails details) {
+    final points = _current;
+    final path = _currentPath;
+    if (points == null || path == null) return;
+
+    final point = details.localPosition;
+    if ((point - points.last).distanceSquared < _minPointDistanceSquared) {
+      return;
+    }
+    points.add(point);
+    path.lineTo(point.dx, point.dy);
+    // Không rebuild widget cho từng pointer event; CustomPainter chỉ repaint
+    // lớp nét đang viết, còn lưới/nét mẫu/nét hoàn thành đã được cache.
+    _inkRevision.value++;
+  }
+
+  void _finishStroke() {
+    final stroke = _current;
+    final path = _currentPath;
+    if (stroke != null && path != null && stroke.length > 1) {
+      _strokes.add(stroke);
+      _completedPaths.add(path);
+      _current = null;
+      _currentPath = null;
+      _rebuildBaseLayer();
+      setState(() {});
+      widget.onStrokesChanged(List.of(_strokes));
+    } else {
+      setState(() {
+        _current = null;
+        _currentPath = null;
+      });
+    }
+  }
+
+  void _rebuildBaseLayer() {
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final size = Size.square(widget.size);
+    _drawBase(canvas, size, widget.guideData, _completedPaths);
+    final oldLayer = _baseLayer;
+    _baseLayer = recorder.endRecording();
+    oldLayer?.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onPanStart: (d) => setState(() => _current = [d.localPosition]),
-      onPanUpdate: (d) => setState(() => _current?.add(d.localPosition)),
-      onPanEnd: (_) {
-        final stroke = _current;
-        if (stroke != null && stroke.length > 1) {
-          setState(() {
-            _strokes.add(stroke);
-            _current = null;
-          });
-          widget.onStrokesChanged(List.of(_strokes));
-        } else {
-          setState(() => _current = null);
-        }
-      },
+      onPanStart: _startStroke,
+      onPanUpdate: _extendStroke,
+      onPanEnd: (_) => _finishStroke(),
+      onPanCancel: _finishStroke,
       child: Container(
         width: widget.size,
         height: widget.size,
@@ -69,13 +147,15 @@ class KanjiDrawCanvasState extends State<KanjiDrawCanvas> {
           border: Border.all(color: AppColors.border, width: 0.6),
         ),
         clipBehavior: Clip.antiAlias,
-        child: CustomPaint(
-          painter: _InkPainter(
-            strokes: _strokes,
-            current: _current,
-            guideData: widget.guideData,
+        child: RepaintBoundary(
+          child: CustomPaint(
+            painter: _InkPainter(
+              baseLayer: _baseLayer!,
+              currentPath: _currentPath,
+              repaint: _inkRevision,
+            ),
+            size: Size.square(widget.size),
           ),
-          size: Size.square(widget.size),
         ),
       ),
     );
@@ -83,37 +163,18 @@ class KanjiDrawCanvasState extends State<KanjiDrawCanvas> {
 }
 
 class _InkPainter extends CustomPainter {
-  _InkPainter({required this.strokes, required this.current, this.guideData});
+  _InkPainter({
+    required this.baseLayer,
+    required this.currentPath,
+    required Listenable repaint,
+  }) : super(repaint: repaint);
 
-  final List<List<Offset>> strokes;
-  final List<Offset>? current;
-  final KanjiStrokeData? guideData;
+  final ui.Picture baseLayer;
+  final Path? currentPath;
 
   @override
   void paint(Canvas canvas, Size size) {
-    final guidePaint = Paint()
-      ..color = AppColors.border
-      ..strokeWidth = 1;
-    canvas.drawLine(Offset(size.width / 2, 0), Offset(size.width / 2, size.height), guidePaint);
-    canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), guidePaint);
-
-    final data = guideData;
-    if (data != null) {
-      canvas.save();
-      final scale = size.width / data.viewBox;
-      canvas.scale(scale, scale);
-      final referencePaint = Paint()
-        ..color = AppColors.ink.withValues(alpha: 0.14)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 3
-        ..strokeCap = StrokeCap.round
-        ..strokeJoin = StrokeJoin.round;
-      for (final stroke in data.strokes) {
-        canvas.drawPath(stroke, referencePaint);
-      }
-      canvas.restore();
-    }
-
+    canvas.drawPicture(baseLayer);
     final inkPaint = Paint()
       ..color = AppColors.ink
       ..style = PaintingStyle.stroke
@@ -121,24 +182,60 @@ class _InkPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    for (final stroke in strokes) {
-      _drawStroke(canvas, stroke, inkPaint);
-    }
-    if (current != null) _drawStroke(canvas, current!, inkPaint);
-  }
-
-  void _drawStroke(Canvas canvas, List<Offset> points, Paint paint) {
-    if (points.length < 2) return;
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (final p in points.skip(1)) {
-      path.lineTo(p.dx, p.dy);
-    }
-    canvas.drawPath(path, paint);
+    final path = currentPath;
+    if (path != null) canvas.drawPath(path, inkPaint);
   }
 
   @override
   bool shouldRepaint(covariant _InkPainter oldDelegate) =>
-      oldDelegate.strokes != strokes ||
-      oldDelegate.current != current ||
-      oldDelegate.guideData != guideData;
+      oldDelegate.baseLayer != baseLayer ||
+      oldDelegate.currentPath != currentPath;
+}
+
+void _drawBase(
+  Canvas canvas,
+  Size size,
+  KanjiStrokeData? guideData,
+  List<Path> completedPaths,
+) {
+  final guidePaint = Paint()
+    ..color = AppColors.border
+    ..strokeWidth = 1;
+  canvas.drawLine(
+    Offset(size.width / 2, 0),
+    Offset(size.width / 2, size.height),
+    guidePaint,
+  );
+  canvas.drawLine(
+    Offset(0, size.height / 2),
+    Offset(size.width, size.height / 2),
+    guidePaint,
+  );
+
+  final data = guideData;
+  if (data != null) {
+    canvas.save();
+    final scale = size.width / data.viewBox;
+    canvas.scale(scale, scale);
+    final referencePaint = Paint()
+      ..color = AppColors.ink.withValues(alpha: 0.14)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    for (final stroke in data.strokes) {
+      canvas.drawPath(stroke, referencePaint);
+    }
+    canvas.restore();
+  }
+
+  final inkPaint = Paint()
+    ..color = AppColors.ink
+    ..style = PaintingStyle.stroke
+    ..strokeWidth = 7
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+  for (final path in completedPaths) {
+    canvas.drawPath(path, inkPaint);
+  }
 }

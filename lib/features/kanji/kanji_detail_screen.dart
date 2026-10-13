@@ -17,6 +17,7 @@ import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/kanji_family_providers.dart';
 import 'providers/kanji_progress_providers.dart';
+import '../../shared/jp_example_text.dart';
 
 /// Bấm vào 1 kanji mở bộ thẻ vuốt qua — giống hệt từ vựng: vuốt phải đánh
 /// dấu đã thuộc, vuốt trái đánh dấu chưa thuộc, chạm sao để lưu lại. Bộ thẻ
@@ -31,10 +32,24 @@ import 'providers/kanji_progress_providers.dart';
 /// Review, [filterIds] null) vẫn giữ trang đầy đủ: hoạt hoạ nét chữ
 /// (KanjiVG), Hán Việt, nghĩa, âm On/Kun, mẹo ghi nhớ, ví dụ.
 class KanjiDetailScreen extends ConsumerStatefulWidget {
-  const KanjiDetailScreen({super.key, required this.kanjiId, this.filterIds});
+  const KanjiDetailScreen({
+    super.key,
+    required this.kanjiId,
+    this.filterIds,
+    this.levelId,
+    this.single = false,
+  });
 
   final String kanjiId;
   final Set<String>? filterIds;
+
+  /// Chỉ xem đúng chữ [kanjiId] (bấm vào 1 chữ từ danh sách/từ vựng): không có
+  /// bộ thẻ vuốt qua lại, không đánh dấu thuộc/chưa thuộc bằng vuốt.
+  final bool single;
+
+  /// Lấy bộ thẻ theo cấp độ này thay vì cấp độ đang chọn (khi mở từ 1 từ vựng
+  /// thuộc cấp độ không có kanji riêng như IT).
+  final String? levelId;
 
   @override
   ConsumerState<KanjiDetailScreen> createState() => _KanjiDetailScreenState();
@@ -128,7 +143,10 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final kanjiAsync = ref.watch(kanjiListProvider);
+    final levelId = widget.levelId;
+    final kanjiAsync = levelId == null
+        ? ref.watch(kanjiListProvider)
+        : ref.watch(kanjiByLevelProvider(levelId));
     final progressAsync = ref.watch(kanjiProgressProvider);
     final controller = ref.watch(kanjiProgressControllerProvider);
     final vocabList = ref.watch(vocabularyListProvider).valueOrNull ?? const [];
@@ -136,15 +154,19 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
-      appBar: AppBar(title: const Text('Flashcard Kanji')),
+      appBar: AppBar(
+        title: Text(widget.single ? 'Chi tiết Kanji' : 'Flashcard Kanji'),
+      ),
       body: kanjiAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Lỗi: $e')),
         data: (all) {
           final filterIds = widget.filterIds;
-          final source = filterIds == null
-              ? all
-              : all.where((k) => filterIds.contains(k.id)).toList();
+          final source = widget.single
+              ? all.where((k) => k.id == widget.kanjiId).toList()
+              : filterIds == null
+                  ? all
+                  : all.where((k) => filterIds.contains(k.id)).toList();
 
           if (source.isEmpty) {
             return Center(
@@ -202,6 +224,7 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
             padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
             child: Column(
               children: [
+                if (!widget.single)
                 Row(
                   children: [
                     IconButton(
@@ -253,7 +276,7 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                 // nhau về độ rộng nên nếu dùng chung 1 Row, Expanded ở giữa
                 // sẽ bị lệch tâm khi badge hiện/ẩn). Ở chế độ simple (flip
                 // card), số này chuyển xuống dưới khung flashcard.
-                if (!simple) ...[
+                if (!simple && !widget.single) ...[
                   const SizedBox(height: 6),
                   Text(
                     _reviewRound
@@ -266,7 +289,8 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 14),
+                if (!widget.single) const SizedBox(height: 14),
+                if (!widget.single)
                 simple
                     ? CardDotProgress(
                         total: total,
@@ -283,7 +307,7 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                               const AlwaysStoppedAnimation(AppColors.accent),
                         ),
                       ),
-                const SizedBox(height: 26),
+                SizedBox(height: widget.single ? 8 : 26),
                 Expanded(
                   child: Center(
                     child: _SwipeableKanjiCard(
@@ -293,6 +317,7 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                       relatedVocab: relatedVocab,
                       hasFamily: hasFamily,
                       simple: simple,
+                      swipeEnabled: !widget.single,
                       levelCode: levelCode,
                       onSwipeRight: () => _markKnown(kanji, controller),
                       onSwipeLeft: () => _markUnknown(kanji, controller),
@@ -301,8 +326,8 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                     ),
                   ),
                 ),
-                SizedBox(height: simple ? 16 : 26),
-                if (simple) ...[
+                SizedBox(height: widget.single ? 0 : simple ? 16 : 26),
+                if (simple && !widget.single) ...[
                   Text(
                     _reviewRound
                         ? 'Ôn chữ chưa thuộc · ${_index + 1}/$total'
@@ -320,6 +345,7 @@ class _KanjiDetailScreenState extends ConsumerState<KanjiDetailScreen> {
                   ),
                   const SizedBox(height: 10),
                 ],
+                if (!widget.single)
                 Text(
                   _unknownIds.isNotEmpty
                       ? 'Vuốt phải: đã thuộc · Vuốt trái: chưa thuộc · Chạm badge để xem/ôn ngay'
@@ -494,6 +520,7 @@ class _SwipeableKanjiCard extends StatefulWidget {
     required this.relatedVocab,
     required this.hasFamily,
     required this.simple,
+    required this.swipeEnabled,
     required this.levelCode,
     required this.onSwipeRight,
     required this.onSwipeLeft,
@@ -505,6 +532,7 @@ class _SwipeableKanjiCard extends StatefulWidget {
   final List<Vocabulary> relatedVocab;
   final bool hasFamily;
   final bool simple;
+  final bool swipeEnabled;
   final String levelCode;
   final VoidCallback onSwipeRight;
   final VoidCallback onSwipeLeft;
@@ -574,8 +602,10 @@ class _SwipeableKanjiCardState extends State<_SwipeableKanjiCard>
     final angle = (_drag.dx / 2800).clamp(-0.25, 0.25);
 
     return GestureDetector(
-      onHorizontalDragUpdate: _completing ? null : _onPanUpdate,
-      onHorizontalDragEnd: _completing ? null : _onPanEnd,
+      onHorizontalDragUpdate:
+          _completing || !widget.swipeEnabled ? null : _onPanUpdate,
+      onHorizontalDragEnd:
+          _completing || !widget.swipeEnabled ? null : _onPanEnd,
       child: Transform.translate(
         offset: _drag,
         child: Transform.rotate(
@@ -695,7 +725,11 @@ class _KanjiFront extends StatelessWidget {
         ? kanji.kunyomi.first
         : (kanji.onyomi.isNotEmpty ? kanji.onyomi.first : null);
     return GradientCardShell(
-      gradientColors: const [Color(0xFFFF9C5A), Color(0xFFFF7A45), Color(0xFFD85A93)],
+      gradientColors: const [
+        AppColors.heroGradientStart,
+        AppColors.accent,
+        AppColors.heroGradientEnd,
+      ],
       shadowColor: AppColors.accent.withValues(alpha: 0.25),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -736,14 +770,19 @@ class _KanjiFront extends StatelessWidget {
             runSpacing: 8,
             children: [
               if (kanji.strokeCount != null)
-                _FrontChip(icon: Icons.gesture_rounded, label: '${kanji.strokeCount} nét'),
+                _FrontChip(
+                  icon: Icons.gesture_rounded,
+                  label: '${kanji.strokeCount} nét',
+                ),
               if (reading != null) _FrontChip(label: reading, isJapanese: true),
             ],
           ),
           const SizedBox(height: 28),
           _AudioButton(
             text: reading ?? kanji.character,
-            background: const Color(0xFFFFF3EB),
+            background: Theme.of(context).brightness == Brightness.dark
+                ? AppColors.accentSoft
+                : const Color(0xFFFFF3EB),
             iconColor: AppColors.accent,
           ),
         ],
@@ -764,7 +803,9 @@ class _FrontChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3EB),
+        color: Theme.of(context).brightness == Brightness.dark
+            ? AppColors.accentSoft
+            : const Color(0xFFFFF3EB),
         borderRadius: BorderRadius.circular(100),
       ),
       child: Row(
@@ -832,7 +873,11 @@ class _KanjiBack extends StatelessWidget {
         ? kanji.kunyomi.first
         : (kanji.onyomi.isNotEmpty ? kanji.onyomi.first : kanji.character);
     return GradientCardShell(
-      gradientColors: const [Color(0xFF3FB35B), Color(0xFF2D9A47), Color(0xFF1E8038)],
+      gradientColors: const [
+        Color(0xFF3FB35B),
+        Color(0xFF2D9A47),
+        Color(0xFF1E8038),
+      ],
       shadowColor: AppColors.moss.withValues(alpha: 0.25),
       innerBackground: const Color(0xFFEEFBF0),
       child: Column(
@@ -886,7 +931,8 @@ class _KanjiBack extends StatelessWidget {
               Expanded(
                 child: _ReadingPill(
                   label: 'KUN',
-                  value: kanji.kunyomi.isEmpty ? '—' : kanji.kunyomi.join(' · '),
+                  value:
+                      kanji.kunyomi.isEmpty ? '—' : kanji.kunyomi.join(' · '),
                 ),
               ),
             ],
@@ -897,13 +943,13 @@ class _KanjiBack extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  JpExampleText(
                     kanji.exampleJp!,
                     style: AppFonts.zenMaruGothic(
                       fontSize: 14.5,
@@ -928,7 +974,7 @@ class _KanjiBack extends StatelessWidget {
           const SizedBox(height: 24),
           _AudioButton(
             text: readingForAudio,
-            background: Colors.white,
+            background: AppColors.card,
             iconColor: AppColors.moss,
             size: 48,
           ),
@@ -950,7 +996,7 @@ class _ReadingPill extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(

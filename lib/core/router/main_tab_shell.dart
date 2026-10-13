@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../features/grammar/grammar_home_screen.dart';
 import '../../features/home/home_screen.dart';
@@ -7,6 +8,7 @@ import '../../features/kanji/kanji_home_screen.dart';
 import '../../features/profile/pages/profile_home_screen.dart';
 import '../../features/quiz/quiz_category_screen.dart';
 import '../../features/review/review_screen.dart';
+import '../settings/app_settings_provider.dart';
 import '../theme/app_theme.dart';
 
 /// Shell chứa 7 tab gốc (Home/Lesson/Grammar/Kanji/Kaiwa/Review/Hồ sơ) dùng
@@ -19,14 +21,14 @@ import '../theme/app_theme.dart';
 /// thanh nav này — đúng hành vi `showNav=false` của mockup cho các màn học/
 /// luyện tập chi tiết. Tab "Premium" bị bỏ khỏi thanh nav theo đúng 7 tab
 /// mockup — vẫn có thể vào qua mục "Nâng cấp Premium" trong Hồ sơ.
-class MainTabShell extends StatefulWidget {
+class MainTabShell extends ConsumerStatefulWidget {
   const MainTabShell({super.key});
 
   @override
-  State<MainTabShell> createState() => _MainTabShellState();
+  ConsumerState<MainTabShell> createState() => _MainTabShellState();
 }
 
-class _MainTabShellState extends State<MainTabShell> {
+class _MainTabShellState extends ConsumerState<MainTabShell> {
   int _index = 0;
 
   /// Chỉ số các tab đã từng mở — mỗi tab chỉ thực sự build (và bắt đầu
@@ -38,14 +40,14 @@ class _MainTabShellState extends State<MainTabShell> {
   /// tab nào đang hiển thị.
   final Set<int> _visited = {0};
 
-  static const _tabs = [
-    (icon: Icons.home_outlined, label: 'Home'),
-    (icon: Icons.menu_book_outlined, label: 'Lesson'),
-    (icon: Icons.description_outlined, label: 'Grammar'),
-    (icon: Icons.edit_outlined, label: 'Kanji'),
-    (icon: Icons.chat_bubble_outline, label: 'Kaiwa'),
-    (icon: Icons.monitor_heart_outlined, label: 'Review'),
-    (icon: Icons.person_outline, label: 'Hồ sơ'),
+  static const _tabIcons = [
+    Icons.home_outlined,
+    Icons.menu_book_outlined,
+    Icons.description_outlined,
+    Icons.edit_outlined,
+    Icons.chat_bubble_outline,
+    Icons.monitor_heart_outlined,
+    Icons.person_outline,
   ];
 
   static const _tabBuilders = <WidgetBuilder>[
@@ -78,6 +80,12 @@ class _MainTabShellState extends State<MainTabShell> {
 
   @override
   Widget build(BuildContext context) {
+    final language = ref.watch(appSettingsProvider).valueOrNull?.language ??
+        AppSettings.defaults.language;
+    final labels = _tabLabels(language);
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
     return Scaffold(
       body: IndexedStack(
         index: _index,
@@ -90,19 +98,24 @@ class _MainTabShellState extends State<MainTabShell> {
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.fromLTRB(2, 6, 2, 0),
-        decoration: const BoxDecoration(
-          color: AppColors.card,
-          border: Border(top: BorderSide(color: AppColors.border, width: 1.0)),
+        decoration: BoxDecoration(
+          color: isDark ? colors.surfaceContainer : AppColors.card,
+          border: Border(
+            top: BorderSide(
+              color: isDark ? colors.outlineVariant : AppColors.border,
+              width: 1.0,
+            ),
+          ),
         ),
         child: SafeArea(
           top: false,
           child: Row(
             children: [
-              for (var i = 0; i < _tabs.length; i++)
+              for (var i = 0; i < _tabIcons.length; i++)
                 Expanded(
                   child: _NavTabButton(
-                    icon: _tabs[i].icon,
-                    label: _tabs[i].label,
+                    icon: _tabIcons[i],
+                    label: labels[i],
                     active: i == _index,
                     onTap: () => _selectTab(i),
                   ),
@@ -113,6 +126,36 @@ class _MainTabShellState extends State<MainTabShell> {
       ),
     );
   }
+
+  List<String> _tabLabels(AppLanguage language) => switch (language) {
+        AppLanguage.vietnamese => const [
+            'Trang chủ',
+            'Bài học',
+            'Ngữ pháp',
+            'Kanji',
+            'Kaiwa',
+            'Ôn tập',
+            'Hồ sơ',
+          ],
+        AppLanguage.english => const [
+            'Home',
+            'Lessons',
+            'Grammar',
+            'Kanji',
+            'Kaiwa',
+            'Review',
+            'Profile',
+          ],
+        AppLanguage.japanese => const [
+            'ホーム',
+            'レッスン',
+            '文法',
+            '漢字',
+            '会話',
+            '復習',
+            'プロフィール',
+          ],
+      };
 }
 
 class _NavTabButton extends StatelessWidget {
@@ -130,7 +173,12 @@ class _NavTabButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = active ? AppColors.accent : AppColors.inkFaint;
+    final colors = Theme.of(context).colorScheme;
+    final color = active
+        ? AppColors.accent
+        : Theme.of(context).brightness == Brightness.dark
+            ? colors.onSurfaceVariant
+            : AppColors.inkFaint;
     return InkWell(
       onTap: onTap,
       child: Padding(

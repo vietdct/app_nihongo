@@ -14,6 +14,7 @@ import '../../shared/gradient_card_shell.dart';
 import '../lesson/providers/content_providers.dart';
 import '../review/providers/review_mistakes_providers.dart';
 import 'providers/grammar_progress_providers.dart';
+import '../../shared/jp_example_text.dart';
 
 /// Hàng đợi ôn tập SRS thật (SM-2 rút gọn, xem `srs_scheduler.dart`) — khác
 /// `GrammarFlashcardScreen` (bộ thẻ vuốt known/unknown tĩnh): ở đây chỉ hiện
@@ -315,9 +316,9 @@ class _CardFront extends StatelessWidget {
   Widget build(BuildContext context) {
     return GradientCardShell(
       gradientColors: const [
-        Color(0xFFFF9C5A),
-        Color(0xFFFF7A45),
-        Color(0xFFD85A93),
+        AppColors.heroGradientStart,
+        AppColors.accent,
+        AppColors.heroGradientEnd,
       ],
       shadowColor: AppColors.accent.withValues(alpha: 0.25),
       child: Column(
@@ -400,7 +401,7 @@ class _CardBack extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  JpExampleText(
                     grammar.exampleJp!,
                     style: AppFonts.zenMaruGothic(
                       fontSize: 14.5,

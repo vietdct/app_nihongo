@@ -9,6 +9,14 @@ import '../../domain/services/quiz_generator.dart';
 /// lại ý nghĩa màu mới.
 enum LessonPhase { input, understand, practice, apply, review }
 
+String phaseLabel(LessonPhase phase) => switch (phase) {
+      LessonPhase.input => 'INPUT',
+      LessonPhase.understand => 'UNDERSTAND',
+      LessonPhase.practice => 'PRACTICE',
+      LessonPhase.apply => 'APPLY',
+      LessonPhase.review => 'REVIEW',
+    };
+
 sealed class LessonStep {
   const LessonStep();
 }

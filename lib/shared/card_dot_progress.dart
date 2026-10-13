@@ -97,9 +97,11 @@ class _CardDotProgressState extends State<CardDotProgress> {
             itemCount: widget.total,
             itemBuilder: (context, i) {
               return Padding(
-                padding: const EdgeInsets.symmetric(horizontal: _dotSpacing / 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: _dotSpacing / 2),
                 child: Center(
-                  child: _Dot(state: _stateFor(i), number: i + 1, size: _dotSize),
+                  child:
+                      _Dot(state: _stateFor(i), number: i + 1, size: _dotSize),
                 ),
               );
             },
@@ -127,8 +129,15 @@ class _Dot extends StatelessWidget {
           width: size,
           height: size,
           child: DecoratedBox(
-            decoration: const BoxDecoration(color: AppColors.moss, shape: BoxShape.circle),
-            child: Icon(Icons.check_rounded, size: size * 0.44, color: Colors.white),
+            decoration: const BoxDecoration(
+              color: AppColors.moss,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.check_rounded,
+              size: size * 0.44,
+              color: Colors.white,
+            ),
           ),
         );
       case _DotState.wrong:
@@ -136,8 +145,15 @@ class _Dot extends StatelessWidget {
           width: size,
           height: size,
           child: DecoratedBox(
-            decoration: const BoxDecoration(color: AppColors.danger, shape: BoxShape.circle),
-            child: Icon(Icons.close_rounded, size: size * 0.5, color: Colors.white),
+            decoration: const BoxDecoration(
+              color: AppColors.danger,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.close_rounded,
+              size: size * 0.5,
+              color: Colors.white,
+            ),
           ),
         );
       case _DotState.current:
@@ -146,7 +162,9 @@ class _Dot extends StatelessWidget {
           height: size,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [AppColors.accent, Color(0xFFD85A93)]),
+            gradient: const LinearGradient(
+              colors: [AppColors.accent, AppColors.heroGradientEnd],
+            ),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
@@ -158,7 +176,11 @@ class _Dot extends StatelessWidget {
           ),
           child: Text(
             '$number',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Colors.white),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: Colors.white,
+            ),
           ),
         );
       case _DotState.upcoming:
@@ -166,10 +188,17 @@ class _Dot extends StatelessWidget {
           width: size,
           height: size,
           alignment: Alignment.center,
-          decoration: const BoxDecoration(color: AppColors.border, shape: BoxShape.circle),
+          decoration: const BoxDecoration(
+            color: AppColors.border,
+            shape: BoxShape.circle,
+          ),
           child: Text(
             '$number',
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.inkSoft),
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.inkSoft,
+            ),
           ),
         );
     }

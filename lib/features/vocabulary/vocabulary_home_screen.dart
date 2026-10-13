@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../domain/entities/lesson.dart';
 import '../../domain/entities/vocab_progress.dart';
 import '../../domain/entities/vocabulary.dart';
 import '../../domain/services/word_of_the_day.dart';
@@ -32,12 +33,30 @@ class VocabularyHomeScreen extends ConsumerWidget {
     final vocabAsync = ref.watch(vocabularyListProvider);
     final progressAsync = ref.watch(vocabProgressProvider);
     final selectedLevel = ref.watch(selectedLevelCodeProvider);
+    final assignments =
+        ref.watch(vocabularyLessonAssignmentsProvider).valueOrNull ??
+            const <String, LessonAssignment>{};
+    final lessons = (ref.watch(lessonsProvider).valueOrNull ?? const <Lesson>[])
+        .toList()
+      ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
 
     return Scaffold(
       backgroundColor: AppColors.canvas,
       appBar: AppBar(
-        title: const Text('Từ vựng'),
-        actions: const [LevelBadge(), SizedBox(width: 12)],
+        title: Text(
+          selectedLevel == 'IT'
+              ? 'Từ vựng IT${vocabAsync.valueOrNull == null ? '' : ' · ${vocabAsync.valueOrNull!.length} từ'}'
+              : 'Từ vựng',
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Làm mới nội dung',
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: () => _refreshVocabularyContent(context, ref),
+          ),
+          const LevelBadge(),
+          const SizedBox(width: 12),
+        ],
       ),
       body: vocabAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -175,6 +194,12 @@ class VocabularyHomeScreen extends ConsumerWidget {
                   ],
                 ),
               ),
+              ..._lessonDeckSection(
+                context,
+                lessons,
+                assignments,
+                isIt: selectedLevel == 'IT',
+              ),
               const SizedBox(height: 24),
               const _SectionLabel('Tiến độ học tập'),
               const SizedBox(height: 10),
@@ -258,7 +283,11 @@ class VocabularyHomeScreen extends ConsumerWidget {
                 const _SectionLabel('Học gần đây'),
                 const SizedBox(height: 10),
                 SizedBox(
-                  height: 132,
+                  // Cao hơn thẻ "Yêu thích" (132) vì thẻ này còn có thêm
+                  // badge trạng thái bên dưới — nếu chỉ 132, nghĩa dài 2
+                  // dòng (vd それ "cái đó (gần người nghe)") + badge sẽ
+                  // tràn ra ngoài Column (RenderFlex overflow).
+                  height: 144,
                   child: ListView.separated(
                     scrollDirection: Axis.horizontal,
                     itemCount: recentItems.length,
@@ -340,6 +369,64 @@ class VocabularyHomeScreen extends ConsumerWidget {
         },
       ),
     );
+  }
+
+  /// "Flashcard theo bài" — mỗi bài 1 bộ thẻ riêng, mở sẵn chế độ ngẫu nhiên.
+  List<Widget> _lessonDeckSection(
+    BuildContext context,
+    List<Lesson> lessons,
+    Map<String, LessonAssignment> assignments, {
+    bool isIt = false,
+  }) {
+    final counts = <String, int>{};
+    for (final a in assignments.values) {
+      counts.update(a.lessonId, (n) => n + 1, ifAbsent: () => 1);
+    }
+    final decks = lessons.where((l) => (counts[l.id] ?? 0) > 0).toList();
+    if (decks.isEmpty) return const [];
+    return [
+      const SizedBox(height: 24),
+      _SectionLabel(
+        isIt ? 'Học theo bài · Flashcard' : 'Flashcard theo bài',
+      ),
+      const SizedBox(height: 10),
+      SizedBox(
+        height: 112,
+        child: ListView.separated(
+          scrollDirection: Axis.horizontal,
+          itemCount: decks.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (context, i) => _LessonDeckCard(
+            lesson: decks[i],
+            wordCount: counts[decks[i].id]!,
+            onTap: () => context.push(
+              '/vocabulary/flashcards?lesson=${decks[i].id}&shuffle=1',
+            ),
+          ),
+        ),
+      ),
+    ];
+  }
+
+  Future<void> _refreshVocabularyContent(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    ref.invalidate(contentRefreshProvider);
+    try {
+      await ref.read(contentRefreshProvider.future);
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Đã làm mới nội dung từ vựng.')),
+      );
+    } catch (_) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Không thể làm mới nội dung. Hãy kiểm tra mạng.'),
+        ),
+      );
+    }
   }
 }
 
@@ -581,6 +668,80 @@ class _VocabMiniCard extends StatelessWidget {
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Thẻ 1 bài trong "Flashcard theo bài" — chạm để ôn ngẫu nhiên riêng bài đó.
+class _LessonDeckCard extends StatelessWidget {
+  const _LessonDeckCard({
+    required this.lesson,
+    required this.wordCount,
+    required this.onTap,
+  });
+
+  final Lesson lesson;
+  final int wordCount;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        width: 156,
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: AppColors.card,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: AppColors.border, width: 1.0),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 12,
+                  backgroundColor: AppColors.mossSoft,
+                  foregroundColor: AppColors.moss,
+                  child: Text(
+                    '${lesson.orderIndex}',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                const Icon(
+                  Icons.shuffle_rounded,
+                  size: 16,
+                  color: AppColors.teal,
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: Text(
+                lesson.title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AppFonts.zenMaruGothic(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.ink,
+                ),
+              ),
+            ),
+            Text(
+              '$wordCount từ',
+              style: const TextStyle(fontSize: 11.5, color: AppColors.inkSoft),
+            ),
           ],
         ),
       ),

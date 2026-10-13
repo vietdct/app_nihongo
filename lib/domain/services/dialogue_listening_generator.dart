@@ -10,6 +10,10 @@ import 'quiz_generator.dart';
 ///
 /// Tái dùng [QuizQuestion] (qua [QuizQuestion.dialogueTurns]) để không phải
 /// xây lại UI/state machine của `QuizScreen`.
+///
+/// Một quiz theo cấp độ cần ít nhất hai hội thoại để có pool đủ phong phú.
+/// Lesson Runner có thể đặt [allowSingle] khi bài đã được gắn đúng một hội
+/// thoại chuyên biệt.
 class DialogueListeningGenerator {
   const DialogueListeningGenerator({Random? random}) : _random = random;
 
@@ -18,12 +22,17 @@ class DialogueListeningGenerator {
   List<QuizQuestion> generate({
     required List<ListeningDialogue> dialogues,
     int questionCount = 8,
+    bool allowSingle = false,
   }) {
     final valid = dialogues
-        .where((d) =>
-            d.turns.isNotEmpty && d.options.length >= 2 && d.questionJa.trim().isNotEmpty,)
+        .where(
+          (d) =>
+              d.turns.isNotEmpty &&
+              d.options.length >= 2 &&
+              d.questionJa.trim().isNotEmpty,
+        )
         .toList();
-    if (valid.length < 2) return const [];
+    if (valid.length < (allowSingle ? 1 : 2)) return const [];
 
     final rng = _random ?? Random();
     final chosen = valid.toList()..shuffle(rng);

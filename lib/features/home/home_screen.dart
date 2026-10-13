@@ -164,6 +164,15 @@ class HomeScreen extends ConsumerWidget {
                                 isCompleted:
                                     current.progress?.isCompleted ?? false,
                               ),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: TextButton(
+                                  onPressed: () => context.push('/lessons'),
+                                  child: Text(selectedLevel == 'IT'
+                                      ? 'Xem lộ trình khóa học'
+                                      : 'Xem danh sách bài'),
+                                ),
+                              ),
                             ],
                           ),
                         ),
@@ -266,18 +275,22 @@ class _HeroHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        const Positioned.fill(
+        Positioned.fill(
           child: DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  Color(0xFFFF8A50),
-                  Color(0xFFFF6B3A),
-                  Color(0xFFE8445A),
+                  AppColors.heroGradientStart,
+                  Color.lerp(
+                    AppColors.heroGradientStart,
+                    AppColors.heroGradientEnd,
+                    0.5,
+                  )!,
+                  AppColors.heroGradientEnd,
                 ],
-                stops: [0, 0.35, 1],
-                begin: Alignment(-0.3, -1),
-                end: Alignment(0.3, 1),
+                stops: const [0, 0.35, 1],
+                begin: const Alignment(-0.3, -1),
+                end: const Alignment(0.3, 1),
               ),
             ),
           ),
@@ -461,17 +474,38 @@ class _HeroStat extends StatefulWidget {
 
 class _HeroStatState extends State<_HeroStat>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 750),
-  );
-  late final Animation<double> _scale = Tween(begin: 1.0, end: 1.18)
-      .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
 
   @override
   void initState() {
     super.initState();
-    if (widget.pulse) _controller.repeat(reverse: true);
+    // Tạo ngay (không lười) để dispose() không phải tạo controller khi widget
+    // đã bị huỷ — việc đó gây "Looking up a deactivated widget's ancestor".
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 750),
+    );
+    _scale = Tween(begin: 1.0, end: 1.18)
+        .animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _syncPulse();
+  }
+
+  // `pulse` đổi theo streak tải bất đồng bộ (false → true) nên phải theo dõi.
+  @override
+  void didUpdateWidget(covariant _HeroStat oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.pulse != widget.pulse) _syncPulse();
+  }
+
+  void _syncPulse() {
+    if (widget.pulse) {
+      _controller.repeat(reverse: true);
+    } else {
+      _controller
+        ..stop()
+        ..value = 0;
+    }
   }
 
   @override
@@ -482,6 +516,7 @@ class _HeroStatState extends State<_HeroStat>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final number = Text.rich(
       TextSpan(
         text: widget.value,
@@ -503,7 +538,9 @@ class _HeroStatState extends State<_HeroStat>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.18),
+        color: isDark
+            ? const Color(0xFF0E1214).withValues(alpha: 0.4)
+            : Colors.white.withValues(alpha: 0.18),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -550,6 +587,7 @@ class _ContinueLessonCardState extends State<_ContinueLessonCard> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final title = widget.title;
     final lessonId = widget.lessonId;
     final ratio = widget.ratio;
@@ -571,10 +609,12 @@ class _ContinueLessonCardState extends State<_ContinueLessonCard> {
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
+            gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [AppColors.accent, AppColors.accentStrong],
+              colors: isDark
+                  ? const [Color(0xFF1A8A7A), Color(0xFF127068)]
+                  : const [AppColors.accent, AppColors.accentStrong],
             ),
             borderRadius: BorderRadius.circular(20),
             boxShadow: [

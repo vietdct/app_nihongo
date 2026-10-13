@@ -32,17 +32,32 @@ class LessonProgressHeader extends StatelessWidget {
               color: AppColors.inkSoft,
             ),
             Expanded(
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final phase in LessonPhase.values) ...[
-                    Expanded(
-                      child: _PhaseSegment(
-                        phase: phase,
-                        state: _segmentStateFor(phase),
-                      ),
+                  Row(
+                    children: [
+                      for (final phase in LessonPhase.values) ...[
+                        Expanded(
+                          child: _PhaseSegment(
+                            phase: phase,
+                            state: _segmentStateFor(phase),
+                          ),
+                        ),
+                        if (phase != LessonPhase.values.last) const SizedBox(width: 4),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${currentPhase.index + 1}/${LessonPhase.values.length} · ${phaseLabel(currentPhase)}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.4,
+                      color: _PhaseSegment._colorOf(currentPhase),
                     ),
-                    if (phase != LessonPhase.values.last) const SizedBox(width: 4),
-                  ],
+                  ),
                 ],
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:drift/drift.dart';
 import 'package:drift_flutter/drift_flutter.dart';
 
+import '../../shared/kanji_text_utils.dart';
 import 'tables.dart';
 
 part 'app_database.g.dart';
@@ -11,6 +12,7 @@ part 'app_database.g.dart';
     VocabularyMeaningsTable,
     KanjiTable,
     GrammarPointsTable,
+    GrammarMeaningsTable,
     LessonsTable,
     LessonItemsTable,
   ],
@@ -19,7 +21,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase() : super(_openConnection());
 
   @override
-  int get schemaVersion => 8;
+  int get schemaVersion => 11;
 
   // Đây chỉ là cache offline (nguồn sự thật là Supabase, xem
   // ContentRepositoryImpl.refreshFromRemote) nên khi đổi schema, đơn giản
@@ -58,6 +60,53 @@ class AppDatabase extends _$AppDatabase {
           ..where((t) => t.levelId.equals(levelId))
           ..orderBy([(t) => OrderingTerm(expression: t.strokeCount)]))
         .watch();
+  }
+
+  /// Kanji xuất hiện trong từ vựng của 1 cấp (dùng cho cấp không có bộ Kanji
+  /// riêng như IT). Nghe cả bảng kanji vì Kanji cấp khác được tải sau từ vựng.
+  Stream<List<KanjiTableData>> watchKanjiUsedByVocabulary(String levelId) {
+    return customSelect('SELECT 1', readsFrom: {kanjiTable, vocabularyTable})
+        .watch()
+        .asyncMap((_) async {
+      final words = await (select(vocabularyTable)
+            ..where((t) => t.levelId.equals(levelId)))
+          .map((r) => r.word)
+          .get();
+      final chars = {for (final w in words) ...uniqueKanjiChars(w)}.toList();
+      if (chars.isEmpty) return <KanjiTableData>[];
+      return (select(kanjiTable)
+            ..where((t) => t.character.isIn(chars))
+            ..orderBy([(t) => OrderingTerm(expression: t.strokeCount)]))
+          .get();
+    });
+  }
+
+  /// Tra 1 chữ Kanji không giới hạn theo cấp độ — dùng để ghép âm Hán Việt/
+  /// breakdown cho từ vựng có chữ thuộc cấp độ khác cấp đang chọn. Chỉ tìm
+  /// được trong dữ liệu đã cache cục bộ (cấp độ người dùng từng mở qua).
+  Future<KanjiTableData?> kanjiByCharacter(String character) {
+    return (select(kanjiTable)..where((t) => t.character.equals(character)))
+        .getSingleOrNull();
+  }
+
+  /// Từ vựng (thuộc bất kỳ cấp độ nào đã cache) có chứa ít nhất 1 trong các
+  /// ký tự Kanji của [characters], trừ chính từ [excludeId] — nguồn cho
+  /// section "Từ liên quan".
+  Future<List<VocabularyTableData>> vocabularyContainingAnyCharacter(
+    List<String> characters,
+    String excludeId, {
+    int limit = 8,
+  }) {
+    if (characters.isEmpty) return Future.value(const []);
+    final query = select(vocabularyTable)
+      ..where((t) {
+        final matchesAnyChar = characters
+            .map<Expression<bool>>((c) => t.word.like('%$c%'))
+            .reduce((a, b) => a | b);
+        return t.id.equals(excludeId).not() & matchesAnyChar;
+      })
+      ..limit(limit);
+    return query.get();
   }
 
   Stream<List<GrammarPointsTableData>> watchGrammarByLevel(String levelId) {
@@ -138,6 +187,28 @@ class AppDatabase extends _$AppDatabase {
     });
   }
 
+  Future<List<GrammarMeaningsTableData>> grammarMeaningsFor(
+    String grammarPointId,
+  ) {
+    return (select(grammarMeaningsTable)
+          ..where((t) => t.grammarPointId.equals(grammarPointId))
+          ..orderBy([(t) => OrderingTerm(expression: t.orderIndex)]))
+        .get();
+  }
+
+  Future<void> replaceGrammarMeanings(
+    List<String> grammarPointIds,
+    List<GrammarMeaningsTableCompanion> rows,
+  ) async {
+    await batch((b) {
+      b.deleteWhere(
+        grammarMeaningsTable,
+        (t) => t.grammarPointId.isIn(grammarPointIds),
+      );
+      b.insertAllOnConflictUpdate(grammarMeaningsTable, rows);
+    });
+  }
+
   Future<void> replaceKanji(
     String levelId,
     List<KanjiTableCompanion> rows,
@@ -146,6 +217,10 @@ class AppDatabase extends _$AppDatabase {
       b.deleteWhere(kanjiTable, (t) => t.levelId.equals(levelId));
       b.insertAllOnConflictUpdate(kanjiTable, rows);
     });
+  }
+
+  Future<void> upsertKanji(List<KanjiTableCompanion> rows) async {
+    await batch((b) => b.insertAllOnConflictUpdate(kanjiTable, rows));
   }
 
   Future<void> replaceGrammar(

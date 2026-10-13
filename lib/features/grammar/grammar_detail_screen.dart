@@ -8,6 +8,7 @@ import '../lesson/providers/content_providers.dart';
 import 'providers/grammar_comparison_providers.dart';
 import 'providers/grammar_progress_providers.dart';
 import 'widgets/grammar_content_sections.dart';
+import '../../shared/jp_example_text.dart';
 
 /// Trang tra cứu TĨNH cho 1 điểm ngữ pháp — khác `GrammarFlashcardScreen`
 /// (bộ thẻ vuốt qua dùng để luyện tập): đây là nơi xem/đánh dấu lại một mẫu
@@ -133,22 +134,43 @@ class GrammarDetailScreen extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 16),
-                GrammarSection(
-                  color: AppColors.plum,
-                  label: 'Ý NGHĨA',
-                  child: GrammarInfoBox(
-                    child: Text(
-                      grammar.explanation,
-                      style: const TextStyle(
-                        fontSize: 14.5,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.ink,
-                        height: 1.4,
+                if (grammar.meanings.isNotEmpty)
+                  GrammarSection(
+                    color: AppColors.plum,
+                    label: 'Ý NGHĨA',
+                    child: Column(
+                      children: [
+                        for (final (i, meaning) in grammar.meanings.indexed)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              bottom:
+                                  i == grammar.meanings.length - 1 ? 0 : 10,
+                            ),
+                            child: GrammarMeaningCard(
+                              index: i + 1,
+                              meaning: meaning,
+                            ),
+                          ),
+                      ],
+                    ),
+                  )
+                else
+                  GrammarSection(
+                    color: AppColors.plum,
+                    label: 'Ý NGHĨA',
+                    child: GrammarInfoBox(
+                      child: Text(
+                        grammar.explanation,
+                        style: const TextStyle(
+                          fontSize: 14.5,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.ink,
+                          height: 1.4,
+                        ),
                       ),
                     ),
                   ),
-                ),
-                if (grammar.exampleJp != null) ...[
+                if (grammar.meanings.isEmpty && grammar.exampleJp != null) ...[
                   const SizedBox(height: 14),
                   GrammarSection(
                     color: AppColors.indigo,
@@ -157,23 +179,41 @@ class GrammarDetailScreen extends ConsumerWidget {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            grammar.exampleJp!,
-                            style: AppFonts.zenMaruGothic(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w400,
-                              color: AppColors.ink,
-                            ),
-                          ),
-                          if (grammar.exampleVi != null) ...[
-                            const SizedBox(height: 5),
-                            Text(
-                              grammar.exampleVi!,
-                              style: const TextStyle(
-                                fontSize: 11.5,
-                                color: AppColors.inkSoft,
+                          for (final (i, example) in [
+                            (grammar.exampleJp!, grammar.exampleVi),
+                            for (var j = 0; j < grammar.extraExamplesJp.length; j++)
+                              (
+                                grammar.extraExamplesJp[j],
+                                j < grammar.extraExamplesVi.length
+                                    ? grammar.extraExamplesVi[j]
+                                    : null,
+                              ),
+                          ].indexed) ...[
+                            if (i > 0) const SizedBox(height: 12),
+                            if (i > 0)
+                              const Divider(
+                                height: 1,
+                                color: AppColors.canvas,
+                              ),
+                            if (i > 0) const SizedBox(height: 12),
+                            JpExampleText(
+                              example.$1,
+                              style: AppFonts.zenMaruGothic(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w400,
+                                color: AppColors.ink,
                               ),
                             ),
+                            if (example.$2 != null) ...[
+                              const SizedBox(height: 5),
+                              Text(
+                                example.$2!,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  color: AppColors.inkSoft,
+                                ),
+                              ),
+                            ],
                           ],
                         ],
                       ),

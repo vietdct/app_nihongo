@@ -285,7 +285,7 @@ class _MiniTestHeroCard extends StatelessWidget {
             child: FilledButton(
               onPressed: onQuickStart,
               style: FilledButton.styleFrom(
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.card,
                 foregroundColor: AppColors.accentStrong,
               ),
               child: onQuickStart == null

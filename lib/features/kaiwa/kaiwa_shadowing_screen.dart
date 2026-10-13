@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:speech_to_text/speech_to_text.dart';
 
+import '../../core/services/dialogue_audio.dart';
 import '../../core/services/jp_voice_prefs.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/grammar_point.dart';
@@ -43,6 +44,9 @@ class KaiwaShadowingScreen extends ConsumerStatefulWidget {
 
 class _KaiwaShadowingScreenState extends ConsumerState<KaiwaShadowingScreen> {
   final _tts = FlutterTts();
+
+  /// Audio câu mẫu tạo sẵn (giọng thần kinh); thiếu file thì dùng TTS máy.
+  final _audio = DialogueAudio();
   final _speech = SpeechToText();
   final _recorder = AudioRecorder();
 
@@ -99,6 +103,7 @@ class _KaiwaShadowingScreenState extends ConsumerState<KaiwaShadowingScreen> {
   void dispose() {
     _speech.stop();
     _tts.stop();
+    unawaited(_audio.dispose());
     _aiAutoStopTimer?.cancel();
     _recorder.dispose();
     super.dispose();
@@ -154,6 +159,12 @@ class _KaiwaShadowingScreenState extends ConsumerState<KaiwaShadowingScreen> {
       await _tts.stop().timeout(const Duration(seconds: 3));
     } catch (_) {
       // bỏ qua — vẫn tiếp tục phát
+    }
+    // Ưu tiên audio tạo sẵn (chậm nhẹ 0.9× cho người học bắt chước); thiếu
+    // file/mất mạng → TTS của máy như cũ.
+    if (await _audio.playSentence(text, 0.9)) {
+      if (mounted) setState(() => _ttsSpeaking = false);
+      return;
     }
     unawaited(_tts.speak(text));
     Future.delayed(const Duration(seconds: 20), () {

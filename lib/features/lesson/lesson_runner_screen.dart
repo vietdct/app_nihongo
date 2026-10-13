@@ -17,6 +17,7 @@ import 'widgets/lesson_intro_view.dart';
 import 'widgets/lesson_listening_view.dart';
 import 'widgets/lesson_mission_view.dart';
 import 'widgets/lesson_objectives_view.dart';
+import 'widgets/lesson_phase_complete_sheet.dart';
 import 'widgets/lesson_progress_header.dart';
 import 'widgets/lesson_review_view.dart';
 import 'widgets/lesson_understand_cards.dart';
@@ -129,6 +130,23 @@ class _RunnerBody extends ConsumerWidget {
   final PageController pageController;
   final void Function(int) onAdvance;
 
+  /// Qua bước kế; nếu bước kế thuộc pha khác (và pha vừa xong không phải
+  /// Input) thì hiện "chốt chặng" trước, người học bấm mới sang.
+  Future<void> _goNext(BuildContext context, int i) async {
+    final from = phaseOfStep(steps[i]);
+    final to = phaseOfStep(steps[i + 1]);
+    if (from != to && from != LessonPhase.input) {
+      final ok = await showPhaseCompleteSheet(
+        context,
+        done: from,
+        next: to,
+        lines: phaseSummaryLines(steps, from),
+      );
+      if (ok != true) return;
+    }
+    onAdvance(i + 1);
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     if (steps.isEmpty) {
@@ -168,7 +186,7 @@ class _RunnerBody extends ConsumerWidget {
                   lesson: lesson,
                   items: items,
                   levelLabel: levelLabel,
-                  onNext: i < steps.length - 1 ? () => onAdvance(i + 1) : null,
+                  onNext: i < steps.length - 1 ? () => _goNext(context, i) : null,
                 ),
               ),
             ),

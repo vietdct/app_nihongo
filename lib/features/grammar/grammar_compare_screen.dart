@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../domain/entities/grammar_point.dart';
 import '../lesson/providers/content_providers.dart';
 import 'widgets/grammar_content_sections.dart';
+import '../../shared/jp_example_text.dart';
 
 /// Đối chiếu 2 điểm ngữ pháp hay bị nhầm với nhau, xếp dọc (không side-by-
 /// side vì màn hình điện thoại hẹp). Toàn bộ nội dung mỗi bên lấy nguyên từ
@@ -159,7 +160,7 @@ class _CompareCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
+                  JpExampleText(
                     grammar.exampleJp!,
                     style: AppFonts.zenMaruGothic(
                       fontSize: 14,

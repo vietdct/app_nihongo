@@ -9,6 +9,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 
 import '../../core/network/ai_exception.dart';
 import '../../core/services/jp_voice_prefs.dart';
+import '../../core/services/speaker_voices.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/kaiwa_feedback_context.dart';
 import '../../domain/entities/kaiwa_message.dart';
@@ -34,9 +35,9 @@ const _voiceProfiles = <String, ({double pitch, double rate})>{
   'female_energetic': (pitch: 1.25, rate: 0.48),
   'female_bright': (pitch: 1.15, rate: 0.45),
   'female_elderly': (pitch: 0.95, rate: 0.32),
-  'male_neutral': (pitch: 0.95, rate: 0.43),
-  'male_firm': (pitch: 0.85, rate: 0.41),
-  'male_stern': (pitch: 0.78, rate: 0.37),
+  'male_neutral': (pitch: 0.85, rate: 0.43),
+  'male_firm': (pitch: 0.75, rate: 0.41),
+  'male_stern': (pitch: 0.65, rate: 0.37),
 };
 const _defaultVoiceProfile = (pitch: 1.0, rate: 0.42);
 
@@ -314,7 +315,11 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
         _japaneseVoices = jp;
         _selectedVoice = saved;
       });
-      if (saved != null) await _tts.setVoice(saved);
+      // Chưa tự chọn giọng → chọn giọng máy đúng giới tính của persona.
+      final voice = saved ?? pickVoiceForStyle(jp, widget.persona.voiceStyle);
+      debugPrint('[TTS] kaiwa persona=${widget.persona.voiceStyle} '
+          'voice=${voice?['name']} (có ${jp.length} giọng ja)');
+      if (voice != null) await _tts.setVoice(voice);
     } catch (e) {
       debugPrint('Kaiwa: lỗi tải danh sách giọng đọc: $e');
     }

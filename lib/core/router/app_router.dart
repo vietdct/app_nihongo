@@ -142,8 +142,13 @@ final routerProvider = Provider<GoRouter>((ref) {
           }
           return Consumer(
             builder: (context, ref, _) {
+              final qp = state.uri.queryParameters;
               final questionsAsync =
-                  ref.watch(levelCategoryQuizQuestionsProvider(category));
+                  ref.watch(levelCategoryQuizQuestionsProvider((
+                category: category,
+                lessonIds: qp['lesson'],
+                count: int.tryParse(qp['count'] ?? ''),
+              )));
               final level = ref.watch(selectedLevelCodeProvider);
               return questionsAsync.when(
                 loading: () => const Scaffold(
@@ -152,7 +157,7 @@ final routerProvider = Provider<GoRouter>((ref) {
                 error: (e, _) => Scaffold(body: Center(child: Text('Lỗi: $e'))),
                 data: (questions) => QuizScreen(
                   questions: questions,
-                  title: '${category.label} · $level',
+                  title: '${category.label} · ${_quizScopeLabel(ref, qp['lesson']) ?? level}',
                 ),
               );
             },
@@ -163,7 +168,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/listening',
         builder: (context, state) => Consumer(
           builder: (context, ref, _) {
-            final questionsAsync = ref.watch(levelListeningQuestionsProvider);
+            final lessonIds = state.uri.queryParameters['lesson'];
+            final count =
+                int.tryParse(state.uri.queryParameters['count'] ?? '');
+            final questionsAsync = lessonIds == null
+                ? ref.watch(levelListeningQuestionsProvider(count ?? 12))
+                : ref.watch(lessonListeningQuestionsProvider(
+                    (lessonIds: lessonIds, count: count ?? 10),
+                  ));
             final level = ref.watch(selectedLevelCodeProvider);
             return questionsAsync.when(
               loading: () => const Scaffold(
@@ -325,6 +337,8 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/vocabulary/flashcards',
         builder: (context, state) => VocabularyFlashcardScreen(
           startSmart: state.extra == true,
+          initialLessonId: state.uri.queryParameters['lesson'],
+          startShuffled: state.uri.queryParameters['shuffle'] == '1',
         ),
       ),
       GoRoute(
@@ -348,7 +362,9 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/kanji/:id',
         builder: (context, state) => KanjiDetailScreen(
           kanjiId: state.pathParameters['id']!,
-          filterIds: state.extra as Set<String>?,
+          filterIds: state.extra is Set<String> ? state.extra as Set<String> : null,
+          // Không có extra = bấm vào 1 chữ cụ thể → chỉ xem chữ đó, không vuốt.
+          single: state.extra == null,
         ),
       ),
       GoRoute(
@@ -536,4 +552,20 @@ class _AuthRefreshListenable extends ChangeNotifier {
     _sub.close();
     super.dispose();
   }
+}
+
+/// Nhãn phạm vi trên tiêu đề quiz: "第8課" khi 1 bài, "Các bài đã học" khi
+/// nhiều bài, null khi toàn cấp độ.
+String? _quizScopeLabel(WidgetRef ref, String? lessonIds) {
+  if (lessonIds == null) return null;
+  final ids = lessonIds.split(',');
+  if (ids.length > 1) return 'Các bài đã học';
+  final lessons = ref.watch(lessonsProvider).valueOrNull ?? const [];
+  for (final l in lessons) {
+    if (l.id == ids.first) {
+      return RegExp(r'^第\s*\d+\s*課').firstMatch(l.title)?.group(0)?.replaceAll(' ', '') ??
+          '第${l.orderIndex}課';
+    }
+  }
+  return null;
 }

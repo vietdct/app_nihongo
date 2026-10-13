@@ -13,8 +13,9 @@ import 'level_providers.dart';
 final contentRefreshProvider = FutureProvider<void>((ref) async {
   final levelId = ref.watch(currentLevelIdProvider);
   if (levelId == null) return;
+  final coreN5Only = ref.watch(selectedLevelCodeProvider) == 'N5';
   final repo = ref.watch(contentRepositoryProvider);
-  await repo.refreshFromRemote(levelId);
+  await repo.refreshFromRemote(levelId, coreN5Only: coreN5Only);
 });
 
 final lessonsProvider = StreamProvider<List<Lesson>>((ref) {
@@ -28,13 +29,24 @@ final vocabularyListProvider = StreamProvider<List<Vocabulary>>((ref) {
   ref.watch(contentRefreshProvider);
   final levelId = ref.watch(currentLevelIdProvider);
   if (levelId == null) return const Stream.empty();
-  return ref.watch(contentRepositoryProvider).watchVocabulary(levelId);
+  final coreN5Only = ref.watch(selectedLevelCodeProvider) == 'N5';
+  return ref
+      .watch(contentRepositoryProvider)
+      .watchVocabulary(levelId, coreN5Only: coreN5Only);
 });
 
 final kanjiListProvider = StreamProvider<List<Kanji>>((ref) {
   ref.watch(contentRefreshProvider);
   final levelId = ref.watch(currentLevelIdProvider);
   if (levelId == null) return const Stream.empty();
+  return ref.watch(contentRepositoryProvider).watchKanji(levelId);
+});
+
+/// Kanji của 1 cấp độ cụ thể (không phụ thuộc cấp độ đang chọn) — dùng khi mở
+/// chữ Hán từ 1 từ vựng thuộc cấp độ khác (VD từ IT chứa kanji N3).
+final kanjiByLevelProvider =
+    StreamProvider.family<List<Kanji>, String>((ref, levelId) {
+  ref.watch(contentRefreshProvider);
   return ref.watch(contentRepositoryProvider).watchKanji(levelId);
 });
 
@@ -45,24 +57,34 @@ final grammarListProvider = StreamProvider<List<GrammarPoint>>((ref) {
   return ref.watch(contentRepositoryProvider).watchGrammar(levelId);
 });
 
-final grammarLessonAssignmentsProvider = StreamProvider<Map<String, LessonAssignment>>((ref) {
+final grammarLessonAssignmentsProvider =
+    StreamProvider<Map<String, LessonAssignment>>((ref) {
   final levelId = ref.watch(currentLevelIdProvider);
   if (levelId == null) return const Stream.empty();
-  return ref.watch(contentRepositoryProvider).watchGrammarLessonAssignments(levelId);
+  return ref
+      .watch(contentRepositoryProvider)
+      .watchGrammarLessonAssignments(levelId);
 });
 
-final lessonItemsProvider = StreamProvider.family<List<LessonContentItem>, String>((ref, lessonId) {
+final lessonItemsProvider =
+    StreamProvider.family<List<LessonContentItem>, String>((ref, lessonId) {
   return ref.watch(contentRepositoryProvider).watchLessonItems(lessonId);
 });
 
-final vocabularyLessonAssignmentsProvider = StreamProvider<Map<String, LessonAssignment>>((ref) {
+final vocabularyLessonAssignmentsProvider =
+    StreamProvider<Map<String, LessonAssignment>>((ref) {
   final levelId = ref.watch(currentLevelIdProvider);
   if (levelId == null) return const Stream.empty();
-  return ref.watch(contentRepositoryProvider).watchVocabularyLessonAssignments(levelId);
+  return ref
+      .watch(contentRepositoryProvider)
+      .watchVocabularyLessonAssignments(levelId);
 });
 
-final kanjiLessonAssignmentsProvider = StreamProvider<Map<String, LessonAssignment>>((ref) {
+final kanjiLessonAssignmentsProvider =
+    StreamProvider<Map<String, LessonAssignment>>((ref) {
   final levelId = ref.watch(currentLevelIdProvider);
   if (levelId == null) return const Stream.empty();
-  return ref.watch(contentRepositoryProvider).watchKanjiLessonAssignments(levelId);
+  return ref
+      .watch(contentRepositoryProvider)
+      .watchKanjiLessonAssignments(levelId);
 });

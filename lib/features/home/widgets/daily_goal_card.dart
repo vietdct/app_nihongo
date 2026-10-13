@@ -16,6 +16,7 @@ class DailyGoalCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final monday = today.subtract(Duration(days: today.weekday - 1));
@@ -29,8 +30,10 @@ class DailyGoalCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Colors.white, Color(0xFFFFFBF5)],
+        gradient: LinearGradient(
+          colors: isDark
+              ? const [Color(0xFF162124), Color(0xFF101719)]
+              : const [Colors.white, Color(0xFFFFFBF5)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

@@ -20,13 +20,18 @@ class ProfileSettingsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final muted = isDark ? colors.onSurfaceVariant : AppColors.inkSoft;
+    final title = isDark ? colors.onSurface : AppColors.ink;
     return InkWell(
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
         child: Row(
           children: [
-            Icon(icon, size: 18, color: labelColor ?? AppColors.inkSoft),
+            Icon(icon, size: 18, color: labelColor ?? muted),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -34,21 +39,21 @@ class ProfileSettingsRow extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.w700,
-                  color: labelColor ?? AppColors.ink,
+                  color: labelColor ?? title,
                 ),
               ),
             ),
             if (trailingText != null)
               Text(
                 trailingText!,
-                style: const TextStyle(fontSize: 12, color: AppColors.inkSoft),
+                style: TextStyle(fontSize: 12, color: muted),
               ),
             if (onTap != null) ...[
               const SizedBox(width: 4),
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
                 size: 16,
-                color: AppColors.inkFaint,
+                color: isDark ? colors.outline : AppColors.inkFaint,
               ),
             ],
           ],

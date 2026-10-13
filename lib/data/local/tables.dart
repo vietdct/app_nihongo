@@ -14,6 +14,30 @@ class VocabularyTable extends Table {
   /// có thể null cho từ chưa được gán (xem migration `vocabulary_category`).
   TextColumn get category => text().nullable()();
 
+  /// Nội dung "mini từ điển" mở rộng — chỉ 1 số từ được biên soạn thủ công,
+  /// null/rỗng nghĩa là chưa có (UI ẩn cả section thay vì hiện chỗ trống).
+  /// Các cột mảng lưu dạng chuỗi JSON của List&lt;String&gt;, cùng quy ước với
+  /// `KanjiTable`/`GrammarPointsTable` — xem migration
+  /// `20260811000000_vocabulary_extra_content.sql`.
+  TextColumn get commonUsagePattern => text().nullable()();
+  TextColumn get commonUsageDesc => text().nullable()();
+  TextColumn get commonUsageExamplesJp =>
+      text().withDefault(const Constant('[]'))();
+  TextColumn get commonUsageExamplesVi =>
+      text().withDefault(const Constant('[]'))();
+  TextColumn get nuancePoints => text().withDefault(const Constant('[]'))();
+  TextColumn get similarWords => text().withDefault(const Constant('[]'))();
+  TextColumn get similarWordsMeaningVi =>
+      text().withDefault(const Constant('[]'))();
+  TextColumn get comparisonWords => text().withDefault(const Constant('[]'))();
+  TextColumn get comparisonMainDescs =>
+      text().withDefault(const Constant('[]'))();
+  TextColumn get comparisonOtherDescs =>
+      text().withDefault(const Constant('[]'))();
+  TextColumn get commonMistakeNote => text().nullable()();
+  TextColumn get commonMistakeSuggestions =>
+      text().withDefault(const Constant('[]'))();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -27,6 +51,12 @@ class VocabularyMeaningsTable extends Table {
   TextColumn get meaningVi => text()();
   TextColumn get exampleJp => text().nullable()();
   TextColumn get exampleVi => text().nullable()();
+
+  /// Ví dụ bổ sung ngoài exampleJp/exampleVi (JSON của List&lt;String&gt;,
+  /// song song, ghép theo index) — cùng mẫu với
+  /// `GrammarPointsTable.extraExamplesJp/Vi`.
+  TextColumn get extraExamplesJp => text().withDefault(const Constant('[]'))();
+  TextColumn get extraExamplesVi => text().withDefault(const Constant('[]'))();
 
   @override
   Set<Column> get primaryKey => {id};
@@ -69,11 +99,34 @@ class GrammarPointsTable extends Table {
   TextColumn get comparisonNote => text().nullable()();
   TextColumn get levelId => text()();
 
+  /// Ví dụ bổ sung ngoài exampleJp/exampleVi, lưu dạng chuỗi JSON của
+  /// List&lt;String&gt; (song song, ghép theo index) — xem migration
+  /// `20260810100000_grammar_extra_examples.sql`.
+  TextColumn get extraExamplesJp => text().nullable()();
+  TextColumn get extraExamplesVi => text().nullable()();
+
   /// Từ/cụm tách sẵn từ example_jp, đúng thứ tự (JSON của List&lt;String&gt;) —
   /// dùng cho Practice mở rộng, xem migration
   /// `20260727040000_grammar_practice_tokens.sql`.
   TextColumn get practiceTokens => text().nullable()();
   IntColumn get practiceBlankIndex => integer().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Mirror của bảng `grammar_meanings` — 1 điểm ngữ pháp có thể nhiều nghĩa,
+/// mỗi nghĩa có tối đa 2 ví dụ riêng (examplesJp/examplesVi lưu dạng chuỗi
+/// JSON của List&lt;String&gt;, xem migration `20260810110000_grammar_meanings.sql`).
+/// Điểm ngữ pháp chưa có dòng nào ở đây (N4/N5 cũ) vẫn hiển thị theo
+/// explanation/exampleJp/exampleVi phẳng như trước.
+class GrammarMeaningsTable extends Table {
+  TextColumn get id => text()();
+  TextColumn get grammarPointId => text()();
+  IntColumn get orderIndex => integer().withDefault(const Constant(0))();
+  TextColumn get meaningVi => text()();
+  TextColumn get examplesJp => text().withDefault(const Constant('[]'))();
+  TextColumn get examplesVi => text().withDefault(const Constant('[]'))();
 
   @override
   Set<Column> get primaryKey => {id};

@@ -49,9 +49,118 @@ class $VocabularyTableTable extends VocabularyTable
   late final GeneratedColumn<String> category = GeneratedColumn<String>(
       'category', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _commonUsagePatternMeta =
+      const VerificationMeta('commonUsagePattern');
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, word, reading, partOfSpeech, audioUrl, levelId, category];
+  late final GeneratedColumn<String> commonUsagePattern =
+      GeneratedColumn<String>('common_usage_pattern', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _commonUsageDescMeta =
+      const VerificationMeta('commonUsageDesc');
+  @override
+  late final GeneratedColumn<String> commonUsageDesc = GeneratedColumn<String>(
+      'common_usage_desc', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _commonUsageExamplesJpMeta =
+      const VerificationMeta('commonUsageExamplesJp');
+  @override
+  late final GeneratedColumn<String> commonUsageExamplesJp =
+      GeneratedColumn<String>('common_usage_examples_jp', aliasedName, false,
+          type: DriftSqlType.string,
+          requiredDuringInsert: false,
+          defaultValue: const Constant('[]'));
+  static const VerificationMeta _commonUsageExamplesViMeta =
+      const VerificationMeta('commonUsageExamplesVi');
+  @override
+  late final GeneratedColumn<String> commonUsageExamplesVi =
+      GeneratedColumn<String>('common_usage_examples_vi', aliasedName, false,
+          type: DriftSqlType.string,
+          requiredDuringInsert: false,
+          defaultValue: const Constant('[]'));
+  static const VerificationMeta _nuancePointsMeta =
+      const VerificationMeta('nuancePoints');
+  @override
+  late final GeneratedColumn<String> nuancePoints = GeneratedColumn<String>(
+      'nuance_points', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
+  static const VerificationMeta _similarWordsMeta =
+      const VerificationMeta('similarWords');
+  @override
+  late final GeneratedColumn<String> similarWords = GeneratedColumn<String>(
+      'similar_words', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
+  static const VerificationMeta _similarWordsMeaningViMeta =
+      const VerificationMeta('similarWordsMeaningVi');
+  @override
+  late final GeneratedColumn<String> similarWordsMeaningVi =
+      GeneratedColumn<String>('similar_words_meaning_vi', aliasedName, false,
+          type: DriftSqlType.string,
+          requiredDuringInsert: false,
+          defaultValue: const Constant('[]'));
+  static const VerificationMeta _comparisonWordsMeta =
+      const VerificationMeta('comparisonWords');
+  @override
+  late final GeneratedColumn<String> comparisonWords = GeneratedColumn<String>(
+      'comparison_words', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
+  static const VerificationMeta _comparisonMainDescsMeta =
+      const VerificationMeta('comparisonMainDescs');
+  @override
+  late final GeneratedColumn<String> comparisonMainDescs =
+      GeneratedColumn<String>('comparison_main_descs', aliasedName, false,
+          type: DriftSqlType.string,
+          requiredDuringInsert: false,
+          defaultValue: const Constant('[]'));
+  static const VerificationMeta _comparisonOtherDescsMeta =
+      const VerificationMeta('comparisonOtherDescs');
+  @override
+  late final GeneratedColumn<String> comparisonOtherDescs =
+      GeneratedColumn<String>('comparison_other_descs', aliasedName, false,
+          type: DriftSqlType.string,
+          requiredDuringInsert: false,
+          defaultValue: const Constant('[]'));
+  static const VerificationMeta _commonMistakeNoteMeta =
+      const VerificationMeta('commonMistakeNote');
+  @override
+  late final GeneratedColumn<String> commonMistakeNote =
+      GeneratedColumn<String>('common_mistake_note', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _commonMistakeSuggestionsMeta =
+      const VerificationMeta('commonMistakeSuggestions');
+  @override
+  late final GeneratedColumn<String> commonMistakeSuggestions =
+      GeneratedColumn<String>('common_mistake_suggestions', aliasedName, false,
+          type: DriftSqlType.string,
+          requiredDuringInsert: false,
+          defaultValue: const Constant('[]'));
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        word,
+        reading,
+        partOfSpeech,
+        audioUrl,
+        levelId,
+        category,
+        commonUsagePattern,
+        commonUsageDesc,
+        commonUsageExamplesJp,
+        commonUsageExamplesVi,
+        nuancePoints,
+        similarWords,
+        similarWordsMeaningVi,
+        comparisonWords,
+        comparisonMainDescs,
+        comparisonOtherDescs,
+        commonMistakeNote,
+        commonMistakeSuggestions
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -100,6 +209,79 @@ class $VocabularyTableTable extends VocabularyTable
       context.handle(_categoryMeta,
           category.isAcceptableOrUnknown(data['category']!, _categoryMeta));
     }
+    if (data.containsKey('common_usage_pattern')) {
+      context.handle(
+          _commonUsagePatternMeta,
+          commonUsagePattern.isAcceptableOrUnknown(
+              data['common_usage_pattern']!, _commonUsagePatternMeta));
+    }
+    if (data.containsKey('common_usage_desc')) {
+      context.handle(
+          _commonUsageDescMeta,
+          commonUsageDesc.isAcceptableOrUnknown(
+              data['common_usage_desc']!, _commonUsageDescMeta));
+    }
+    if (data.containsKey('common_usage_examples_jp')) {
+      context.handle(
+          _commonUsageExamplesJpMeta,
+          commonUsageExamplesJp.isAcceptableOrUnknown(
+              data['common_usage_examples_jp']!, _commonUsageExamplesJpMeta));
+    }
+    if (data.containsKey('common_usage_examples_vi')) {
+      context.handle(
+          _commonUsageExamplesViMeta,
+          commonUsageExamplesVi.isAcceptableOrUnknown(
+              data['common_usage_examples_vi']!, _commonUsageExamplesViMeta));
+    }
+    if (data.containsKey('nuance_points')) {
+      context.handle(
+          _nuancePointsMeta,
+          nuancePoints.isAcceptableOrUnknown(
+              data['nuance_points']!, _nuancePointsMeta));
+    }
+    if (data.containsKey('similar_words')) {
+      context.handle(
+          _similarWordsMeta,
+          similarWords.isAcceptableOrUnknown(
+              data['similar_words']!, _similarWordsMeta));
+    }
+    if (data.containsKey('similar_words_meaning_vi')) {
+      context.handle(
+          _similarWordsMeaningViMeta,
+          similarWordsMeaningVi.isAcceptableOrUnknown(
+              data['similar_words_meaning_vi']!, _similarWordsMeaningViMeta));
+    }
+    if (data.containsKey('comparison_words')) {
+      context.handle(
+          _comparisonWordsMeta,
+          comparisonWords.isAcceptableOrUnknown(
+              data['comparison_words']!, _comparisonWordsMeta));
+    }
+    if (data.containsKey('comparison_main_descs')) {
+      context.handle(
+          _comparisonMainDescsMeta,
+          comparisonMainDescs.isAcceptableOrUnknown(
+              data['comparison_main_descs']!, _comparisonMainDescsMeta));
+    }
+    if (data.containsKey('comparison_other_descs')) {
+      context.handle(
+          _comparisonOtherDescsMeta,
+          comparisonOtherDescs.isAcceptableOrUnknown(
+              data['comparison_other_descs']!, _comparisonOtherDescsMeta));
+    }
+    if (data.containsKey('common_mistake_note')) {
+      context.handle(
+          _commonMistakeNoteMeta,
+          commonMistakeNote.isAcceptableOrUnknown(
+              data['common_mistake_note']!, _commonMistakeNoteMeta));
+    }
+    if (data.containsKey('common_mistake_suggestions')) {
+      context.handle(
+          _commonMistakeSuggestionsMeta,
+          commonMistakeSuggestions.isAcceptableOrUnknown(
+              data['common_mistake_suggestions']!,
+              _commonMistakeSuggestionsMeta));
+    }
     return context;
   }
 
@@ -123,6 +305,36 @@ class $VocabularyTableTable extends VocabularyTable
           .read(DriftSqlType.string, data['${effectivePrefix}level_id'])!,
       category: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}category']),
+      commonUsagePattern: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}common_usage_pattern']),
+      commonUsageDesc: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}common_usage_desc']),
+      commonUsageExamplesJp: attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}common_usage_examples_jp'])!,
+      commonUsageExamplesVi: attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}common_usage_examples_vi'])!,
+      nuancePoints: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}nuance_points'])!,
+      similarWords: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}similar_words'])!,
+      similarWordsMeaningVi: attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}similar_words_meaning_vi'])!,
+      comparisonWords: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}comparison_words'])!,
+      comparisonMainDescs: attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}comparison_main_descs'])!,
+      comparisonOtherDescs: attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}comparison_other_descs'])!,
+      commonMistakeNote: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}common_mistake_note']),
+      commonMistakeSuggestions: attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}common_mistake_suggestions'])!,
     );
   }
 
@@ -144,6 +356,24 @@ class VocabularyTableData extends DataClass
   /// Chủ đề để duyệt/lọc (VD: "Mua sắm", "Gia đình") — 1 từ đúng 1 category,
   /// có thể null cho từ chưa được gán (xem migration `vocabulary_category`).
   final String? category;
+
+  /// Nội dung "mini từ điển" mở rộng — chỉ 1 số từ được biên soạn thủ công,
+  /// null/rỗng nghĩa là chưa có (UI ẩn cả section thay vì hiện chỗ trống).
+  /// Các cột mảng lưu dạng chuỗi JSON của List&lt;String&gt;, cùng quy ước với
+  /// `KanjiTable`/`GrammarPointsTable` — xem migration
+  /// `20260811000000_vocabulary_extra_content.sql`.
+  final String? commonUsagePattern;
+  final String? commonUsageDesc;
+  final String commonUsageExamplesJp;
+  final String commonUsageExamplesVi;
+  final String nuancePoints;
+  final String similarWords;
+  final String similarWordsMeaningVi;
+  final String comparisonWords;
+  final String comparisonMainDescs;
+  final String comparisonOtherDescs;
+  final String? commonMistakeNote;
+  final String commonMistakeSuggestions;
   const VocabularyTableData(
       {required this.id,
       required this.word,
@@ -151,7 +381,19 @@ class VocabularyTableData extends DataClass
       this.partOfSpeech,
       this.audioUrl,
       required this.levelId,
-      this.category});
+      this.category,
+      this.commonUsagePattern,
+      this.commonUsageDesc,
+      required this.commonUsageExamplesJp,
+      required this.commonUsageExamplesVi,
+      required this.nuancePoints,
+      required this.similarWords,
+      required this.similarWordsMeaningVi,
+      required this.comparisonWords,
+      required this.comparisonMainDescs,
+      required this.comparisonOtherDescs,
+      this.commonMistakeNote,
+      required this.commonMistakeSuggestions});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -168,6 +410,25 @@ class VocabularyTableData extends DataClass
     if (!nullToAbsent || category != null) {
       map['category'] = Variable<String>(category);
     }
+    if (!nullToAbsent || commonUsagePattern != null) {
+      map['common_usage_pattern'] = Variable<String>(commonUsagePattern);
+    }
+    if (!nullToAbsent || commonUsageDesc != null) {
+      map['common_usage_desc'] = Variable<String>(commonUsageDesc);
+    }
+    map['common_usage_examples_jp'] = Variable<String>(commonUsageExamplesJp);
+    map['common_usage_examples_vi'] = Variable<String>(commonUsageExamplesVi);
+    map['nuance_points'] = Variable<String>(nuancePoints);
+    map['similar_words'] = Variable<String>(similarWords);
+    map['similar_words_meaning_vi'] = Variable<String>(similarWordsMeaningVi);
+    map['comparison_words'] = Variable<String>(comparisonWords);
+    map['comparison_main_descs'] = Variable<String>(comparisonMainDescs);
+    map['comparison_other_descs'] = Variable<String>(comparisonOtherDescs);
+    if (!nullToAbsent || commonMistakeNote != null) {
+      map['common_mistake_note'] = Variable<String>(commonMistakeNote);
+    }
+    map['common_mistake_suggestions'] =
+        Variable<String>(commonMistakeSuggestions);
     return map;
   }
 
@@ -186,6 +447,24 @@ class VocabularyTableData extends DataClass
       category: category == null && nullToAbsent
           ? const Value.absent()
           : Value(category),
+      commonUsagePattern: commonUsagePattern == null && nullToAbsent
+          ? const Value.absent()
+          : Value(commonUsagePattern),
+      commonUsageDesc: commonUsageDesc == null && nullToAbsent
+          ? const Value.absent()
+          : Value(commonUsageDesc),
+      commonUsageExamplesJp: Value(commonUsageExamplesJp),
+      commonUsageExamplesVi: Value(commonUsageExamplesVi),
+      nuancePoints: Value(nuancePoints),
+      similarWords: Value(similarWords),
+      similarWordsMeaningVi: Value(similarWordsMeaningVi),
+      comparisonWords: Value(comparisonWords),
+      comparisonMainDescs: Value(comparisonMainDescs),
+      comparisonOtherDescs: Value(comparisonOtherDescs),
+      commonMistakeNote: commonMistakeNote == null && nullToAbsent
+          ? const Value.absent()
+          : Value(commonMistakeNote),
+      commonMistakeSuggestions: Value(commonMistakeSuggestions),
     );
   }
 
@@ -200,6 +479,26 @@ class VocabularyTableData extends DataClass
       audioUrl: serializer.fromJson<String?>(json['audioUrl']),
       levelId: serializer.fromJson<String>(json['levelId']),
       category: serializer.fromJson<String?>(json['category']),
+      commonUsagePattern:
+          serializer.fromJson<String?>(json['commonUsagePattern']),
+      commonUsageDesc: serializer.fromJson<String?>(json['commonUsageDesc']),
+      commonUsageExamplesJp:
+          serializer.fromJson<String>(json['commonUsageExamplesJp']),
+      commonUsageExamplesVi:
+          serializer.fromJson<String>(json['commonUsageExamplesVi']),
+      nuancePoints: serializer.fromJson<String>(json['nuancePoints']),
+      similarWords: serializer.fromJson<String>(json['similarWords']),
+      similarWordsMeaningVi:
+          serializer.fromJson<String>(json['similarWordsMeaningVi']),
+      comparisonWords: serializer.fromJson<String>(json['comparisonWords']),
+      comparisonMainDescs:
+          serializer.fromJson<String>(json['comparisonMainDescs']),
+      comparisonOtherDescs:
+          serializer.fromJson<String>(json['comparisonOtherDescs']),
+      commonMistakeNote:
+          serializer.fromJson<String?>(json['commonMistakeNote']),
+      commonMistakeSuggestions:
+          serializer.fromJson<String>(json['commonMistakeSuggestions']),
     );
   }
   @override
@@ -213,6 +512,19 @@ class VocabularyTableData extends DataClass
       'audioUrl': serializer.toJson<String?>(audioUrl),
       'levelId': serializer.toJson<String>(levelId),
       'category': serializer.toJson<String?>(category),
+      'commonUsagePattern': serializer.toJson<String?>(commonUsagePattern),
+      'commonUsageDesc': serializer.toJson<String?>(commonUsageDesc),
+      'commonUsageExamplesJp': serializer.toJson<String>(commonUsageExamplesJp),
+      'commonUsageExamplesVi': serializer.toJson<String>(commonUsageExamplesVi),
+      'nuancePoints': serializer.toJson<String>(nuancePoints),
+      'similarWords': serializer.toJson<String>(similarWords),
+      'similarWordsMeaningVi': serializer.toJson<String>(similarWordsMeaningVi),
+      'comparisonWords': serializer.toJson<String>(comparisonWords),
+      'comparisonMainDescs': serializer.toJson<String>(comparisonMainDescs),
+      'comparisonOtherDescs': serializer.toJson<String>(comparisonOtherDescs),
+      'commonMistakeNote': serializer.toJson<String?>(commonMistakeNote),
+      'commonMistakeSuggestions':
+          serializer.toJson<String>(commonMistakeSuggestions),
     };
   }
 
@@ -223,7 +535,19 @@ class VocabularyTableData extends DataClass
           Value<String?> partOfSpeech = const Value.absent(),
           Value<String?> audioUrl = const Value.absent(),
           String? levelId,
-          Value<String?> category = const Value.absent()}) =>
+          Value<String?> category = const Value.absent(),
+          Value<String?> commonUsagePattern = const Value.absent(),
+          Value<String?> commonUsageDesc = const Value.absent(),
+          String? commonUsageExamplesJp,
+          String? commonUsageExamplesVi,
+          String? nuancePoints,
+          String? similarWords,
+          String? similarWordsMeaningVi,
+          String? comparisonWords,
+          String? comparisonMainDescs,
+          String? comparisonOtherDescs,
+          Value<String?> commonMistakeNote = const Value.absent(),
+          String? commonMistakeSuggestions}) =>
       VocabularyTableData(
         id: id ?? this.id,
         word: word ?? this.word,
@@ -233,6 +557,28 @@ class VocabularyTableData extends DataClass
         audioUrl: audioUrl.present ? audioUrl.value : this.audioUrl,
         levelId: levelId ?? this.levelId,
         category: category.present ? category.value : this.category,
+        commonUsagePattern: commonUsagePattern.present
+            ? commonUsagePattern.value
+            : this.commonUsagePattern,
+        commonUsageDesc: commonUsageDesc.present
+            ? commonUsageDesc.value
+            : this.commonUsageDesc,
+        commonUsageExamplesJp:
+            commonUsageExamplesJp ?? this.commonUsageExamplesJp,
+        commonUsageExamplesVi:
+            commonUsageExamplesVi ?? this.commonUsageExamplesVi,
+        nuancePoints: nuancePoints ?? this.nuancePoints,
+        similarWords: similarWords ?? this.similarWords,
+        similarWordsMeaningVi:
+            similarWordsMeaningVi ?? this.similarWordsMeaningVi,
+        comparisonWords: comparisonWords ?? this.comparisonWords,
+        comparisonMainDescs: comparisonMainDescs ?? this.comparisonMainDescs,
+        comparisonOtherDescs: comparisonOtherDescs ?? this.comparisonOtherDescs,
+        commonMistakeNote: commonMistakeNote.present
+            ? commonMistakeNote.value
+            : this.commonMistakeNote,
+        commonMistakeSuggestions:
+            commonMistakeSuggestions ?? this.commonMistakeSuggestions,
       );
   VocabularyTableData copyWithCompanion(VocabularyTableCompanion data) {
     return VocabularyTableData(
@@ -245,6 +591,42 @@ class VocabularyTableData extends DataClass
       audioUrl: data.audioUrl.present ? data.audioUrl.value : this.audioUrl,
       levelId: data.levelId.present ? data.levelId.value : this.levelId,
       category: data.category.present ? data.category.value : this.category,
+      commonUsagePattern: data.commonUsagePattern.present
+          ? data.commonUsagePattern.value
+          : this.commonUsagePattern,
+      commonUsageDesc: data.commonUsageDesc.present
+          ? data.commonUsageDesc.value
+          : this.commonUsageDesc,
+      commonUsageExamplesJp: data.commonUsageExamplesJp.present
+          ? data.commonUsageExamplesJp.value
+          : this.commonUsageExamplesJp,
+      commonUsageExamplesVi: data.commonUsageExamplesVi.present
+          ? data.commonUsageExamplesVi.value
+          : this.commonUsageExamplesVi,
+      nuancePoints: data.nuancePoints.present
+          ? data.nuancePoints.value
+          : this.nuancePoints,
+      similarWords: data.similarWords.present
+          ? data.similarWords.value
+          : this.similarWords,
+      similarWordsMeaningVi: data.similarWordsMeaningVi.present
+          ? data.similarWordsMeaningVi.value
+          : this.similarWordsMeaningVi,
+      comparisonWords: data.comparisonWords.present
+          ? data.comparisonWords.value
+          : this.comparisonWords,
+      comparisonMainDescs: data.comparisonMainDescs.present
+          ? data.comparisonMainDescs.value
+          : this.comparisonMainDescs,
+      comparisonOtherDescs: data.comparisonOtherDescs.present
+          ? data.comparisonOtherDescs.value
+          : this.comparisonOtherDescs,
+      commonMistakeNote: data.commonMistakeNote.present
+          ? data.commonMistakeNote.value
+          : this.commonMistakeNote,
+      commonMistakeSuggestions: data.commonMistakeSuggestions.present
+          ? data.commonMistakeSuggestions.value
+          : this.commonMistakeSuggestions,
     );
   }
 
@@ -257,14 +639,44 @@ class VocabularyTableData extends DataClass
           ..write('partOfSpeech: $partOfSpeech, ')
           ..write('audioUrl: $audioUrl, ')
           ..write('levelId: $levelId, ')
-          ..write('category: $category')
+          ..write('category: $category, ')
+          ..write('commonUsagePattern: $commonUsagePattern, ')
+          ..write('commonUsageDesc: $commonUsageDesc, ')
+          ..write('commonUsageExamplesJp: $commonUsageExamplesJp, ')
+          ..write('commonUsageExamplesVi: $commonUsageExamplesVi, ')
+          ..write('nuancePoints: $nuancePoints, ')
+          ..write('similarWords: $similarWords, ')
+          ..write('similarWordsMeaningVi: $similarWordsMeaningVi, ')
+          ..write('comparisonWords: $comparisonWords, ')
+          ..write('comparisonMainDescs: $comparisonMainDescs, ')
+          ..write('comparisonOtherDescs: $comparisonOtherDescs, ')
+          ..write('commonMistakeNote: $commonMistakeNote, ')
+          ..write('commonMistakeSuggestions: $commonMistakeSuggestions')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, word, reading, partOfSpeech, audioUrl, levelId, category);
+  int get hashCode => Object.hash(
+      id,
+      word,
+      reading,
+      partOfSpeech,
+      audioUrl,
+      levelId,
+      category,
+      commonUsagePattern,
+      commonUsageDesc,
+      commonUsageExamplesJp,
+      commonUsageExamplesVi,
+      nuancePoints,
+      similarWords,
+      similarWordsMeaningVi,
+      comparisonWords,
+      comparisonMainDescs,
+      comparisonOtherDescs,
+      commonMistakeNote,
+      commonMistakeSuggestions);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -275,7 +687,19 @@ class VocabularyTableData extends DataClass
           other.partOfSpeech == this.partOfSpeech &&
           other.audioUrl == this.audioUrl &&
           other.levelId == this.levelId &&
-          other.category == this.category);
+          other.category == this.category &&
+          other.commonUsagePattern == this.commonUsagePattern &&
+          other.commonUsageDesc == this.commonUsageDesc &&
+          other.commonUsageExamplesJp == this.commonUsageExamplesJp &&
+          other.commonUsageExamplesVi == this.commonUsageExamplesVi &&
+          other.nuancePoints == this.nuancePoints &&
+          other.similarWords == this.similarWords &&
+          other.similarWordsMeaningVi == this.similarWordsMeaningVi &&
+          other.comparisonWords == this.comparisonWords &&
+          other.comparisonMainDescs == this.comparisonMainDescs &&
+          other.comparisonOtherDescs == this.comparisonOtherDescs &&
+          other.commonMistakeNote == this.commonMistakeNote &&
+          other.commonMistakeSuggestions == this.commonMistakeSuggestions);
 }
 
 class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
@@ -286,6 +710,18 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
   final Value<String?> audioUrl;
   final Value<String> levelId;
   final Value<String?> category;
+  final Value<String?> commonUsagePattern;
+  final Value<String?> commonUsageDesc;
+  final Value<String> commonUsageExamplesJp;
+  final Value<String> commonUsageExamplesVi;
+  final Value<String> nuancePoints;
+  final Value<String> similarWords;
+  final Value<String> similarWordsMeaningVi;
+  final Value<String> comparisonWords;
+  final Value<String> comparisonMainDescs;
+  final Value<String> comparisonOtherDescs;
+  final Value<String?> commonMistakeNote;
+  final Value<String> commonMistakeSuggestions;
   final Value<int> rowid;
   const VocabularyTableCompanion({
     this.id = const Value.absent(),
@@ -295,6 +731,18 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
     this.audioUrl = const Value.absent(),
     this.levelId = const Value.absent(),
     this.category = const Value.absent(),
+    this.commonUsagePattern = const Value.absent(),
+    this.commonUsageDesc = const Value.absent(),
+    this.commonUsageExamplesJp = const Value.absent(),
+    this.commonUsageExamplesVi = const Value.absent(),
+    this.nuancePoints = const Value.absent(),
+    this.similarWords = const Value.absent(),
+    this.similarWordsMeaningVi = const Value.absent(),
+    this.comparisonWords = const Value.absent(),
+    this.comparisonMainDescs = const Value.absent(),
+    this.comparisonOtherDescs = const Value.absent(),
+    this.commonMistakeNote = const Value.absent(),
+    this.commonMistakeSuggestions = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   VocabularyTableCompanion.insert({
@@ -305,6 +753,18 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
     this.audioUrl = const Value.absent(),
     required String levelId,
     this.category = const Value.absent(),
+    this.commonUsagePattern = const Value.absent(),
+    this.commonUsageDesc = const Value.absent(),
+    this.commonUsageExamplesJp = const Value.absent(),
+    this.commonUsageExamplesVi = const Value.absent(),
+    this.nuancePoints = const Value.absent(),
+    this.similarWords = const Value.absent(),
+    this.similarWordsMeaningVi = const Value.absent(),
+    this.comparisonWords = const Value.absent(),
+    this.comparisonMainDescs = const Value.absent(),
+    this.comparisonOtherDescs = const Value.absent(),
+    this.commonMistakeNote = const Value.absent(),
+    this.commonMistakeSuggestions = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         word = Value(word),
@@ -318,6 +778,18 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
     Expression<String>? audioUrl,
     Expression<String>? levelId,
     Expression<String>? category,
+    Expression<String>? commonUsagePattern,
+    Expression<String>? commonUsageDesc,
+    Expression<String>? commonUsageExamplesJp,
+    Expression<String>? commonUsageExamplesVi,
+    Expression<String>? nuancePoints,
+    Expression<String>? similarWords,
+    Expression<String>? similarWordsMeaningVi,
+    Expression<String>? comparisonWords,
+    Expression<String>? comparisonMainDescs,
+    Expression<String>? comparisonOtherDescs,
+    Expression<String>? commonMistakeNote,
+    Expression<String>? commonMistakeSuggestions,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -328,6 +800,25 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
       if (audioUrl != null) 'audio_url': audioUrl,
       if (levelId != null) 'level_id': levelId,
       if (category != null) 'category': category,
+      if (commonUsagePattern != null)
+        'common_usage_pattern': commonUsagePattern,
+      if (commonUsageDesc != null) 'common_usage_desc': commonUsageDesc,
+      if (commonUsageExamplesJp != null)
+        'common_usage_examples_jp': commonUsageExamplesJp,
+      if (commonUsageExamplesVi != null)
+        'common_usage_examples_vi': commonUsageExamplesVi,
+      if (nuancePoints != null) 'nuance_points': nuancePoints,
+      if (similarWords != null) 'similar_words': similarWords,
+      if (similarWordsMeaningVi != null)
+        'similar_words_meaning_vi': similarWordsMeaningVi,
+      if (comparisonWords != null) 'comparison_words': comparisonWords,
+      if (comparisonMainDescs != null)
+        'comparison_main_descs': comparisonMainDescs,
+      if (comparisonOtherDescs != null)
+        'comparison_other_descs': comparisonOtherDescs,
+      if (commonMistakeNote != null) 'common_mistake_note': commonMistakeNote,
+      if (commonMistakeSuggestions != null)
+        'common_mistake_suggestions': commonMistakeSuggestions,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -340,6 +831,18 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
       Value<String?>? audioUrl,
       Value<String>? levelId,
       Value<String?>? category,
+      Value<String?>? commonUsagePattern,
+      Value<String?>? commonUsageDesc,
+      Value<String>? commonUsageExamplesJp,
+      Value<String>? commonUsageExamplesVi,
+      Value<String>? nuancePoints,
+      Value<String>? similarWords,
+      Value<String>? similarWordsMeaningVi,
+      Value<String>? comparisonWords,
+      Value<String>? comparisonMainDescs,
+      Value<String>? comparisonOtherDescs,
+      Value<String?>? commonMistakeNote,
+      Value<String>? commonMistakeSuggestions,
       Value<int>? rowid}) {
     return VocabularyTableCompanion(
       id: id ?? this.id,
@@ -349,6 +852,22 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
       audioUrl: audioUrl ?? this.audioUrl,
       levelId: levelId ?? this.levelId,
       category: category ?? this.category,
+      commonUsagePattern: commonUsagePattern ?? this.commonUsagePattern,
+      commonUsageDesc: commonUsageDesc ?? this.commonUsageDesc,
+      commonUsageExamplesJp:
+          commonUsageExamplesJp ?? this.commonUsageExamplesJp,
+      commonUsageExamplesVi:
+          commonUsageExamplesVi ?? this.commonUsageExamplesVi,
+      nuancePoints: nuancePoints ?? this.nuancePoints,
+      similarWords: similarWords ?? this.similarWords,
+      similarWordsMeaningVi:
+          similarWordsMeaningVi ?? this.similarWordsMeaningVi,
+      comparisonWords: comparisonWords ?? this.comparisonWords,
+      comparisonMainDescs: comparisonMainDescs ?? this.comparisonMainDescs,
+      comparisonOtherDescs: comparisonOtherDescs ?? this.comparisonOtherDescs,
+      commonMistakeNote: commonMistakeNote ?? this.commonMistakeNote,
+      commonMistakeSuggestions:
+          commonMistakeSuggestions ?? this.commonMistakeSuggestions,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -377,6 +896,48 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
     if (category.present) {
       map['category'] = Variable<String>(category.value);
     }
+    if (commonUsagePattern.present) {
+      map['common_usage_pattern'] = Variable<String>(commonUsagePattern.value);
+    }
+    if (commonUsageDesc.present) {
+      map['common_usage_desc'] = Variable<String>(commonUsageDesc.value);
+    }
+    if (commonUsageExamplesJp.present) {
+      map['common_usage_examples_jp'] =
+          Variable<String>(commonUsageExamplesJp.value);
+    }
+    if (commonUsageExamplesVi.present) {
+      map['common_usage_examples_vi'] =
+          Variable<String>(commonUsageExamplesVi.value);
+    }
+    if (nuancePoints.present) {
+      map['nuance_points'] = Variable<String>(nuancePoints.value);
+    }
+    if (similarWords.present) {
+      map['similar_words'] = Variable<String>(similarWords.value);
+    }
+    if (similarWordsMeaningVi.present) {
+      map['similar_words_meaning_vi'] =
+          Variable<String>(similarWordsMeaningVi.value);
+    }
+    if (comparisonWords.present) {
+      map['comparison_words'] = Variable<String>(comparisonWords.value);
+    }
+    if (comparisonMainDescs.present) {
+      map['comparison_main_descs'] =
+          Variable<String>(comparisonMainDescs.value);
+    }
+    if (comparisonOtherDescs.present) {
+      map['comparison_other_descs'] =
+          Variable<String>(comparisonOtherDescs.value);
+    }
+    if (commonMistakeNote.present) {
+      map['common_mistake_note'] = Variable<String>(commonMistakeNote.value);
+    }
+    if (commonMistakeSuggestions.present) {
+      map['common_mistake_suggestions'] =
+          Variable<String>(commonMistakeSuggestions.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -393,6 +954,18 @@ class VocabularyTableCompanion extends UpdateCompanion<VocabularyTableData> {
           ..write('audioUrl: $audioUrl, ')
           ..write('levelId: $levelId, ')
           ..write('category: $category, ')
+          ..write('commonUsagePattern: $commonUsagePattern, ')
+          ..write('commonUsageDesc: $commonUsageDesc, ')
+          ..write('commonUsageExamplesJp: $commonUsageExamplesJp, ')
+          ..write('commonUsageExamplesVi: $commonUsageExamplesVi, ')
+          ..write('nuancePoints: $nuancePoints, ')
+          ..write('similarWords: $similarWords, ')
+          ..write('similarWordsMeaningVi: $similarWordsMeaningVi, ')
+          ..write('comparisonWords: $comparisonWords, ')
+          ..write('comparisonMainDescs: $comparisonMainDescs, ')
+          ..write('comparisonOtherDescs: $comparisonOtherDescs, ')
+          ..write('commonMistakeNote: $commonMistakeNote, ')
+          ..write('commonMistakeSuggestions: $commonMistakeSuggestions, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -442,9 +1015,33 @@ class $VocabularyMeaningsTableTable extends VocabularyMeaningsTable
   late final GeneratedColumn<String> exampleVi = GeneratedColumn<String>(
       'example_vi', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _extraExamplesJpMeta =
+      const VerificationMeta('extraExamplesJp');
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, vocabularyId, orderIndex, meaningVi, exampleJp, exampleVi];
+  late final GeneratedColumn<String> extraExamplesJp = GeneratedColumn<String>(
+      'extra_examples_jp', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
+  static const VerificationMeta _extraExamplesViMeta =
+      const VerificationMeta('extraExamplesVi');
+  @override
+  late final GeneratedColumn<String> extraExamplesVi = GeneratedColumn<String>(
+      'extra_examples_vi', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        vocabularyId,
+        orderIndex,
+        meaningVi,
+        exampleJp,
+        exampleVi,
+        extraExamplesJp,
+        extraExamplesVi
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -489,6 +1086,18 @@ class $VocabularyMeaningsTableTable extends VocabularyMeaningsTable
       context.handle(_exampleViMeta,
           exampleVi.isAcceptableOrUnknown(data['example_vi']!, _exampleViMeta));
     }
+    if (data.containsKey('extra_examples_jp')) {
+      context.handle(
+          _extraExamplesJpMeta,
+          extraExamplesJp.isAcceptableOrUnknown(
+              data['extra_examples_jp']!, _extraExamplesJpMeta));
+    }
+    if (data.containsKey('extra_examples_vi')) {
+      context.handle(
+          _extraExamplesViMeta,
+          extraExamplesVi.isAcceptableOrUnknown(
+              data['extra_examples_vi']!, _extraExamplesViMeta));
+    }
     return context;
   }
 
@@ -511,6 +1120,10 @@ class $VocabularyMeaningsTableTable extends VocabularyMeaningsTable
           .read(DriftSqlType.string, data['${effectivePrefix}example_jp']),
       exampleVi: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}example_vi']),
+      extraExamplesJp: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}extra_examples_jp'])!,
+      extraExamplesVi: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}extra_examples_vi'])!,
     );
   }
 
@@ -528,13 +1141,21 @@ class VocabularyMeaningsTableData extends DataClass
   final String meaningVi;
   final String? exampleJp;
   final String? exampleVi;
+
+  /// Ví dụ bổ sung ngoài exampleJp/exampleVi (JSON của List&lt;String&gt;,
+  /// song song, ghép theo index) — cùng mẫu với
+  /// `GrammarPointsTable.extraExamplesJp/Vi`.
+  final String extraExamplesJp;
+  final String extraExamplesVi;
   const VocabularyMeaningsTableData(
       {required this.id,
       required this.vocabularyId,
       required this.orderIndex,
       required this.meaningVi,
       this.exampleJp,
-      this.exampleVi});
+      this.exampleVi,
+      required this.extraExamplesJp,
+      required this.extraExamplesVi});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -548,6 +1169,8 @@ class VocabularyMeaningsTableData extends DataClass
     if (!nullToAbsent || exampleVi != null) {
       map['example_vi'] = Variable<String>(exampleVi);
     }
+    map['extra_examples_jp'] = Variable<String>(extraExamplesJp);
+    map['extra_examples_vi'] = Variable<String>(extraExamplesVi);
     return map;
   }
 
@@ -563,6 +1186,8 @@ class VocabularyMeaningsTableData extends DataClass
       exampleVi: exampleVi == null && nullToAbsent
           ? const Value.absent()
           : Value(exampleVi),
+      extraExamplesJp: Value(extraExamplesJp),
+      extraExamplesVi: Value(extraExamplesVi),
     );
   }
 
@@ -576,6 +1201,8 @@ class VocabularyMeaningsTableData extends DataClass
       meaningVi: serializer.fromJson<String>(json['meaningVi']),
       exampleJp: serializer.fromJson<String?>(json['exampleJp']),
       exampleVi: serializer.fromJson<String?>(json['exampleVi']),
+      extraExamplesJp: serializer.fromJson<String>(json['extraExamplesJp']),
+      extraExamplesVi: serializer.fromJson<String>(json['extraExamplesVi']),
     );
   }
   @override
@@ -588,6 +1215,8 @@ class VocabularyMeaningsTableData extends DataClass
       'meaningVi': serializer.toJson<String>(meaningVi),
       'exampleJp': serializer.toJson<String?>(exampleJp),
       'exampleVi': serializer.toJson<String?>(exampleVi),
+      'extraExamplesJp': serializer.toJson<String>(extraExamplesJp),
+      'extraExamplesVi': serializer.toJson<String>(extraExamplesVi),
     };
   }
 
@@ -597,7 +1226,9 @@ class VocabularyMeaningsTableData extends DataClass
           int? orderIndex,
           String? meaningVi,
           Value<String?> exampleJp = const Value.absent(),
-          Value<String?> exampleVi = const Value.absent()}) =>
+          Value<String?> exampleVi = const Value.absent(),
+          String? extraExamplesJp,
+          String? extraExamplesVi}) =>
       VocabularyMeaningsTableData(
         id: id ?? this.id,
         vocabularyId: vocabularyId ?? this.vocabularyId,
@@ -605,6 +1236,8 @@ class VocabularyMeaningsTableData extends DataClass
         meaningVi: meaningVi ?? this.meaningVi,
         exampleJp: exampleJp.present ? exampleJp.value : this.exampleJp,
         exampleVi: exampleVi.present ? exampleVi.value : this.exampleVi,
+        extraExamplesJp: extraExamplesJp ?? this.extraExamplesJp,
+        extraExamplesVi: extraExamplesVi ?? this.extraExamplesVi,
       );
   VocabularyMeaningsTableData copyWithCompanion(
       VocabularyMeaningsTableCompanion data) {
@@ -618,6 +1251,12 @@ class VocabularyMeaningsTableData extends DataClass
       meaningVi: data.meaningVi.present ? data.meaningVi.value : this.meaningVi,
       exampleJp: data.exampleJp.present ? data.exampleJp.value : this.exampleJp,
       exampleVi: data.exampleVi.present ? data.exampleVi.value : this.exampleVi,
+      extraExamplesJp: data.extraExamplesJp.present
+          ? data.extraExamplesJp.value
+          : this.extraExamplesJp,
+      extraExamplesVi: data.extraExamplesVi.present
+          ? data.extraExamplesVi.value
+          : this.extraExamplesVi,
     );
   }
 
@@ -629,14 +1268,16 @@ class VocabularyMeaningsTableData extends DataClass
           ..write('orderIndex: $orderIndex, ')
           ..write('meaningVi: $meaningVi, ')
           ..write('exampleJp: $exampleJp, ')
-          ..write('exampleVi: $exampleVi')
+          ..write('exampleVi: $exampleVi, ')
+          ..write('extraExamplesJp: $extraExamplesJp, ')
+          ..write('extraExamplesVi: $extraExamplesVi')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(
-      id, vocabularyId, orderIndex, meaningVi, exampleJp, exampleVi);
+  int get hashCode => Object.hash(id, vocabularyId, orderIndex, meaningVi,
+      exampleJp, exampleVi, extraExamplesJp, extraExamplesVi);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -646,7 +1287,9 @@ class VocabularyMeaningsTableData extends DataClass
           other.orderIndex == this.orderIndex &&
           other.meaningVi == this.meaningVi &&
           other.exampleJp == this.exampleJp &&
-          other.exampleVi == this.exampleVi);
+          other.exampleVi == this.exampleVi &&
+          other.extraExamplesJp == this.extraExamplesJp &&
+          other.extraExamplesVi == this.extraExamplesVi);
 }
 
 class VocabularyMeaningsTableCompanion
@@ -657,6 +1300,8 @@ class VocabularyMeaningsTableCompanion
   final Value<String> meaningVi;
   final Value<String?> exampleJp;
   final Value<String?> exampleVi;
+  final Value<String> extraExamplesJp;
+  final Value<String> extraExamplesVi;
   final Value<int> rowid;
   const VocabularyMeaningsTableCompanion({
     this.id = const Value.absent(),
@@ -665,6 +1310,8 @@ class VocabularyMeaningsTableCompanion
     this.meaningVi = const Value.absent(),
     this.exampleJp = const Value.absent(),
     this.exampleVi = const Value.absent(),
+    this.extraExamplesJp = const Value.absent(),
+    this.extraExamplesVi = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   VocabularyMeaningsTableCompanion.insert({
@@ -674,6 +1321,8 @@ class VocabularyMeaningsTableCompanion
     required String meaningVi,
     this.exampleJp = const Value.absent(),
     this.exampleVi = const Value.absent(),
+    this.extraExamplesJp = const Value.absent(),
+    this.extraExamplesVi = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         vocabularyId = Value(vocabularyId),
@@ -685,6 +1334,8 @@ class VocabularyMeaningsTableCompanion
     Expression<String>? meaningVi,
     Expression<String>? exampleJp,
     Expression<String>? exampleVi,
+    Expression<String>? extraExamplesJp,
+    Expression<String>? extraExamplesVi,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -694,6 +1345,8 @@ class VocabularyMeaningsTableCompanion
       if (meaningVi != null) 'meaning_vi': meaningVi,
       if (exampleJp != null) 'example_jp': exampleJp,
       if (exampleVi != null) 'example_vi': exampleVi,
+      if (extraExamplesJp != null) 'extra_examples_jp': extraExamplesJp,
+      if (extraExamplesVi != null) 'extra_examples_vi': extraExamplesVi,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -705,6 +1358,8 @@ class VocabularyMeaningsTableCompanion
       Value<String>? meaningVi,
       Value<String?>? exampleJp,
       Value<String?>? exampleVi,
+      Value<String>? extraExamplesJp,
+      Value<String>? extraExamplesVi,
       Value<int>? rowid}) {
     return VocabularyMeaningsTableCompanion(
       id: id ?? this.id,
@@ -713,6 +1368,8 @@ class VocabularyMeaningsTableCompanion
       meaningVi: meaningVi ?? this.meaningVi,
       exampleJp: exampleJp ?? this.exampleJp,
       exampleVi: exampleVi ?? this.exampleVi,
+      extraExamplesJp: extraExamplesJp ?? this.extraExamplesJp,
+      extraExamplesVi: extraExamplesVi ?? this.extraExamplesVi,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -738,6 +1395,12 @@ class VocabularyMeaningsTableCompanion
     if (exampleVi.present) {
       map['example_vi'] = Variable<String>(exampleVi.value);
     }
+    if (extraExamplesJp.present) {
+      map['extra_examples_jp'] = Variable<String>(extraExamplesJp.value);
+    }
+    if (extraExamplesVi.present) {
+      map['extra_examples_vi'] = Variable<String>(extraExamplesVi.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -753,6 +1416,8 @@ class VocabularyMeaningsTableCompanion
           ..write('meaningVi: $meaningVi, ')
           ..write('exampleJp: $exampleJp, ')
           ..write('exampleVi: $exampleVi, ')
+          ..write('extraExamplesJp: $extraExamplesJp, ')
+          ..write('extraExamplesVi: $extraExamplesVi, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1468,6 +2133,18 @@ class $GrammarPointsTableTable extends GrammarPointsTable
   late final GeneratedColumn<String> levelId = GeneratedColumn<String>(
       'level_id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _extraExamplesJpMeta =
+      const VerificationMeta('extraExamplesJp');
+  @override
+  late final GeneratedColumn<String> extraExamplesJp = GeneratedColumn<String>(
+      'extra_examples_jp', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _extraExamplesViMeta =
+      const VerificationMeta('extraExamplesVi');
+  @override
+  late final GeneratedColumn<String> extraExamplesVi = GeneratedColumn<String>(
+      'extra_examples_vi', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _practiceTokensMeta =
       const VerificationMeta('practiceTokens');
   @override
@@ -1491,6 +2168,8 @@ class $GrammarPointsTableTable extends GrammarPointsTable
         memoryTip,
         comparisonNote,
         levelId,
+        extraExamplesJp,
+        extraExamplesVi,
         practiceTokens,
         practiceBlankIndex
       ];
@@ -1554,6 +2233,18 @@ class $GrammarPointsTableTable extends GrammarPointsTable
     } else if (isInserting) {
       context.missing(_levelIdMeta);
     }
+    if (data.containsKey('extra_examples_jp')) {
+      context.handle(
+          _extraExamplesJpMeta,
+          extraExamplesJp.isAcceptableOrUnknown(
+              data['extra_examples_jp']!, _extraExamplesJpMeta));
+    }
+    if (data.containsKey('extra_examples_vi')) {
+      context.handle(
+          _extraExamplesViMeta,
+          extraExamplesVi.isAcceptableOrUnknown(
+              data['extra_examples_vi']!, _extraExamplesViMeta));
+    }
     if (data.containsKey('practice_tokens')) {
       context.handle(
           _practiceTokensMeta,
@@ -1593,6 +2284,10 @@ class $GrammarPointsTableTable extends GrammarPointsTable
           .read(DriftSqlType.string, data['${effectivePrefix}comparison_note']),
       levelId: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}level_id'])!,
+      extraExamplesJp: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}extra_examples_jp']),
+      extraExamplesVi: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}extra_examples_vi']),
       practiceTokens: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}practice_tokens']),
       practiceBlankIndex: attachedDatabase.typeMapping.read(
@@ -1618,6 +2313,12 @@ class GrammarPointsTableData extends DataClass
   final String? comparisonNote;
   final String levelId;
 
+  /// Ví dụ bổ sung ngoài exampleJp/exampleVi, lưu dạng chuỗi JSON của
+  /// List&lt;String&gt; (song song, ghép theo index) — xem migration
+  /// `20260810100000_grammar_extra_examples.sql`.
+  final String? extraExamplesJp;
+  final String? extraExamplesVi;
+
   /// Từ/cụm tách sẵn từ example_jp, đúng thứ tự (JSON của List&lt;String&gt;) —
   /// dùng cho Practice mở rộng, xem migration
   /// `20260727040000_grammar_practice_tokens.sql`.
@@ -1633,6 +2334,8 @@ class GrammarPointsTableData extends DataClass
       this.memoryTip,
       this.comparisonNote,
       required this.levelId,
+      this.extraExamplesJp,
+      this.extraExamplesVi,
       this.practiceTokens,
       this.practiceBlankIndex});
   @override
@@ -1657,6 +2360,12 @@ class GrammarPointsTableData extends DataClass
       map['comparison_note'] = Variable<String>(comparisonNote);
     }
     map['level_id'] = Variable<String>(levelId);
+    if (!nullToAbsent || extraExamplesJp != null) {
+      map['extra_examples_jp'] = Variable<String>(extraExamplesJp);
+    }
+    if (!nullToAbsent || extraExamplesVi != null) {
+      map['extra_examples_vi'] = Variable<String>(extraExamplesVi);
+    }
     if (!nullToAbsent || practiceTokens != null) {
       map['practice_tokens'] = Variable<String>(practiceTokens);
     }
@@ -1687,6 +2396,12 @@ class GrammarPointsTableData extends DataClass
           ? const Value.absent()
           : Value(comparisonNote),
       levelId: Value(levelId),
+      extraExamplesJp: extraExamplesJp == null && nullToAbsent
+          ? const Value.absent()
+          : Value(extraExamplesJp),
+      extraExamplesVi: extraExamplesVi == null && nullToAbsent
+          ? const Value.absent()
+          : Value(extraExamplesVi),
       practiceTokens: practiceTokens == null && nullToAbsent
           ? const Value.absent()
           : Value(practiceTokens),
@@ -1709,6 +2424,8 @@ class GrammarPointsTableData extends DataClass
       memoryTip: serializer.fromJson<String?>(json['memoryTip']),
       comparisonNote: serializer.fromJson<String?>(json['comparisonNote']),
       levelId: serializer.fromJson<String>(json['levelId']),
+      extraExamplesJp: serializer.fromJson<String?>(json['extraExamplesJp']),
+      extraExamplesVi: serializer.fromJson<String?>(json['extraExamplesVi']),
       practiceTokens: serializer.fromJson<String?>(json['practiceTokens']),
       practiceBlankIndex: serializer.fromJson<int?>(json['practiceBlankIndex']),
     );
@@ -1726,6 +2443,8 @@ class GrammarPointsTableData extends DataClass
       'memoryTip': serializer.toJson<String?>(memoryTip),
       'comparisonNote': serializer.toJson<String?>(comparisonNote),
       'levelId': serializer.toJson<String>(levelId),
+      'extraExamplesJp': serializer.toJson<String?>(extraExamplesJp),
+      'extraExamplesVi': serializer.toJson<String?>(extraExamplesVi),
       'practiceTokens': serializer.toJson<String?>(practiceTokens),
       'practiceBlankIndex': serializer.toJson<int?>(practiceBlankIndex),
     };
@@ -1741,6 +2460,8 @@ class GrammarPointsTableData extends DataClass
           Value<String?> memoryTip = const Value.absent(),
           Value<String?> comparisonNote = const Value.absent(),
           String? levelId,
+          Value<String?> extraExamplesJp = const Value.absent(),
+          Value<String?> extraExamplesVi = const Value.absent(),
           Value<String?> practiceTokens = const Value.absent(),
           Value<int?> practiceBlankIndex = const Value.absent()}) =>
       GrammarPointsTableData(
@@ -1755,6 +2476,12 @@ class GrammarPointsTableData extends DataClass
         comparisonNote:
             comparisonNote.present ? comparisonNote.value : this.comparisonNote,
         levelId: levelId ?? this.levelId,
+        extraExamplesJp: extraExamplesJp.present
+            ? extraExamplesJp.value
+            : this.extraExamplesJp,
+        extraExamplesVi: extraExamplesVi.present
+            ? extraExamplesVi.value
+            : this.extraExamplesVi,
         practiceTokens:
             practiceTokens.present ? practiceTokens.value : this.practiceTokens,
         practiceBlankIndex: practiceBlankIndex.present
@@ -1777,6 +2504,12 @@ class GrammarPointsTableData extends DataClass
           ? data.comparisonNote.value
           : this.comparisonNote,
       levelId: data.levelId.present ? data.levelId.value : this.levelId,
+      extraExamplesJp: data.extraExamplesJp.present
+          ? data.extraExamplesJp.value
+          : this.extraExamplesJp,
+      extraExamplesVi: data.extraExamplesVi.present
+          ? data.extraExamplesVi.value
+          : this.extraExamplesVi,
       practiceTokens: data.practiceTokens.present
           ? data.practiceTokens.value
           : this.practiceTokens,
@@ -1798,6 +2531,8 @@ class GrammarPointsTableData extends DataClass
           ..write('memoryTip: $memoryTip, ')
           ..write('comparisonNote: $comparisonNote, ')
           ..write('levelId: $levelId, ')
+          ..write('extraExamplesJp: $extraExamplesJp, ')
+          ..write('extraExamplesVi: $extraExamplesVi, ')
           ..write('practiceTokens: $practiceTokens, ')
           ..write('practiceBlankIndex: $practiceBlankIndex')
           ..write(')'))
@@ -1815,6 +2550,8 @@ class GrammarPointsTableData extends DataClass
       memoryTip,
       comparisonNote,
       levelId,
+      extraExamplesJp,
+      extraExamplesVi,
       practiceTokens,
       practiceBlankIndex);
   @override
@@ -1830,6 +2567,8 @@ class GrammarPointsTableData extends DataClass
           other.memoryTip == this.memoryTip &&
           other.comparisonNote == this.comparisonNote &&
           other.levelId == this.levelId &&
+          other.extraExamplesJp == this.extraExamplesJp &&
+          other.extraExamplesVi == this.extraExamplesVi &&
           other.practiceTokens == this.practiceTokens &&
           other.practiceBlankIndex == this.practiceBlankIndex);
 }
@@ -1845,6 +2584,8 @@ class GrammarPointsTableCompanion
   final Value<String?> memoryTip;
   final Value<String?> comparisonNote;
   final Value<String> levelId;
+  final Value<String?> extraExamplesJp;
+  final Value<String?> extraExamplesVi;
   final Value<String?> practiceTokens;
   final Value<int?> practiceBlankIndex;
   final Value<int> rowid;
@@ -1858,6 +2599,8 @@ class GrammarPointsTableCompanion
     this.memoryTip = const Value.absent(),
     this.comparisonNote = const Value.absent(),
     this.levelId = const Value.absent(),
+    this.extraExamplesJp = const Value.absent(),
+    this.extraExamplesVi = const Value.absent(),
     this.practiceTokens = const Value.absent(),
     this.practiceBlankIndex = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1872,6 +2615,8 @@ class GrammarPointsTableCompanion
     this.memoryTip = const Value.absent(),
     this.comparisonNote = const Value.absent(),
     required String levelId,
+    this.extraExamplesJp = const Value.absent(),
+    this.extraExamplesVi = const Value.absent(),
     this.practiceTokens = const Value.absent(),
     this.practiceBlankIndex = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -1889,6 +2634,8 @@ class GrammarPointsTableCompanion
     Expression<String>? memoryTip,
     Expression<String>? comparisonNote,
     Expression<String>? levelId,
+    Expression<String>? extraExamplesJp,
+    Expression<String>? extraExamplesVi,
     Expression<String>? practiceTokens,
     Expression<int>? practiceBlankIndex,
     Expression<int>? rowid,
@@ -1903,6 +2650,8 @@ class GrammarPointsTableCompanion
       if (memoryTip != null) 'memory_tip': memoryTip,
       if (comparisonNote != null) 'comparison_note': comparisonNote,
       if (levelId != null) 'level_id': levelId,
+      if (extraExamplesJp != null) 'extra_examples_jp': extraExamplesJp,
+      if (extraExamplesVi != null) 'extra_examples_vi': extraExamplesVi,
       if (practiceTokens != null) 'practice_tokens': practiceTokens,
       if (practiceBlankIndex != null)
         'practice_blank_index': practiceBlankIndex,
@@ -1920,6 +2669,8 @@ class GrammarPointsTableCompanion
       Value<String?>? memoryTip,
       Value<String?>? comparisonNote,
       Value<String>? levelId,
+      Value<String?>? extraExamplesJp,
+      Value<String?>? extraExamplesVi,
       Value<String?>? practiceTokens,
       Value<int?>? practiceBlankIndex,
       Value<int>? rowid}) {
@@ -1933,6 +2684,8 @@ class GrammarPointsTableCompanion
       memoryTip: memoryTip ?? this.memoryTip,
       comparisonNote: comparisonNote ?? this.comparisonNote,
       levelId: levelId ?? this.levelId,
+      extraExamplesJp: extraExamplesJp ?? this.extraExamplesJp,
+      extraExamplesVi: extraExamplesVi ?? this.extraExamplesVi,
       practiceTokens: practiceTokens ?? this.practiceTokens,
       practiceBlankIndex: practiceBlankIndex ?? this.practiceBlankIndex,
       rowid: rowid ?? this.rowid,
@@ -1969,6 +2722,12 @@ class GrammarPointsTableCompanion
     if (levelId.present) {
       map['level_id'] = Variable<String>(levelId.value);
     }
+    if (extraExamplesJp.present) {
+      map['extra_examples_jp'] = Variable<String>(extraExamplesJp.value);
+    }
+    if (extraExamplesVi.present) {
+      map['extra_examples_vi'] = Variable<String>(extraExamplesVi.value);
+    }
     if (practiceTokens.present) {
       map['practice_tokens'] = Variable<String>(practiceTokens.value);
     }
@@ -1993,8 +2752,372 @@ class GrammarPointsTableCompanion
           ..write('memoryTip: $memoryTip, ')
           ..write('comparisonNote: $comparisonNote, ')
           ..write('levelId: $levelId, ')
+          ..write('extraExamplesJp: $extraExamplesJp, ')
+          ..write('extraExamplesVi: $extraExamplesVi, ')
           ..write('practiceTokens: $practiceTokens, ')
           ..write('practiceBlankIndex: $practiceBlankIndex, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $GrammarMeaningsTableTable extends GrammarMeaningsTable
+    with TableInfo<$GrammarMeaningsTableTable, GrammarMeaningsTableData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $GrammarMeaningsTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _grammarPointIdMeta =
+      const VerificationMeta('grammarPointId');
+  @override
+  late final GeneratedColumn<String> grammarPointId = GeneratedColumn<String>(
+      'grammar_point_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _orderIndexMeta =
+      const VerificationMeta('orderIndex');
+  @override
+  late final GeneratedColumn<int> orderIndex = GeneratedColumn<int>(
+      'order_index', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _meaningViMeta =
+      const VerificationMeta('meaningVi');
+  @override
+  late final GeneratedColumn<String> meaningVi = GeneratedColumn<String>(
+      'meaning_vi', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _examplesJpMeta =
+      const VerificationMeta('examplesJp');
+  @override
+  late final GeneratedColumn<String> examplesJp = GeneratedColumn<String>(
+      'examples_jp', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
+  static const VerificationMeta _examplesViMeta =
+      const VerificationMeta('examplesVi');
+  @override
+  late final GeneratedColumn<String> examplesVi = GeneratedColumn<String>(
+      'examples_vi', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
+  @override
+  List<GeneratedColumn> get $columns =>
+      [id, grammarPointId, orderIndex, meaningVi, examplesJp, examplesVi];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'grammar_meanings_table';
+  @override
+  VerificationContext validateIntegrity(
+      Insertable<GrammarMeaningsTableData> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('grammar_point_id')) {
+      context.handle(
+          _grammarPointIdMeta,
+          grammarPointId.isAcceptableOrUnknown(
+              data['grammar_point_id']!, _grammarPointIdMeta));
+    } else if (isInserting) {
+      context.missing(_grammarPointIdMeta);
+    }
+    if (data.containsKey('order_index')) {
+      context.handle(
+          _orderIndexMeta,
+          orderIndex.isAcceptableOrUnknown(
+              data['order_index']!, _orderIndexMeta));
+    }
+    if (data.containsKey('meaning_vi')) {
+      context.handle(_meaningViMeta,
+          meaningVi.isAcceptableOrUnknown(data['meaning_vi']!, _meaningViMeta));
+    } else if (isInserting) {
+      context.missing(_meaningViMeta);
+    }
+    if (data.containsKey('examples_jp')) {
+      context.handle(
+          _examplesJpMeta,
+          examplesJp.isAcceptableOrUnknown(
+              data['examples_jp']!, _examplesJpMeta));
+    }
+    if (data.containsKey('examples_vi')) {
+      context.handle(
+          _examplesViMeta,
+          examplesVi.isAcceptableOrUnknown(
+              data['examples_vi']!, _examplesViMeta));
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  GrammarMeaningsTableData map(Map<String, dynamic> data,
+      {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return GrammarMeaningsTableData(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      grammarPointId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}grammar_point_id'])!,
+      orderIndex: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}order_index'])!,
+      meaningVi: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}meaning_vi'])!,
+      examplesJp: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}examples_jp'])!,
+      examplesVi: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}examples_vi'])!,
+    );
+  }
+
+  @override
+  $GrammarMeaningsTableTable createAlias(String alias) {
+    return $GrammarMeaningsTableTable(attachedDatabase, alias);
+  }
+}
+
+class GrammarMeaningsTableData extends DataClass
+    implements Insertable<GrammarMeaningsTableData> {
+  final String id;
+  final String grammarPointId;
+  final int orderIndex;
+  final String meaningVi;
+  final String examplesJp;
+  final String examplesVi;
+  const GrammarMeaningsTableData(
+      {required this.id,
+      required this.grammarPointId,
+      required this.orderIndex,
+      required this.meaningVi,
+      required this.examplesJp,
+      required this.examplesVi});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['grammar_point_id'] = Variable<String>(grammarPointId);
+    map['order_index'] = Variable<int>(orderIndex);
+    map['meaning_vi'] = Variable<String>(meaningVi);
+    map['examples_jp'] = Variable<String>(examplesJp);
+    map['examples_vi'] = Variable<String>(examplesVi);
+    return map;
+  }
+
+  GrammarMeaningsTableCompanion toCompanion(bool nullToAbsent) {
+    return GrammarMeaningsTableCompanion(
+      id: Value(id),
+      grammarPointId: Value(grammarPointId),
+      orderIndex: Value(orderIndex),
+      meaningVi: Value(meaningVi),
+      examplesJp: Value(examplesJp),
+      examplesVi: Value(examplesVi),
+    );
+  }
+
+  factory GrammarMeaningsTableData.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return GrammarMeaningsTableData(
+      id: serializer.fromJson<String>(json['id']),
+      grammarPointId: serializer.fromJson<String>(json['grammarPointId']),
+      orderIndex: serializer.fromJson<int>(json['orderIndex']),
+      meaningVi: serializer.fromJson<String>(json['meaningVi']),
+      examplesJp: serializer.fromJson<String>(json['examplesJp']),
+      examplesVi: serializer.fromJson<String>(json['examplesVi']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'grammarPointId': serializer.toJson<String>(grammarPointId),
+      'orderIndex': serializer.toJson<int>(orderIndex),
+      'meaningVi': serializer.toJson<String>(meaningVi),
+      'examplesJp': serializer.toJson<String>(examplesJp),
+      'examplesVi': serializer.toJson<String>(examplesVi),
+    };
+  }
+
+  GrammarMeaningsTableData copyWith(
+          {String? id,
+          String? grammarPointId,
+          int? orderIndex,
+          String? meaningVi,
+          String? examplesJp,
+          String? examplesVi}) =>
+      GrammarMeaningsTableData(
+        id: id ?? this.id,
+        grammarPointId: grammarPointId ?? this.grammarPointId,
+        orderIndex: orderIndex ?? this.orderIndex,
+        meaningVi: meaningVi ?? this.meaningVi,
+        examplesJp: examplesJp ?? this.examplesJp,
+        examplesVi: examplesVi ?? this.examplesVi,
+      );
+  GrammarMeaningsTableData copyWithCompanion(
+      GrammarMeaningsTableCompanion data) {
+    return GrammarMeaningsTableData(
+      id: data.id.present ? data.id.value : this.id,
+      grammarPointId: data.grammarPointId.present
+          ? data.grammarPointId.value
+          : this.grammarPointId,
+      orderIndex:
+          data.orderIndex.present ? data.orderIndex.value : this.orderIndex,
+      meaningVi: data.meaningVi.present ? data.meaningVi.value : this.meaningVi,
+      examplesJp:
+          data.examplesJp.present ? data.examplesJp.value : this.examplesJp,
+      examplesVi:
+          data.examplesVi.present ? data.examplesVi.value : this.examplesVi,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GrammarMeaningsTableData(')
+          ..write('id: $id, ')
+          ..write('grammarPointId: $grammarPointId, ')
+          ..write('orderIndex: $orderIndex, ')
+          ..write('meaningVi: $meaningVi, ')
+          ..write('examplesJp: $examplesJp, ')
+          ..write('examplesVi: $examplesVi')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id, grammarPointId, orderIndex, meaningVi, examplesJp, examplesVi);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is GrammarMeaningsTableData &&
+          other.id == this.id &&
+          other.grammarPointId == this.grammarPointId &&
+          other.orderIndex == this.orderIndex &&
+          other.meaningVi == this.meaningVi &&
+          other.examplesJp == this.examplesJp &&
+          other.examplesVi == this.examplesVi);
+}
+
+class GrammarMeaningsTableCompanion
+    extends UpdateCompanion<GrammarMeaningsTableData> {
+  final Value<String> id;
+  final Value<String> grammarPointId;
+  final Value<int> orderIndex;
+  final Value<String> meaningVi;
+  final Value<String> examplesJp;
+  final Value<String> examplesVi;
+  final Value<int> rowid;
+  const GrammarMeaningsTableCompanion({
+    this.id = const Value.absent(),
+    this.grammarPointId = const Value.absent(),
+    this.orderIndex = const Value.absent(),
+    this.meaningVi = const Value.absent(),
+    this.examplesJp = const Value.absent(),
+    this.examplesVi = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  GrammarMeaningsTableCompanion.insert({
+    required String id,
+    required String grammarPointId,
+    this.orderIndex = const Value.absent(),
+    required String meaningVi,
+    this.examplesJp = const Value.absent(),
+    this.examplesVi = const Value.absent(),
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        grammarPointId = Value(grammarPointId),
+        meaningVi = Value(meaningVi);
+  static Insertable<GrammarMeaningsTableData> custom({
+    Expression<String>? id,
+    Expression<String>? grammarPointId,
+    Expression<int>? orderIndex,
+    Expression<String>? meaningVi,
+    Expression<String>? examplesJp,
+    Expression<String>? examplesVi,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (grammarPointId != null) 'grammar_point_id': grammarPointId,
+      if (orderIndex != null) 'order_index': orderIndex,
+      if (meaningVi != null) 'meaning_vi': meaningVi,
+      if (examplesJp != null) 'examples_jp': examplesJp,
+      if (examplesVi != null) 'examples_vi': examplesVi,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  GrammarMeaningsTableCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? grammarPointId,
+      Value<int>? orderIndex,
+      Value<String>? meaningVi,
+      Value<String>? examplesJp,
+      Value<String>? examplesVi,
+      Value<int>? rowid}) {
+    return GrammarMeaningsTableCompanion(
+      id: id ?? this.id,
+      grammarPointId: grammarPointId ?? this.grammarPointId,
+      orderIndex: orderIndex ?? this.orderIndex,
+      meaningVi: meaningVi ?? this.meaningVi,
+      examplesJp: examplesJp ?? this.examplesJp,
+      examplesVi: examplesVi ?? this.examplesVi,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (grammarPointId.present) {
+      map['grammar_point_id'] = Variable<String>(grammarPointId.value);
+    }
+    if (orderIndex.present) {
+      map['order_index'] = Variable<int>(orderIndex.value);
+    }
+    if (meaningVi.present) {
+      map['meaning_vi'] = Variable<String>(meaningVi.value);
+    }
+    if (examplesJp.present) {
+      map['examples_jp'] = Variable<String>(examplesJp.value);
+    }
+    if (examplesVi.present) {
+      map['examples_vi'] = Variable<String>(examplesVi.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('GrammarMeaningsTableCompanion(')
+          ..write('id: $id, ')
+          ..write('grammarPointId: $grammarPointId, ')
+          ..write('orderIndex: $orderIndex, ')
+          ..write('meaningVi: $meaningVi, ')
+          ..write('examplesJp: $examplesJp, ')
+          ..write('examplesVi: $examplesVi, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2638,6 +3761,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $KanjiTableTable kanjiTable = $KanjiTableTable(this);
   late final $GrammarPointsTableTable grammarPointsTable =
       $GrammarPointsTableTable(this);
+  late final $GrammarMeaningsTableTable grammarMeaningsTable =
+      $GrammarMeaningsTableTable(this);
   late final $LessonsTableTable lessonsTable = $LessonsTableTable(this);
   late final $LessonItemsTableTable lessonItemsTable =
       $LessonItemsTableTable(this);
@@ -2650,6 +3775,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
         vocabularyMeaningsTable,
         kanjiTable,
         grammarPointsTable,
+        grammarMeaningsTable,
         lessonsTable,
         lessonItemsTable
       ];
@@ -2664,6 +3790,18 @@ typedef $$VocabularyTableTableCreateCompanionBuilder = VocabularyTableCompanion
   Value<String?> audioUrl,
   required String levelId,
   Value<String?> category,
+  Value<String?> commonUsagePattern,
+  Value<String?> commonUsageDesc,
+  Value<String> commonUsageExamplesJp,
+  Value<String> commonUsageExamplesVi,
+  Value<String> nuancePoints,
+  Value<String> similarWords,
+  Value<String> similarWordsMeaningVi,
+  Value<String> comparisonWords,
+  Value<String> comparisonMainDescs,
+  Value<String> comparisonOtherDescs,
+  Value<String?> commonMistakeNote,
+  Value<String> commonMistakeSuggestions,
   Value<int> rowid,
 });
 typedef $$VocabularyTableTableUpdateCompanionBuilder = VocabularyTableCompanion
@@ -2675,6 +3813,18 @@ typedef $$VocabularyTableTableUpdateCompanionBuilder = VocabularyTableCompanion
   Value<String?> audioUrl,
   Value<String> levelId,
   Value<String?> category,
+  Value<String?> commonUsagePattern,
+  Value<String?> commonUsageDesc,
+  Value<String> commonUsageExamplesJp,
+  Value<String> commonUsageExamplesVi,
+  Value<String> nuancePoints,
+  Value<String> similarWords,
+  Value<String> similarWordsMeaningVi,
+  Value<String> comparisonWords,
+  Value<String> comparisonMainDescs,
+  Value<String> comparisonOtherDescs,
+  Value<String?> commonMistakeNote,
+  Value<String> commonMistakeSuggestions,
   Value<int> rowid,
 });
 
@@ -2707,6 +3857,52 @@ class $$VocabularyTableTableFilterComposer
 
   ColumnFilters<String> get category => $composableBuilder(
       column: $table.category, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get commonUsagePattern => $composableBuilder(
+      column: $table.commonUsagePattern,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get commonUsageDesc => $composableBuilder(
+      column: $table.commonUsageDesc,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get commonUsageExamplesJp => $composableBuilder(
+      column: $table.commonUsageExamplesJp,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get commonUsageExamplesVi => $composableBuilder(
+      column: $table.commonUsageExamplesVi,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get nuancePoints => $composableBuilder(
+      column: $table.nuancePoints, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get similarWords => $composableBuilder(
+      column: $table.similarWords, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get similarWordsMeaningVi => $composableBuilder(
+      column: $table.similarWordsMeaningVi,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get comparisonWords => $composableBuilder(
+      column: $table.comparisonWords,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get comparisonMainDescs => $composableBuilder(
+      column: $table.comparisonMainDescs,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get comparisonOtherDescs => $composableBuilder(
+      column: $table.comparisonOtherDescs,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get commonMistakeNote => $composableBuilder(
+      column: $table.commonMistakeNote,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get commonMistakeSuggestions => $composableBuilder(
+      column: $table.commonMistakeSuggestions,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$VocabularyTableTableOrderingComposer
@@ -2739,6 +3935,54 @@ class $$VocabularyTableTableOrderingComposer
 
   ColumnOrderings<String> get category => $composableBuilder(
       column: $table.category, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get commonUsagePattern => $composableBuilder(
+      column: $table.commonUsagePattern,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get commonUsageDesc => $composableBuilder(
+      column: $table.commonUsageDesc,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get commonUsageExamplesJp => $composableBuilder(
+      column: $table.commonUsageExamplesJp,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get commonUsageExamplesVi => $composableBuilder(
+      column: $table.commonUsageExamplesVi,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get nuancePoints => $composableBuilder(
+      column: $table.nuancePoints,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get similarWords => $composableBuilder(
+      column: $table.similarWords,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get similarWordsMeaningVi => $composableBuilder(
+      column: $table.similarWordsMeaningVi,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get comparisonWords => $composableBuilder(
+      column: $table.comparisonWords,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get comparisonMainDescs => $composableBuilder(
+      column: $table.comparisonMainDescs,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get comparisonOtherDescs => $composableBuilder(
+      column: $table.comparisonOtherDescs,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get commonMistakeNote => $composableBuilder(
+      column: $table.commonMistakeNote,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get commonMistakeSuggestions => $composableBuilder(
+      column: $table.commonMistakeSuggestions,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$VocabularyTableTableAnnotationComposer
@@ -2770,6 +4014,42 @@ class $$VocabularyTableTableAnnotationComposer
 
   GeneratedColumn<String> get category =>
       $composableBuilder(column: $table.category, builder: (column) => column);
+
+  GeneratedColumn<String> get commonUsagePattern => $composableBuilder(
+      column: $table.commonUsagePattern, builder: (column) => column);
+
+  GeneratedColumn<String> get commonUsageDesc => $composableBuilder(
+      column: $table.commonUsageDesc, builder: (column) => column);
+
+  GeneratedColumn<String> get commonUsageExamplesJp => $composableBuilder(
+      column: $table.commonUsageExamplesJp, builder: (column) => column);
+
+  GeneratedColumn<String> get commonUsageExamplesVi => $composableBuilder(
+      column: $table.commonUsageExamplesVi, builder: (column) => column);
+
+  GeneratedColumn<String> get nuancePoints => $composableBuilder(
+      column: $table.nuancePoints, builder: (column) => column);
+
+  GeneratedColumn<String> get similarWords => $composableBuilder(
+      column: $table.similarWords, builder: (column) => column);
+
+  GeneratedColumn<String> get similarWordsMeaningVi => $composableBuilder(
+      column: $table.similarWordsMeaningVi, builder: (column) => column);
+
+  GeneratedColumn<String> get comparisonWords => $composableBuilder(
+      column: $table.comparisonWords, builder: (column) => column);
+
+  GeneratedColumn<String> get comparisonMainDescs => $composableBuilder(
+      column: $table.comparisonMainDescs, builder: (column) => column);
+
+  GeneratedColumn<String> get comparisonOtherDescs => $composableBuilder(
+      column: $table.comparisonOtherDescs, builder: (column) => column);
+
+  GeneratedColumn<String> get commonMistakeNote => $composableBuilder(
+      column: $table.commonMistakeNote, builder: (column) => column);
+
+  GeneratedColumn<String> get commonMistakeSuggestions => $composableBuilder(
+      column: $table.commonMistakeSuggestions, builder: (column) => column);
 }
 
 class $$VocabularyTableTableTableManager extends RootTableManager<
@@ -2806,6 +4086,18 @@ class $$VocabularyTableTableTableManager extends RootTableManager<
             Value<String?> audioUrl = const Value.absent(),
             Value<String> levelId = const Value.absent(),
             Value<String?> category = const Value.absent(),
+            Value<String?> commonUsagePattern = const Value.absent(),
+            Value<String?> commonUsageDesc = const Value.absent(),
+            Value<String> commonUsageExamplesJp = const Value.absent(),
+            Value<String> commonUsageExamplesVi = const Value.absent(),
+            Value<String> nuancePoints = const Value.absent(),
+            Value<String> similarWords = const Value.absent(),
+            Value<String> similarWordsMeaningVi = const Value.absent(),
+            Value<String> comparisonWords = const Value.absent(),
+            Value<String> comparisonMainDescs = const Value.absent(),
+            Value<String> comparisonOtherDescs = const Value.absent(),
+            Value<String?> commonMistakeNote = const Value.absent(),
+            Value<String> commonMistakeSuggestions = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               VocabularyTableCompanion(
@@ -2816,6 +4108,18 @@ class $$VocabularyTableTableTableManager extends RootTableManager<
             audioUrl: audioUrl,
             levelId: levelId,
             category: category,
+            commonUsagePattern: commonUsagePattern,
+            commonUsageDesc: commonUsageDesc,
+            commonUsageExamplesJp: commonUsageExamplesJp,
+            commonUsageExamplesVi: commonUsageExamplesVi,
+            nuancePoints: nuancePoints,
+            similarWords: similarWords,
+            similarWordsMeaningVi: similarWordsMeaningVi,
+            comparisonWords: comparisonWords,
+            comparisonMainDescs: comparisonMainDescs,
+            comparisonOtherDescs: comparisonOtherDescs,
+            commonMistakeNote: commonMistakeNote,
+            commonMistakeSuggestions: commonMistakeSuggestions,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -2826,6 +4130,18 @@ class $$VocabularyTableTableTableManager extends RootTableManager<
             Value<String?> audioUrl = const Value.absent(),
             required String levelId,
             Value<String?> category = const Value.absent(),
+            Value<String?> commonUsagePattern = const Value.absent(),
+            Value<String?> commonUsageDesc = const Value.absent(),
+            Value<String> commonUsageExamplesJp = const Value.absent(),
+            Value<String> commonUsageExamplesVi = const Value.absent(),
+            Value<String> nuancePoints = const Value.absent(),
+            Value<String> similarWords = const Value.absent(),
+            Value<String> similarWordsMeaningVi = const Value.absent(),
+            Value<String> comparisonWords = const Value.absent(),
+            Value<String> comparisonMainDescs = const Value.absent(),
+            Value<String> comparisonOtherDescs = const Value.absent(),
+            Value<String?> commonMistakeNote = const Value.absent(),
+            Value<String> commonMistakeSuggestions = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               VocabularyTableCompanion.insert(
@@ -2836,6 +4152,18 @@ class $$VocabularyTableTableTableManager extends RootTableManager<
             audioUrl: audioUrl,
             levelId: levelId,
             category: category,
+            commonUsagePattern: commonUsagePattern,
+            commonUsageDesc: commonUsageDesc,
+            commonUsageExamplesJp: commonUsageExamplesJp,
+            commonUsageExamplesVi: commonUsageExamplesVi,
+            nuancePoints: nuancePoints,
+            similarWords: similarWords,
+            similarWordsMeaningVi: similarWordsMeaningVi,
+            comparisonWords: comparisonWords,
+            comparisonMainDescs: comparisonMainDescs,
+            comparisonOtherDescs: comparisonOtherDescs,
+            commonMistakeNote: commonMistakeNote,
+            commonMistakeSuggestions: commonMistakeSuggestions,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -2868,6 +4196,8 @@ typedef $$VocabularyMeaningsTableTableCreateCompanionBuilder
   required String meaningVi,
   Value<String?> exampleJp,
   Value<String?> exampleVi,
+  Value<String> extraExamplesJp,
+  Value<String> extraExamplesVi,
   Value<int> rowid,
 });
 typedef $$VocabularyMeaningsTableTableUpdateCompanionBuilder
@@ -2878,6 +4208,8 @@ typedef $$VocabularyMeaningsTableTableUpdateCompanionBuilder
   Value<String> meaningVi,
   Value<String?> exampleJp,
   Value<String?> exampleVi,
+  Value<String> extraExamplesJp,
+  Value<String> extraExamplesVi,
   Value<int> rowid,
 });
 
@@ -2907,6 +4239,14 @@ class $$VocabularyMeaningsTableTableFilterComposer
 
   ColumnFilters<String> get exampleVi => $composableBuilder(
       column: $table.exampleVi, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get extraExamplesJp => $composableBuilder(
+      column: $table.extraExamplesJp,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get extraExamplesVi => $composableBuilder(
+      column: $table.extraExamplesVi,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$VocabularyMeaningsTableTableOrderingComposer
@@ -2936,6 +4276,14 @@ class $$VocabularyMeaningsTableTableOrderingComposer
 
   ColumnOrderings<String> get exampleVi => $composableBuilder(
       column: $table.exampleVi, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get extraExamplesJp => $composableBuilder(
+      column: $table.extraExamplesJp,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get extraExamplesVi => $composableBuilder(
+      column: $table.extraExamplesVi,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$VocabularyMeaningsTableTableAnnotationComposer
@@ -2964,6 +4312,12 @@ class $$VocabularyMeaningsTableTableAnnotationComposer
 
   GeneratedColumn<String> get exampleVi =>
       $composableBuilder(column: $table.exampleVi, builder: (column) => column);
+
+  GeneratedColumn<String> get extraExamplesJp => $composableBuilder(
+      column: $table.extraExamplesJp, builder: (column) => column);
+
+  GeneratedColumn<String> get extraExamplesVi => $composableBuilder(
+      column: $table.extraExamplesVi, builder: (column) => column);
 }
 
 class $$VocabularyMeaningsTableTableTableManager extends RootTableManager<
@@ -3003,6 +4357,8 @@ class $$VocabularyMeaningsTableTableTableManager extends RootTableManager<
             Value<String> meaningVi = const Value.absent(),
             Value<String?> exampleJp = const Value.absent(),
             Value<String?> exampleVi = const Value.absent(),
+            Value<String> extraExamplesJp = const Value.absent(),
+            Value<String> extraExamplesVi = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               VocabularyMeaningsTableCompanion(
@@ -3012,6 +4368,8 @@ class $$VocabularyMeaningsTableTableTableManager extends RootTableManager<
             meaningVi: meaningVi,
             exampleJp: exampleJp,
             exampleVi: exampleVi,
+            extraExamplesJp: extraExamplesJp,
+            extraExamplesVi: extraExamplesVi,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -3021,6 +4379,8 @@ class $$VocabularyMeaningsTableTableTableManager extends RootTableManager<
             required String meaningVi,
             Value<String?> exampleJp = const Value.absent(),
             Value<String?> exampleVi = const Value.absent(),
+            Value<String> extraExamplesJp = const Value.absent(),
+            Value<String> extraExamplesVi = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               VocabularyMeaningsTableCompanion.insert(
@@ -3030,6 +4390,8 @@ class $$VocabularyMeaningsTableTableTableManager extends RootTableManager<
             meaningVi: meaningVi,
             exampleJp: exampleJp,
             exampleVi: exampleVi,
+            extraExamplesJp: extraExamplesJp,
+            extraExamplesVi: extraExamplesVi,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -3358,6 +4720,8 @@ typedef $$GrammarPointsTableTableCreateCompanionBuilder
   Value<String?> memoryTip,
   Value<String?> comparisonNote,
   required String levelId,
+  Value<String?> extraExamplesJp,
+  Value<String?> extraExamplesVi,
   Value<String?> practiceTokens,
   Value<int?> practiceBlankIndex,
   Value<int> rowid,
@@ -3373,6 +4737,8 @@ typedef $$GrammarPointsTableTableUpdateCompanionBuilder
   Value<String?> memoryTip,
   Value<String?> comparisonNote,
   Value<String> levelId,
+  Value<String?> extraExamplesJp,
+  Value<String?> extraExamplesVi,
   Value<String?> practiceTokens,
   Value<int?> practiceBlankIndex,
   Value<int> rowid,
@@ -3414,6 +4780,14 @@ class $$GrammarPointsTableTableFilterComposer
 
   ColumnFilters<String> get levelId => $composableBuilder(
       column: $table.levelId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get extraExamplesJp => $composableBuilder(
+      column: $table.extraExamplesJp,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get extraExamplesVi => $composableBuilder(
+      column: $table.extraExamplesVi,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get practiceTokens => $composableBuilder(
       column: $table.practiceTokens,
@@ -3462,6 +4836,14 @@ class $$GrammarPointsTableTableOrderingComposer
   ColumnOrderings<String> get levelId => $composableBuilder(
       column: $table.levelId, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get extraExamplesJp => $composableBuilder(
+      column: $table.extraExamplesJp,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get extraExamplesVi => $composableBuilder(
+      column: $table.extraExamplesVi,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get practiceTokens => $composableBuilder(
       column: $table.practiceTokens,
       builder: (column) => ColumnOrderings(column));
@@ -3506,6 +4888,12 @@ class $$GrammarPointsTableTableAnnotationComposer
 
   GeneratedColumn<String> get levelId =>
       $composableBuilder(column: $table.levelId, builder: (column) => column);
+
+  GeneratedColumn<String> get extraExamplesJp => $composableBuilder(
+      column: $table.extraExamplesJp, builder: (column) => column);
+
+  GeneratedColumn<String> get extraExamplesVi => $composableBuilder(
+      column: $table.extraExamplesVi, builder: (column) => column);
 
   GeneratedColumn<String> get practiceTokens => $composableBuilder(
       column: $table.practiceTokens, builder: (column) => column);
@@ -3552,6 +4940,8 @@ class $$GrammarPointsTableTableTableManager extends RootTableManager<
             Value<String?> memoryTip = const Value.absent(),
             Value<String?> comparisonNote = const Value.absent(),
             Value<String> levelId = const Value.absent(),
+            Value<String?> extraExamplesJp = const Value.absent(),
+            Value<String?> extraExamplesVi = const Value.absent(),
             Value<String?> practiceTokens = const Value.absent(),
             Value<int?> practiceBlankIndex = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -3566,6 +4956,8 @@ class $$GrammarPointsTableTableTableManager extends RootTableManager<
             memoryTip: memoryTip,
             comparisonNote: comparisonNote,
             levelId: levelId,
+            extraExamplesJp: extraExamplesJp,
+            extraExamplesVi: extraExamplesVi,
             practiceTokens: practiceTokens,
             practiceBlankIndex: practiceBlankIndex,
             rowid: rowid,
@@ -3580,6 +4972,8 @@ class $$GrammarPointsTableTableTableManager extends RootTableManager<
             Value<String?> memoryTip = const Value.absent(),
             Value<String?> comparisonNote = const Value.absent(),
             required String levelId,
+            Value<String?> extraExamplesJp = const Value.absent(),
+            Value<String?> extraExamplesVi = const Value.absent(),
             Value<String?> practiceTokens = const Value.absent(),
             Value<int?> practiceBlankIndex = const Value.absent(),
             Value<int> rowid = const Value.absent(),
@@ -3594,6 +4988,8 @@ class $$GrammarPointsTableTableTableManager extends RootTableManager<
             memoryTip: memoryTip,
             comparisonNote: comparisonNote,
             levelId: levelId,
+            extraExamplesJp: extraExamplesJp,
+            extraExamplesVi: extraExamplesVi,
             practiceTokens: practiceTokens,
             practiceBlankIndex: practiceBlankIndex,
             rowid: rowid,
@@ -3621,6 +5017,202 @@ typedef $$GrammarPointsTableTableProcessedTableManager = ProcessedTableManager<
     ),
     GrammarPointsTableData,
     PrefetchHooks Function()>;
+typedef $$GrammarMeaningsTableTableCreateCompanionBuilder
+    = GrammarMeaningsTableCompanion Function({
+  required String id,
+  required String grammarPointId,
+  Value<int> orderIndex,
+  required String meaningVi,
+  Value<String> examplesJp,
+  Value<String> examplesVi,
+  Value<int> rowid,
+});
+typedef $$GrammarMeaningsTableTableUpdateCompanionBuilder
+    = GrammarMeaningsTableCompanion Function({
+  Value<String> id,
+  Value<String> grammarPointId,
+  Value<int> orderIndex,
+  Value<String> meaningVi,
+  Value<String> examplesJp,
+  Value<String> examplesVi,
+  Value<int> rowid,
+});
+
+class $$GrammarMeaningsTableTableFilterComposer
+    extends Composer<_$AppDatabase, $GrammarMeaningsTableTable> {
+  $$GrammarMeaningsTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get grammarPointId => $composableBuilder(
+      column: $table.grammarPointId,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get orderIndex => $composableBuilder(
+      column: $table.orderIndex, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get meaningVi => $composableBuilder(
+      column: $table.meaningVi, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get examplesJp => $composableBuilder(
+      column: $table.examplesJp, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get examplesVi => $composableBuilder(
+      column: $table.examplesVi, builder: (column) => ColumnFilters(column));
+}
+
+class $$GrammarMeaningsTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $GrammarMeaningsTableTable> {
+  $$GrammarMeaningsTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get grammarPointId => $composableBuilder(
+      column: $table.grammarPointId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get orderIndex => $composableBuilder(
+      column: $table.orderIndex, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get meaningVi => $composableBuilder(
+      column: $table.meaningVi, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get examplesJp => $composableBuilder(
+      column: $table.examplesJp, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get examplesVi => $composableBuilder(
+      column: $table.examplesVi, builder: (column) => ColumnOrderings(column));
+}
+
+class $$GrammarMeaningsTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $GrammarMeaningsTableTable> {
+  $$GrammarMeaningsTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get grammarPointId => $composableBuilder(
+      column: $table.grammarPointId, builder: (column) => column);
+
+  GeneratedColumn<int> get orderIndex => $composableBuilder(
+      column: $table.orderIndex, builder: (column) => column);
+
+  GeneratedColumn<String> get meaningVi =>
+      $composableBuilder(column: $table.meaningVi, builder: (column) => column);
+
+  GeneratedColumn<String> get examplesJp => $composableBuilder(
+      column: $table.examplesJp, builder: (column) => column);
+
+  GeneratedColumn<String> get examplesVi => $composableBuilder(
+      column: $table.examplesVi, builder: (column) => column);
+}
+
+class $$GrammarMeaningsTableTableTableManager extends RootTableManager<
+    _$AppDatabase,
+    $GrammarMeaningsTableTable,
+    GrammarMeaningsTableData,
+    $$GrammarMeaningsTableTableFilterComposer,
+    $$GrammarMeaningsTableTableOrderingComposer,
+    $$GrammarMeaningsTableTableAnnotationComposer,
+    $$GrammarMeaningsTableTableCreateCompanionBuilder,
+    $$GrammarMeaningsTableTableUpdateCompanionBuilder,
+    (
+      GrammarMeaningsTableData,
+      BaseReferences<_$AppDatabase, $GrammarMeaningsTableTable,
+          GrammarMeaningsTableData>
+    ),
+    GrammarMeaningsTableData,
+    PrefetchHooks Function()> {
+  $$GrammarMeaningsTableTableTableManager(
+      _$AppDatabase db, $GrammarMeaningsTableTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$GrammarMeaningsTableTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$GrammarMeaningsTableTableOrderingComposer(
+                  $db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$GrammarMeaningsTableTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> grammarPointId = const Value.absent(),
+            Value<int> orderIndex = const Value.absent(),
+            Value<String> meaningVi = const Value.absent(),
+            Value<String> examplesJp = const Value.absent(),
+            Value<String> examplesVi = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              GrammarMeaningsTableCompanion(
+            id: id,
+            grammarPointId: grammarPointId,
+            orderIndex: orderIndex,
+            meaningVi: meaningVi,
+            examplesJp: examplesJp,
+            examplesVi: examplesVi,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String grammarPointId,
+            Value<int> orderIndex = const Value.absent(),
+            required String meaningVi,
+            Value<String> examplesJp = const Value.absent(),
+            Value<String> examplesVi = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              GrammarMeaningsTableCompanion.insert(
+            id: id,
+            grammarPointId: grammarPointId,
+            orderIndex: orderIndex,
+            meaningVi: meaningVi,
+            examplesJp: examplesJp,
+            examplesVi: examplesVi,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$GrammarMeaningsTableTableProcessedTableManager
+    = ProcessedTableManager<
+        _$AppDatabase,
+        $GrammarMeaningsTableTable,
+        GrammarMeaningsTableData,
+        $$GrammarMeaningsTableTableFilterComposer,
+        $$GrammarMeaningsTableTableOrderingComposer,
+        $$GrammarMeaningsTableTableAnnotationComposer,
+        $$GrammarMeaningsTableTableCreateCompanionBuilder,
+        $$GrammarMeaningsTableTableUpdateCompanionBuilder,
+        (
+          GrammarMeaningsTableData,
+          BaseReferences<_$AppDatabase, $GrammarMeaningsTableTable,
+              GrammarMeaningsTableData>
+        ),
+        GrammarMeaningsTableData,
+        PrefetchHooks Function()>;
 typedef $$LessonsTableTableCreateCompanionBuilder = LessonsTableCompanion
     Function({
   required String id,
@@ -3983,6 +5575,8 @@ class $AppDatabaseManager {
       $$KanjiTableTableTableManager(_db, _db.kanjiTable);
   $$GrammarPointsTableTableTableManager get grammarPointsTable =>
       $$GrammarPointsTableTableTableManager(_db, _db.grammarPointsTable);
+  $$GrammarMeaningsTableTableTableManager get grammarMeaningsTable =>
+      $$GrammarMeaningsTableTableTableManager(_db, _db.grammarMeaningsTable);
   $$LessonsTableTableTableManager get lessonsTable =>
       $$LessonsTableTableTableManager(_db, _db.lessonsTable);
   $$LessonItemsTableTableTableManager get lessonItemsTable =>

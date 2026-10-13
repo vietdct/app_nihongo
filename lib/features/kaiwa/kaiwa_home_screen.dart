@@ -380,7 +380,7 @@ class _KaiwaHero extends StatelessWidget {
                 width: double.infinity,
                 child: FilledButton.icon(
                   style: FilledButton.styleFrom(
-                    backgroundColor: Colors.white,
+                    backgroundColor: AppColors.card,
                     foregroundColor: AppColors.teal,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                   ),

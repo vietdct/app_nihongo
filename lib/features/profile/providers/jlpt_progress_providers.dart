@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../../data/repositories/content_repository_provider.dart';
+import '../../../core/network/supabase_providers.dart';
 import '../../../domain/entities/jlpt_level.dart';
 import '../../kanji/providers/kanji_progress_providers.dart';
 import '../../lesson/providers/level_providers.dart';
@@ -23,34 +24,96 @@ class LevelProgress {
   double get ratio => total == 0 ? 0 : known / total;
 }
 
-/// Tính riêng cho từng cấp độ N5→N1 — gọi thẳng repository theo levelId của
-/// từng cấp thay vì qua [selectedLevelCodeProvider] (cấp đang duyệt), để
-/// không phụ thuộc/đổi cấp độ người dùng đang chọn xem.
+const _curatedN5VocabularyIdLowerBound = '22222222-0000-0000-0000-000000000000';
+const _curatedN5VocabularyIdUpperBound = '22222222-0000-0000-0000-000000001000';
+
+/// Tính riêng cho từng cấp độ N5→N1 mà không tải toàn bộ nội dung vào cache.
+/// Chỉ lấy cột id của vocabulary/kanji song song để ghép với tiến độ cục bộ.
+/// Điều này tránh việc mở tab Hồ sơ lại phải tuần tự tải hàng nghìn từ N2/N4.
+/// Provider không auto-dispose để kết quả được tái sử dụng khi đổi tab.
 final jlptLevelProgressProvider =
-    FutureProvider.autoDispose<List<LevelProgress>>((ref) async {
+    FutureProvider<List<LevelProgress>>((ref) async {
   final levels = await ref.watch(jlptLevelsProvider.future);
-  final repo = ref.watch(contentRepositoryProvider);
+  final supabase = ref.watch(supabaseProvider);
   final vocabProgress = await ref.watch(vocabProgressProvider.future);
   final kanjiProgress = await ref.watch(kanjiProgressProvider.future);
 
+  final contentIdsByLevel = await Future.wait([
+    for (final level in levels)
+      _fetchLevelContentIds(
+        supabase,
+        levelId: level.id,
+        curatedN5VocabularyOnly: level.code == 'N5',
+      ),
+  ]);
+
   final result = <LevelProgress>[];
-  for (final level in levels) {
-    await repo.refreshFromRemote(level.id);
-    final vocab = await repo.watchVocabulary(level.id).first;
-    final kanji = await repo.watchKanji(level.id).first;
+  for (var index = 0; index < levels.length; index++) {
+    final level = levels[index];
+    final ids = contentIdsByLevel[index];
 
     final knownVocab =
-        vocab.where((v) => vocabProgress[v.id]?.isKnown == true).length;
+        ids.vocabulary.where((id) => vocabProgress[id]?.isKnown == true).length;
     final knownKanji =
-        kanji.where((k) => kanjiProgress[k.id]?.isKnown == true).length;
+        ids.kanji.where((id) => kanjiProgress[id]?.isKnown == true).length;
 
     result.add(
       LevelProgress(
         level: level,
         known: knownVocab + knownKanji,
-        total: vocab.length + kanji.length,
+        total: ids.vocabulary.length + ids.kanji.length,
       ),
     );
   }
   return result;
 });
+
+Future<({Set<String> vocabulary, Set<String> kanji})> _fetchLevelContentIds(
+  SupabaseClient supabase, {
+  required String levelId,
+  required bool curatedN5VocabularyOnly,
+}) async {
+  final results = await Future.wait<Set<String>>([
+    _fetchContentIds(
+      supabase,
+      table: 'vocabulary',
+      levelId: levelId,
+      curatedN5VocabularyOnly: curatedN5VocabularyOnly,
+    ),
+    _fetchContentIds(
+      supabase,
+      table: 'kanji',
+      levelId: levelId,
+      curatedN5VocabularyOnly: false,
+    ),
+  ]);
+  return (vocabulary: results[0], kanji: results[1]);
+}
+
+/// PostgREST giới hạn 1 response; phân trang để các cấp có trên 1.000 từ
+/// (như N2) vẫn đếm đúng, dù payload chỉ gồm UUID.
+Future<Set<String>> _fetchContentIds(
+  SupabaseClient supabase, {
+  required String table,
+  required String levelId,
+  required bool curatedN5VocabularyOnly,
+}) async {
+  const pageSize = 1000;
+  final ids = <String>{};
+  var from = 0;
+
+  while (true) {
+    final request = supabase.from(table).select('id').eq('level_id', levelId);
+    final page = curatedN5VocabularyOnly && table == 'vocabulary'
+        ? await request
+            .gte('id', _curatedN5VocabularyIdLowerBound)
+            .lt('id', _curatedN5VocabularyIdUpperBound)
+            .range(from, from + pageSize - 1)
+        : await request.range(from, from + pageSize - 1);
+    ids.addAll([
+      for (final row in page.cast<Map<String, dynamic>>()) row['id'] as String,
+    ]);
+    if (page.length < pageSize) return ids;
+    from += pageSize;
+  }
+}

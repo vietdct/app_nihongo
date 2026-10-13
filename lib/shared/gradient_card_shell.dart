@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_theme.dart';
+
 /// Khung thẻ viền gradient dùng chung cho các flashcard lật 2 mặt (Kanji,
 /// Từ vựng...) — kích thước theo % màn hình (không theo constraint cha) để
 /// khớp yêu cầu thiết kế "90-92% chiều ngang / 62-66% chiều cao màn hình",
@@ -12,16 +14,17 @@ class GradientCardShell extends StatelessWidget {
     required this.child,
     required this.gradientColors,
     required this.shadowColor,
-    this.innerBackground = Colors.white,
+    this.innerBackground,
   });
 
   final Widget child;
   final List<Color> gradientColors;
   final Color shadowColor;
-  final Color innerBackground;
+  final Color? innerBackground;
 
   @override
   Widget build(BuildContext context) {
+    final surface = innerBackground ?? AppColors.card;
     final screen = MediaQuery.sizeOf(context);
     final isSmall = screen.width <= 375;
     final isLarge = screen.width >= 430;
@@ -52,7 +55,7 @@ class GradientCardShell extends StatelessWidget {
         height: double.infinity,
         padding: const EdgeInsets.fromLTRB(24, 32, 24, 28),
         decoration: BoxDecoration(
-          color: innerBackground,
+          color: surface,
           borderRadius: BorderRadius.circular(28),
         ),
         child: LayoutBuilder(

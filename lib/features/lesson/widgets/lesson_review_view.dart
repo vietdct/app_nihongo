@@ -96,6 +96,18 @@ class _LessonReviewViewState extends ConsumerState<LessonReviewView> {
     await markLessonCompleted(sb, userId, widget.lessonId);
   }
 
+  /// "Đang ôn: Từ vựng 12 · Kanji 3 · Ngữ pháp 4" — đếm theo loại từ toàn bộ
+  /// mục của bài (không đổi khi hàng đợi giảm dần).
+  String _scopeLabel() {
+    int n(LessonItemType t) => widget.items.where((i) => i.type == t).length;
+    final parts = [
+      if (n(LessonItemType.vocabulary) > 0) 'Từ vựng ${n(LessonItemType.vocabulary)}',
+      if (n(LessonItemType.kanji) > 0) 'Kanji ${n(LessonItemType.kanji)}',
+      if (n(LessonItemType.grammar) > 0) 'Ngữ pháp ${n(LessonItemType.grammar)}',
+    ];
+    return 'Đang ôn: ${parts.join(' · ')}';
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_queue.isEmpty) {
@@ -115,6 +127,11 @@ class _LessonReviewViewState extends ConsumerState<LessonReviewView> {
         Text(
           'Còn ${_queue.length} mục · Đã ôn $_reviewedCount',
           style: const TextStyle(fontWeight: FontWeight.w700, color: AppColors.inkSoft),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _scopeLabel(),
+          style: const TextStyle(fontSize: 12, color: AppColors.inkFaint),
         ),
         const SizedBox(height: 20),
         Expanded(

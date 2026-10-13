@@ -63,6 +63,16 @@ void main() {
       expect(questions, isEmpty);
     });
 
+    test('cho phép một hội thoại khi bài học đã gắn hội thoại riêng', () {
+      final questions = const DialogueListeningGenerator().generate(
+        dialogues: [_dialogue('d1')],
+        allowSingle: true,
+      );
+
+      expect(questions, hasLength(1));
+      expect(questions.single.dialogueTurns, hasLength(2));
+    });
+
     test('loại hội thoại thiếu turns hoặc thiếu câu hỏi', () {
       const invalid = ListeningDialogue(
         id: 'bad',

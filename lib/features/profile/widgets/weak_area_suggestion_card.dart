@@ -63,7 +63,7 @@ class WeakAreaSuggestionCard extends StatelessWidget {
           ),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.card,
               foregroundColor: AppColors.indigo,
               padding: const EdgeInsets.symmetric(horizontal: 14),
             ),

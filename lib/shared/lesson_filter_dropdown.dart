@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_theme.dart';
 import '../domain/entities/lesson.dart';
+import 'filter_pill_button.dart';
 
 /// null = "Tất cả", chuỗi rỗng '' = "Chưa xếp bài" (chưa gắn vào bài nào).
 const String unassignedLessonFilter = '';
@@ -17,6 +18,7 @@ class LessonFilterDropdown extends StatelessWidget {
     required this.hasUnassigned,
     required this.onSelected,
     required this.accentColor,
+    this.fillWidth = false,
   });
 
   final List<Lesson> lessons;
@@ -25,37 +27,19 @@ class LessonFilterDropdown extends StatelessWidget {
   final ValueChanged<String?> onSelected;
   final Color accentColor;
 
+  /// true = kéo giãn hết chiều ngang được cấp (dùng khi xếp nhiều badge
+  /// thành hàng ngang, ví dụ [Expanded] trong `vocabulary_list_screen.dart`).
+  /// false (mặc định) = ôm sát nội dung, căn trái — dùng khi đứng một mình.
+  final bool fillWidth;
+
   @override
   Widget build(BuildContext context) {
     if (lessons.isEmpty) return const SizedBox.shrink();
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(100),
-        onTap: () => _showPicker(context),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-          decoration: BoxDecoration(
-            color: accentColor,
-            borderRadius: BorderRadius.circular(100),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _label(),
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 13.5,
-                  color: Colors.white,
-                ),
-              ),
-              const SizedBox(width: 4),
-              const Icon(Icons.expand_more, size: 18, color: Colors.white),
-            ],
-          ),
-        ),
-      ),
+    return FilterPillButton(
+      label: _label(),
+      accentColor: accentColor,
+      fillWidth: fillWidth,
+      onTap: () => _showPicker(context),
     );
   }
 

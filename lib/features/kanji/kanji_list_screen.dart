@@ -27,9 +27,12 @@ class KanjiListScreen extends ConsumerWidget {
     final showStarredOnly = ref.watch(_showStarredOnlyProvider);
     final progressMap = ref.watch(kanjiProgressProvider).valueOrNull ??
         const <String, KanjiProgress>{};
-    final lessons = ref.watch(lessonsProvider).valueOrNull ?? const [];
     final assignments = ref.watch(kanjiLessonAssignmentsProvider).valueOrNull ??
         const <String, LessonAssignment>{};
+    final kanjiLessonIds = assignments.values.map((a) => a.lessonId).toSet();
+    final lessons = (ref.watch(lessonsProvider).valueOrNull ?? const [])
+        .where((l) => kanjiLessonIds.contains(l.id))
+        .toList();
     final rawSelectedLesson = ref.watch(_selectedLessonFilterProvider);
     final selectedLesson = rawSelectedLesson == null ||
             rawSelectedLesson == unassignedLessonFilter ||
@@ -39,7 +42,7 @@ class KanjiListScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Kanji'),
+        title: Text(selectedLevel == 'IT' ? 'Kanji trong từ vựng IT' : 'Kanji'),
         actions: [
           IconButton(
             tooltip: 'Vẽ để tìm kanji',
@@ -61,6 +64,16 @@ class KanjiListScreen extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          if (selectedLevel == 'IT')
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+              child: Text(
+                kanjiAsync.valueOrNull == null
+                    ? 'Kanji được tổng hợp từ các từ vựng của khóa Tiếng Nhật IT.'
+                    : '${kanjiAsync.valueOrNull!.length} chữ Kanji được tổng hợp từ các từ vựng của khóa Tiếng Nhật IT.',
+                style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+              ),
+            ),
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
             child: DebouncedSearchField(
