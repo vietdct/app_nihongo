@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:nihongo/shared/motion/animated_progress_bar.dart';
+import 'package:nihongo/shared/motion/answer_feedback.dart';
+import 'package:nihongo/shared/motion/enter_transition.dart';
 import 'package:nihongo/shared/motion/fade_switcher.dart';
 import 'package:nihongo/shared/motion/press_scale.dart';
+import 'package:nihongo/shared/motion/shake_once.dart';
 
 Widget _app(Widget child, {bool reduceMotion = false}) => MaterialApp(
       home: MediaQuery(
@@ -214,6 +217,114 @@ void main() {
       await tester.pump();
       expect(find.text('Cũ'), findsNothing);
       expect(find.text('Mới'), findsOneWidget);
+    });
+  });
+
+  group('ShakeOnce', () {
+    Widget host(bool trigger, {bool reduce = false}) => _app(
+          Center(
+            child: ShakeOnce(
+              trigger: trigger,
+              child: const SizedBox(width: 100, height: 40),
+            ),
+          ),
+          reduceMotion: reduce,
+        );
+
+    testWidgets('chỉ chạy khi trigger bật, rồi dừng và về vị trí cũ',
+        (tester) async {
+      await tester.pumpWidget(host(false));
+      expect(tester.hasRunningAnimations, isFalse);
+      final x0 = tester.getTopLeft(find.byType(SizedBox).last).dx;
+
+      await tester.pumpWidget(host(true));
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(tester.hasRunningAnimations, isTrue);
+      expect(tester.getTopLeft(find.byType(SizedBox).last).dx, isNot(x0));
+
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(find.byType(SizedBox).last).dx, x0);
+    });
+
+    testWidgets('rebuild khi trigger vẫn true không rung lại', (tester) async {
+      await tester.pumpWidget(host(true));
+      await tester.pumpWidget(host(true));
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('giảm chuyển động: không rung', (tester) async {
+      await tester.pumpWidget(host(false, reduce: true));
+      await tester.pumpWidget(host(true, reduce: true));
+      await tester.pump(const Duration(milliseconds: 60));
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+  });
+
+  group('EnterTransition', () {
+    Widget host(String key, {bool reduce = false}) => _app(
+          EnterTransition(
+            key: ValueKey(key),
+            child: const Text('Nội dung'),
+          ),
+          reduceMotion: reduce,
+        );
+    double opacity(WidgetTester tester) =>
+        tester.widget<Opacity>(find.byType(Opacity)).opacity;
+
+    testWidgets('mới tạo thì fade từ 0 lên 1', (tester) async {
+      await tester.pumpWidget(host('a'));
+      expect(opacity(tester), lessThan(1));
+      await tester.pumpAndSettle();
+      expect(opacity(tester), 1);
+    });
+
+    testWidgets('đổi key chạy lại, rebuild cùng key thì không', (tester) async {
+      await tester.pumpWidget(host('a'));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(host('a'));
+      expect(tester.hasRunningAnimations, isFalse);
+      await tester.pumpWidget(host('b'));
+      expect(tester.hasRunningAnimations, isTrue);
+      await tester.pumpAndSettle();
+      expect(find.text('Nội dung'), findsOneWidget);
+    });
+
+    testWidgets('giảm chuyển động: hiện thẳng, không bọc Opacity',
+        (tester) async {
+      await tester.pumpWidget(host('a', reduce: true));
+      expect(find.byType(Opacity), findsNothing);
+      expect(find.text('Nội dung'), findsOneWidget);
+    });
+  });
+
+  group('AnswerOptionFrame / AnswerResultIcon', () {
+    testWidgets('không chặn onTap của đáp án', (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(_app(
+        AnswerOptionFrame(
+          opacity: 1,
+          wrong: false,
+          pressable: true,
+          child: InkWell(
+            onTap: () => taps++,
+            child:
+                const SizedBox(width: 200, height: 50, child: Text('Đáp án')),
+          ),
+        ),
+      ));
+      await tester.tap(find.text('Đáp án'));
+      await tester.pumpAndSettle();
+      expect(taps, 1);
+    });
+
+    testWidgets('icon đúng/sai có nhãn truy cập, không chỉ dựa vào màu',
+        (tester) async {
+      await tester.pumpWidget(_app(const AnswerResultIcon(correct: true)));
+      expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
+      expect(find.bySemanticsLabel('Đáp án đúng'), findsOneWidget);
+      await tester.pumpWidget(_app(const AnswerResultIcon(correct: false)));
+      expect(find.byIcon(Icons.cancel_rounded), findsOneWidget);
+      await tester.pumpAndSettle();
     });
   });
 }

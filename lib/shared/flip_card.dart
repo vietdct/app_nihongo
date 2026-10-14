@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_motion.dart';
+
 /// Thẻ lật 2 mặt dùng chung cho flashcard từ vựng và kanji.
 /// Gắn [key] theo id của item để state tự reset về mặt trước khi
 /// chuyển sang thẻ khác (thay vì tự quản lý reset thủ công).
@@ -26,6 +28,9 @@ class FlipCardState extends State<FlipCard> with SingleTickerProviderStateMixin 
   bool _showingFront = true;
 
   void flip() {
+    // Giảm chuyển động: lật ngay (duration 0) nhưng vẫn đổi mặt.
+    _controller.duration =
+        AppMotion.resolve(context, const Duration(milliseconds: 380));
     if (_showingFront) {
       _controller.forward();
     } else {

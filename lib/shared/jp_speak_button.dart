@@ -7,6 +7,7 @@ import 'package:flutter_tts/flutter_tts.dart';
 import '../core/services/dialogue_audio.dart';
 import '../core/services/jp_voice_prefs.dart';
 import '../core/theme/app_theme.dart';
+import 'motion/press_scale.dart';
 
 /// Nút loa nhỏ đọc to 1 chuỗi tiếng Nhật — dùng ở các thẻ Lesson Understand
 /// (từ vựng/kanji/ngữ pháp không có audio thu sẵn), cùng giọng đã lưu với AI
@@ -75,7 +76,7 @@ class _JpSpeakButtonState extends State<JpSpeakButton> {
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onLongPress: () => unawaited(showJpSpeedSheet(context)),
-      child: _button(),
+      child: PressScale(child: _button()),
     );
   }
 

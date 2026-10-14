@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import '../../../core/services/dialogue_player.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/services/quiz_generator.dart';
 import '../../../shared/dialogue_script_view.dart';
+import '../../../shared/motion/answer_feedback.dart';
 
 /// Giai đoạn của 1 câu Nghe hiểu — nguồn DUY NHẤT quyết định có dựng Script
 /// hay không (xem [showScript]). Được suy ra từ state của `QuizScreen`
@@ -426,12 +428,17 @@ class _OptionCard extends StatelessWidget {
       _OptionState.hidden => 0.3,
       _ => 1.0,
     };
-    return Opacity(
+    final fast = AppMotion.resolve(context, AppMotion.fast);
+    return AnswerOptionFrame(
       opacity: opacity,
+      wrong: state == _OptionState.wrong,
+      pressable: onTap != null,
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: onTap,
-        child: Container(
+        child: AnimatedContainer(
+          duration: fast,
+          curve: AppMotion.curveChange,
           constraints: const BoxConstraints(minHeight: 58),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           decoration: BoxDecoration(
@@ -441,7 +448,9 @@ class _OptionCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Container(
+              AnimatedContainer(
+                duration: fast,
+                curve: AppMotion.curveChange,
                 width: 30,
                 height: 30,
                 alignment: Alignment.center,
@@ -470,6 +479,11 @@ class _OptionCard extends StatelessWidget {
                   ),
                 ),
               ),
+              if (state == _OptionState.correct ||
+                  state == _OptionState.wrong) ...[
+                const SizedBox(width: 8),
+                AnswerResultIcon(correct: state == _OptionState.correct),
+              ],
             ],
           ),
         ),

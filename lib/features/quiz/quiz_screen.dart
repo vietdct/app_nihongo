@@ -9,10 +9,14 @@ import 'package:go_router/go_router.dart';
 import '../../core/services/dialogue_audio.dart';
 import '../../core/services/dialogue_player.dart';
 import '../../core/services/jp_voice_prefs.dart';
+import '../../core/theme/app_motion.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/lesson.dart' show LessonItemType;
 import '../../domain/services/quiz_generator.dart';
 import '../../shared/motion/animated_progress_bar.dart';
+import '../../shared/motion/answer_feedback.dart';
+import '../../shared/motion/enter_transition.dart';
+import '../../shared/motion/press_scale.dart';
 import '../home/providers/mission_providers.dart';
 import '../home/providers/profile_providers.dart';
 import 'providers/quiz_providers.dart';
@@ -583,8 +587,22 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
     );
   }
 
+  /// Khung phản hồi hiện/ẩn có đổi kích thước mượt; tắt khi giảm chuyển động.
+  Widget _withSizeTransition(BuildContext context, Widget child) {
+    if (AppMotion.reduced(context)) return child;
+    return AnimatedSize(
+      duration: AppMotion.standard,
+      curve: AppMotion.curveSmooth,
+      alignment: Alignment.topCenter,
+      child: child,
+    );
+  }
+
   Widget _buildListeningBody(QuizQuestion question) {
-    return ListeningQuestionBody(
+    return EnterTransition(
+      key: ValueKey(_index),
+      offset: Offset.zero,
+      child: ListeningQuestionBody(
       title: widget.title,
       index: _index,
       total: widget.questions.length,
@@ -608,6 +626,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
       onHint: _useHint,
       onShowScript: _openScript,
       onContinue: _onContinue,
+    ),
     );
   }
 
@@ -666,108 +685,117 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
           ),
           const SizedBox(height: 18),
           Expanded(
-            child: Center(
-              child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    Text(
-                      'CÂU ${_index + 1}/${widget.questions.length} · ${question.promptVi}',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: FontWeight.w800,
-                        color: AppColors.inkFaint,
-                        letterSpacing: 0.6,
+            child: EnterTransition(
+              key: ValueKey(_index),
+              child: Center(
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      Text(
+                        'CÂU ${_index + 1}/${widget.questions.length} · ${question.promptVi}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.inkFaint,
+                          letterSpacing: 0.6,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    CountdownRing(
-                        controller: _timerController,
-                        totalSeconds: _secondsForCurrent,),
-                    const SizedBox(height: 14),
-                    if (widget.listeningMode && !_answered)
-                      _ListenButton(
-                        onTap: _toggleSingleAudio,
-                        playing: _speakingSingle,
-                      )
-                    else ...[
-                      if (question.displayIsJapanese &&
-                          (!question.hasBlank || _answered)) ...[
-                        _AudioPlayButton(
-                            onTap: () => unawaited(_speakCurrent()),),
-                        const SizedBox(height: 14),
+                      const SizedBox(height: 16),
+                      CountdownRing(
+                          controller: _timerController,
+                          totalSeconds: _secondsForCurrent,),
+                      const SizedBox(height: 14),
+                      if (widget.listeningMode && !_answered)
+                        _ListenButton(
+                          onTap: _toggleSingleAudio,
+                          playing: _speakingSingle,
+                        )
+                      else ...[
+                        if (question.displayIsJapanese &&
+                            (!question.hasBlank || _answered)) ...[
+                          _AudioPlayButton(
+                              onTap: () => unawaited(_speakCurrent()),),
+                          const SizedBox(height: 14),
+                        ],
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: Text(question.displayJp,
+                              textAlign: TextAlign.center,
+                              style: question.displayIsJapanese
+                                  ? AppFonts.zenMaruGothic(
+                                      fontSize: widget.listeningMode ? 20 : 26,
+                                      color: AppColors.ink,)
+                                  : const TextStyle(
+                                      fontSize: 20,
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.ink,),),
+                        ),
+                        if (question.displayIsJapanese &&
+                            question.readingFurigana != null) ...[
+                          const SizedBox(height: 6),
+                          Text(
+                            question.readingFurigana!,
+                            style: AppFonts.zenMaruGothic(
+                                fontSize: 13,
+                                color: AppColors.inkSoft,
+                                fontWeight: FontWeight.w500,),
+                          ),
+                        ],
                       ],
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(18),
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(18),
-                          border: Border.all(color: AppColors.border),
+                      const SizedBox(height: 26),
+                      if (question.typedAnswerMode != null)
+                        _TypedAnswerField(
+                          key: ValueKey(_index),
+                          answered: _answered,
+                          isCorrect: _isCorrect,
+                          onSubmit: _onSubmitTyped,
+                        )
+                      else if (question.orderTiles != null)
+                        _TileOrderField(
+                          key: ValueKey(_index),
+                          tiles: question.orderTiles!,
+                          answered: _answered,
+                          isCorrect: _isCorrect,
+                          onSubmit: _onSubmitOrder,
+                        )
+                      else ...[
+                        _OptionsList(
+                          question: question,
+                          selectedOption: _selectedOption,
+                          answered: _answered,
+                          hiddenOptions: _hiddenOptions,
+                          onSelect: _onSelectOption,
                         ),
-                        child: Text(question.displayJp,
-                            textAlign: TextAlign.center,
-                            style: question.displayIsJapanese
-                                ? AppFonts.zenMaruGothic(
-                                    fontSize: widget.listeningMode ? 20 : 26,
-                                    color: AppColors.ink,)
-                                : const TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w800,
-                                    color: AppColors.ink,),),
-                      ),
-                      if (question.displayIsJapanese &&
-                          question.readingFurigana != null) ...[
-                        const SizedBox(height: 6),
-                        Text(
-                          question.readingFurigana!,
-                          style: AppFonts.zenMaruGothic(
-                              fontSize: 13,
-                              color: AppColors.inkSoft,
-                              fontWeight: FontWeight.w500,),
-                        ),
+                        if (!_answered) ...[
+                          const SizedBox(height: 12),
+                          _HintButton(
+                            used: _hintUsed,
+                            onTap: _hintUsed ? null : _useHint,
+                          ),
+                        ],
                       ],
                     ],
-                    const SizedBox(height: 26),
-                    if (question.typedAnswerMode != null)
-                      _TypedAnswerField(
-                        key: ValueKey(_index),
-                        answered: _answered,
-                        isCorrect: _isCorrect,
-                        onSubmit: _onSubmitTyped,
-                      )
-                    else if (question.orderTiles != null)
-                      _TileOrderField(
-                        key: ValueKey(_index),
-                        tiles: question.orderTiles!,
-                        answered: _answered,
-                        isCorrect: _isCorrect,
-                        onSubmit: _onSubmitOrder,
-                      )
-                    else ...[
-                      _OptionsList(
-                        question: question,
-                        selectedOption: _selectedOption,
-                        answered: _answered,
-                        hiddenOptions: _hiddenOptions,
-                        onSelect: _onSelectOption,
-                      ),
-                      if (!_answered) ...[
-                        const SizedBox(height: 12),
-                        _HintButton(
-                          used: _hintUsed,
-                          onTap: _hintUsed ? null : _useHint,
-                        ),
-                      ],
-                    ],
-                  ],
+                  ),
                 ),
               ),
             ),
           ),
-          if (_answered) ...[
-            const SizedBox(height: 14),
-            _FeedbackPanel(
+          _withSizeTransition(
+            context,
+            _answered
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 14),
+                    child: EnterTransition(
+                      key: ValueKey('feedback-$_index'),
+                      offset: const Offset(0, 0.08),
+                      child: _FeedbackPanel(
               isCorrect: !_timedOut && _isCorrect,
               timedOut: _timedOut,
               xpGained: _lastXpGained,
@@ -777,7 +805,10 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
               explanation: question.explanationVi,
               sourceNote: question.sourceNote,
             ),
-          ],
+                    ),
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
         ],
       ),
     );
@@ -865,7 +896,8 @@ class _AudioPlayButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Center(
-      child: InkWell(
+      child: PressScale(
+        child: InkWell(
         borderRadius: BorderRadius.circular(100),
         onTap: onTap,
         child: Container(
@@ -889,6 +921,7 @@ class _AudioPlayButton extends StatelessWidget {
               size: 24, color: Colors.white,),
         ),
       ),
+      ),
     );
   }
 }
@@ -906,7 +939,8 @@ class _ListenButton extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        InkWell(
+        PressScale(
+          child: InkWell(
           borderRadius: BorderRadius.circular(100),
           onTap: onTap,
           child: Container(
@@ -921,6 +955,7 @@ class _ListenButton extends StatelessWidget {
               color: AppColors.accentStrong,
             ),
           ),
+        ),
         ),
         const SizedBox(height: 8),
         Text(playing ? 'Chạm để tạm dừng' : 'Chạm để nghe lại',
@@ -1036,12 +1071,17 @@ class _OptionCard extends StatelessWidget {
       _OptionState.hidden => 0.32,
       _ => 1.0,
     };
-    return Opacity(
+    final fast = AppMotion.resolve(context, AppMotion.fast);
+    return AnswerOptionFrame(
       opacity: opacity,
+      wrong: state == _OptionState.wrong,
+      pressable: onTap != null,
       child: InkWell(
         borderRadius: BorderRadius.circular(15),
         onTap: onTap,
-        child: Container(
+        child: AnimatedContainer(
+          duration: fast,
+          curve: AppMotion.curveChange,
           width: double.infinity,
           padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
           decoration: BoxDecoration(
@@ -1051,7 +1091,9 @@ class _OptionCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Container(
+              AnimatedContainer(
+                duration: fast,
+                curve: AppMotion.curveChange,
                 width: 26,
                 height: 26,
                 alignment: Alignment.center,
@@ -1071,6 +1113,11 @@ class _OptionCard extends StatelessWidget {
                     style: TextStyle(
                         fontWeight: FontWeight.w700, fontSize: 14, color: fg,),),
               ),
+              if (state == _OptionState.correct ||
+                  state == _OptionState.wrong) ...[
+                const SizedBox(width: 8),
+                AnswerResultIcon(correct: state == _OptionState.correct),
+              ],
             ],
           ),
         ),
