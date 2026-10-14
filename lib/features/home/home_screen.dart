@@ -28,6 +28,7 @@ import 'providers/continue_learning_providers.dart';
 import 'providers/mission_providers.dart';
 import 'providers/profile_providers.dart';
 import 'widgets/daily_goal_card.dart';
+import 'widgets/streak_milestone_glow.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -464,12 +465,14 @@ class _HeroHeader extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: _HeroStat(
-                        value: streakCount == null ? '–' : '$streakCount',
-                        count: streakCount,
-                        counted: true,
-                        label: '🔥 Streak',
-                        pulse: (streakCount ?? 0) > 0,
+                      child: StreakMilestoneGlow(
+                        child: _HeroStat(
+                          value: streakCount == null ? '–' : '$streakCount',
+                          count: streakCount,
+                          counted: true,
+                          label: '🔥 Streak',
+                          pulse: (streakCount ?? 0) > 0,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 8),

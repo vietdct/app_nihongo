@@ -90,10 +90,16 @@ class _MainTabShellState extends ConsumerState<MainTabShell> {
       body: IndexedStack(
         index: _index,
         children: [
+          // TickerMode tắt ở tab đang ẩn: tab ẩn không chạy animation và các
+          // hiệu ứng "chờ hiển thị" (VD streak/ngày học ở Home) biết khi nào
+          // thật sự được nhìn thấy. Không đổi state/vị trí cuộn của tab.
           for (var i = 0; i < _tabBuilders.length; i++)
-            _visited.contains(i)
-                ? _tabBuilders[i](context)
-                : const SizedBox.shrink(),
+            TickerMode(
+              enabled: i == _index,
+              child: _visited.contains(i)
+                  ? _tabBuilders[i](context)
+                  : const SizedBox.shrink(),
+            ),
         ],
       ),
       bottomNavigationBar: Container(
