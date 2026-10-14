@@ -20,6 +20,7 @@ import '../../shared/level_badge.dart';
 import '../../shared/vocab_category_filter_dropdown.dart';
 import '../../shared/vocab_status_filter_dropdown.dart';
 import '../../shared/motion/playing_indicator.dart';
+import '../../shared/motion/stagger.dart';
 import '../../shared/skeleton_layouts.dart';
 import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
@@ -171,130 +172,144 @@ class VocabularyListScreen extends ConsumerWidget {
             orElse: () => const SizedBox.shrink(),
           ),
           Expanded(
-            child: vocabAsync.when(
-              loading: () => const ListCardSkeleton(trailingPill: true),
-              error: (e, _) => Center(child: Text('Lỗi: $e')),
-              data: (all) {
-                var filtered = all;
-                if (selectedLesson == unassignedLessonFilter) {
-                  filtered = filtered
-                      .where((v) => !assignments.containsKey(v.id))
-                      .toList();
-                } else if (selectedLesson != null) {
-                  filtered = filtered
-                      .where(
-                        (v) => assignments[v.id]?.lessonId == selectedLesson,
-                      )
-                      .toList()
-                    ..sort(
-                      (a, b) => (assignments[a.id]?.orderIndex ?? 0)
-                          .compareTo(assignments[b.id]?.orderIndex ?? 0),
-                    );
-                }
-                if (selectedCategory == uncategorizedFilter) {
-                  filtered = filtered.where((v) => v.category == null).toList();
-                } else if (selectedCategory != null) {
-                  filtered = filtered
-                      .where((v) => v.category == selectedCategory)
-                      .toList();
-                }
-                switch (selectedStatus) {
-                  case VocabStatusFilter.mastered:
+            // Stagger sống xuyên tìm kiếm/lọc/rỗng (không chạy lại khi gõ), bắt
+            // đầu khi dữ liệu đầu tiên có; đổi cấp độ → group mới (key) → chạy
+            // lại cho dataset mới. Chỉ 8 từ đầu được animate.
+            child: StaggerGroup(
+              key: ValueKey(selectedLevel),
+              active: vocabAsync.hasValue,
+              child: vocabAsync.when(
+                loading: () => const ListCardSkeleton(trailingPill: true),
+                error: (e, _) => Center(child: Text('Lỗi: $e')),
+                data: (all) {
+                  var filtered = all;
+                  if (selectedLesson == unassignedLessonFilter) {
                     filtered = filtered
-                        .where((v) => progressMap[v.id]?.isKnown == true)
+                        .where((v) => !assignments.containsKey(v.id))
                         .toList();
-                  case VocabStatusFilter.dueForReview:
-                    filtered = filtered
-                        .where((v) => progressMap[v.id]?.isDueNow ?? true)
-                        .toList();
-                  case VocabStatusFilter.hardest:
+                  } else if (selectedLesson != null) {
                     filtered = filtered
                         .where(
-                          (v) =>
-                              progressMap[v.id] != null &&
-                              progressMap[v.id]!.reviewCount > 0 &&
-                              progressMap[v.id]!.easeFactor < weakEaseThreshold,
+                          (v) => assignments[v.id]?.lessonId == selectedLesson,
                         )
                         .toList()
                       ..sort(
-                        (a, b) => progressMap[a.id]!
-                            .easeFactor
-                            .compareTo(progressMap[b.id]!.easeFactor),
+                        (a, b) => (assignments[a.id]?.orderIndex ?? 0)
+                            .compareTo(assignments[b.id]?.orderIndex ?? 0),
                       );
-                  case VocabStatusFilter.mostForgotten:
+                  }
+                  if (selectedCategory == uncategorizedFilter) {
+                    filtered =
+                        filtered.where((v) => v.category == null).toList();
+                  } else if (selectedCategory != null) {
                     filtered = filtered
-                        .where((v) => (progressMap[v.id]?.lapseCount ?? 0) > 0)
-                        .toList()
-                      ..sort(
-                        (a, b) => (progressMap[b.id]?.lapseCount ?? 0)
-                            .compareTo(progressMap[a.id]?.lapseCount ?? 0),
-                      );
-                  case null:
-                    break;
-                }
-                if (query.isNotEmpty) {
-                  filtered = filtered
-                      .where(
-                        (v) =>
-                            v.word.toLowerCase().contains(query) ||
-                            v.reading.toLowerCase().contains(query) ||
-                            v.meanings.any(
-                              (m) => m.meaningVi.toLowerCase().contains(query),
-                            ),
-                      )
-                      .toList();
-                }
-                if (showStarredOnly) {
-                  filtered = filtered
-                      .where((v) => progressMap[v.id]?.starred == true)
-                      .toList();
-                }
+                        .where((v) => v.category == selectedCategory)
+                        .toList();
+                  }
+                  switch (selectedStatus) {
+                    case VocabStatusFilter.mastered:
+                      filtered = filtered
+                          .where((v) => progressMap[v.id]?.isKnown == true)
+                          .toList();
+                    case VocabStatusFilter.dueForReview:
+                      filtered = filtered
+                          .where((v) => progressMap[v.id]?.isDueNow ?? true)
+                          .toList();
+                    case VocabStatusFilter.hardest:
+                      filtered = filtered
+                          .where(
+                            (v) =>
+                                progressMap[v.id] != null &&
+                                progressMap[v.id]!.reviewCount > 0 &&
+                                progressMap[v.id]!.easeFactor <
+                                    weakEaseThreshold,
+                          )
+                          .toList()
+                        ..sort(
+                          (a, b) => progressMap[a.id]!
+                              .easeFactor
+                              .compareTo(progressMap[b.id]!.easeFactor),
+                        );
+                    case VocabStatusFilter.mostForgotten:
+                      filtered = filtered
+                          .where(
+                              (v) => (progressMap[v.id]?.lapseCount ?? 0) > 0)
+                          .toList()
+                        ..sort(
+                          (a, b) => (progressMap[b.id]?.lapseCount ?? 0)
+                              .compareTo(progressMap[a.id]?.lapseCount ?? 0),
+                        );
+                    case null:
+                      break;
+                  }
+                  if (query.isNotEmpty) {
+                    filtered = filtered
+                        .where(
+                          (v) =>
+                              v.word.toLowerCase().contains(query) ||
+                              v.reading.toLowerCase().contains(query) ||
+                              v.meanings.any(
+                                (m) =>
+                                    m.meaningVi.toLowerCase().contains(query),
+                              ),
+                        )
+                        .toList();
+                  }
+                  if (showStarredOnly) {
+                    filtered = filtered
+                        .where((v) => progressMap[v.id]?.starred == true)
+                        .toList();
+                  }
 
-                if (all.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Chưa có từ vựng nào cho $selectedLevel.\nNội dung đang được bổ sung dần.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.inkSoft),
+                  if (all.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'Chưa có từ vựng nào cho $selectedLevel.\nNội dung đang được bổ sung dần.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: AppColors.inkSoft),
+                        ),
+                      ),
+                    );
+                  }
+                  if (filtered.isEmpty) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          showStarredOnly
+                              ? 'Chưa có từ nào được lưu.\nMở Flashcard và chạm ngôi sao để lưu từ lại.'
+                              : 'Không tìm thấy từ nào.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: AppColors.inkSoft),
+                        ),
+                      ),
+                    );
+                  }
+                  return Container(
+                    margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.border, width: 1.0),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: ListView.separated(
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) =>
+                          const Divider(height: 1, color: AppColors.border),
+                      itemBuilder: (context, i) => StaggerItem(
+                        index: i,
+                        child: _VocabTile(
+                          vocab: filtered[i],
+                          starred: progressMap[filtered[i].id]?.starred == true,
+                        ),
                       ),
                     ),
                   );
-                }
-                if (filtered.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        showStarredOnly
-                            ? 'Chưa có từ nào được lưu.\nMở Flashcard và chạm ngôi sao để lưu từ lại.'
-                            : 'Không tìm thấy từ nào.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.inkSoft),
-                      ),
-                    ),
-                  );
-                }
-                return Container(
-                  margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.border, width: 1.0),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: ListView.separated(
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) =>
-                        const Divider(height: 1, color: AppColors.border),
-                    itemBuilder: (context, i) => _VocabTile(
-                      vocab: filtered[i],
-                      starred: progressMap[filtered[i].id]?.starred == true,
-                    ),
-                  ),
-                );
-              },
+                },
+              ),
             ),
           ),
         ],
@@ -768,7 +783,8 @@ class _VocabHeader extends StatelessWidget {
                 constraints:
                     const BoxConstraints.tightFor(width: 44, height: 44),
                 icon: SwapIcon(
-                  icon: starred ? Icons.star_rounded : Icons.star_border_rounded,
+                  icon:
+                      starred ? Icons.star_rounded : Icons.star_border_rounded,
                   color: AppColors.accent,
                   size: 21,
                 ),

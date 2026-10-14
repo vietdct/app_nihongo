@@ -8,8 +8,8 @@ import '../../domain/entities/lesson.dart';
 import '../../domain/entities/lesson_progress.dart';
 import '../../shared/level_badge.dart';
 import '../../shared/motion/animated_progress_bar.dart';
-import '../../shared/motion/fade_switcher.dart';
 import '../../shared/motion/press_scale.dart';
+import '../../shared/motion/stagger.dart';
 import '../../shared/skeleton_layouts.dart';
 import 'providers/content_providers.dart';
 
@@ -77,19 +77,14 @@ class ItLearningHub extends ConsumerWidget {
         title: const Text('Tiếng Nhật IT'),
         actions: const [LevelBadge(), SizedBox(width: 12)],
       ),
-      body: FadeSwitcher(
-        child: lessonsAsync.when(
+      body: lessonsAsync.when(
         loading: () => const SectionedHomeSkeleton(
-            key: ValueKey('loading'),
-            showSearchBar: false,
-            cardHeights: [120, 96, 96]),
-        error: (_, __) => _ErrorState(
-            key: const ValueKey('error'),
-            onRetry: () => ref.invalidate(lessonsProvider)),
+            showSearchBar: false, cardHeights: [120, 96, 96]),
+        error: (_, __) =>
+            _ErrorState(onRetry: () => ref.invalidate(lessonsProvider)),
         data: (lessons) {
           if (lessons.isEmpty) {
             return const Center(
-              key: ValueKey('empty'),
               child: Text('Chưa có nội dung bài học.',
                   style: TextStyle(color: AppColors.inkSoft)),
             );
@@ -103,14 +98,12 @@ class ItLearningHub extends ConsumerWidget {
           final grammarCount = _countByLesson(
               ref.watch(grammarLessonAssignmentsProvider).valueOrNull);
           return _HubBody(
-            key: const ValueKey('data'),
             lessons: sorted,
             progress: progress,
             vocabCount: vocabCount,
             grammarCount: grammarCount,
           );
         },
-        ),
       ),
     );
   }
@@ -127,7 +120,6 @@ class ItLearningHub extends ConsumerWidget {
 
 class _HubBody extends StatelessWidget {
   const _HubBody({
-    super.key,
     required this.lessons,
     required this.progress,
     required this.vocabCount,
@@ -148,32 +140,44 @@ class _HubBody extends StatelessWidget {
       orElse: () => lessons.last,
     );
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-      children: [
-        _CourseProgress(done: done, total: lessons.length),
-        const SizedBox(height: 16),
-        _ContinueCard(lesson: current, progress: progress[current.id]),
-        const SizedBox(height: 16),
-        const _QuickAccess(),
-        const SizedBox(height: 24),
-        const Text('Lộ trình',
-            style: TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-                color: AppColors.ink)),
-        const SizedBox(height: 10),
-        for (final l in lessons) ...[
-          _RoadmapTile(
-            lesson: l,
-            progress: progress[l.id],
-            isCurrent: l.id == current.id && done < lessons.length,
-            vocab: vocabCount[l.id],
-            grammar: grammarCount[l.id],
-          ),
+    // Stagger 1 lần khi Hub vừa hiện dữ liệu: 3 khối đầu rồi 5 bài đầu của lộ
+    // trình (tối đa 8 mục); các bài còn lại hiện ngay.
+    return StaggerGroup(
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+        children: [
+          StaggerItem(
+              index: 0,
+              child: _CourseProgress(done: done, total: lessons.length)),
+          const SizedBox(height: 16),
+          StaggerItem(
+              index: 1,
+              child: _ContinueCard(
+                  lesson: current, progress: progress[current.id])),
+          const SizedBox(height: 16),
+          const StaggerItem(index: 2, child: _QuickAccess()),
+          const SizedBox(height: 24),
+          const Text('Lộ trình',
+              style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 16,
+                  color: AppColors.ink)),
           const SizedBox(height: 10),
+          for (var i = 0; i < lessons.length; i++) ...[
+            StaggerItem(
+              index: 3 + i,
+              child: _RoadmapTile(
+                lesson: lessons[i],
+                progress: progress[lessons[i].id],
+                isCurrent: lessons[i].id == current.id && done < lessons.length,
+                vocab: vocabCount[lessons[i].id],
+                grammar: grammarCount[lessons[i].id],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -456,7 +460,7 @@ class _Bar extends StatelessWidget {
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({super.key, required this.onRetry});
+  const _ErrorState({required this.onRetry});
 
   final VoidCallback onRetry;
 

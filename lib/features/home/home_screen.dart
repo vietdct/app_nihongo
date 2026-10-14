@@ -11,6 +11,7 @@ import '../../shared/level_badge.dart';
 import '../../shared/motion/animated_count.dart';
 import '../../shared/motion/animated_progress_bar.dart';
 import '../../shared/motion/press_scale.dart';
+import '../../shared/motion/stagger.dart';
 import '../../shared/skeleton.dart';
 import '../../shared/skeleton_layouts.dart';
 import '../auth/auth_controller.dart';
@@ -286,12 +287,17 @@ class HomeScreen extends ConsumerWidget {
                   ),
                 const SizedBox(height: 28),
               ];
-              return ListView(
-                padding: EdgeInsets.zero,
-                children: [
-                  for (var i = 0; i < sections.length; i++)
-                    _StaggerIn(index: i, child: sections[i]),
-                ],
+              // Stagger chạy 1 lần khi Home được tạo (IndexedStack giữ nguyên
+              // khi chuyển tab; rebuild vì dữ liệu về không chạy lại). Section
+              // đến muộn (sau khi chuỗi xong) hiện ngay, không chờ nhau.
+              return StaggerGroup(
+                child: ListView(
+                  padding: EdgeInsets.zero,
+                  children: [
+                    for (var i = 0; i < sections.length; i++)
+                      StaggerItem(index: i, child: sections[i]),
+                  ],
+                ),
               );
             },
           ),
@@ -1312,58 +1318,6 @@ class _SectionLabel extends StatelessWidget {
         color: AppColors.inkSoft,
         letterSpacing: 0.6,
       ),
-    );
-  }
-}
-
-/// Hiệu ứng vào màn hình so le (fade + trượt nhẹ từ dưới lên) cho từng
-/// section — chỉ chạy 1 lần khi mục đó lần đầu build, độ trễ tăng dần theo
-/// [index] để tạo cảm giác "premium" khi mở Home.
-class _StaggerIn extends StatefulWidget {
-  const _StaggerIn({required this.index, required this.child});
-
-  final int index;
-  final Widget child;
-
-  @override
-  State<_StaggerIn> createState() => _StaggerInState();
-}
-
-class _StaggerInState extends State<_StaggerIn>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 420),
-  );
-  late final Animation<double> _fade = CurvedAnimation(
-    parent: _controller,
-    curve: Curves.easeOut,
-  );
-  late final Animation<Offset> _slide = Tween<Offset>(
-    begin: const Offset(0, 0.06),
-    end: Offset.zero,
-  ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutCubic));
-
-  @override
-  void initState() {
-    super.initState();
-    final delay = Duration(milliseconds: (widget.index * 55).clamp(0, 380));
-    Future.delayed(delay, () {
-      if (mounted) _controller.forward();
-    });
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _fade,
-      child: SlideTransition(position: _slide, child: widget.child),
     );
   }
 }
