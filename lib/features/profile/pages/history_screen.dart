@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/state_views.dart';
 import '../../kaiwa/providers/kaiwa_conversation_providers.dart';
 import '../providers/exam_history_providers.dart';
 import '../widgets/profile_section_label.dart';
@@ -38,15 +39,19 @@ class HistoryScreen extends ConsumerWidget {
               padding: EdgeInsets.symmetric(vertical: 20),
               child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             ),
-            error: (e, _) => Text('Lỗi tải lịch sử: $e'),
+            error: (e, _) => ErrorState(
+              compact: true,
+              title: 'Không tải được lịch sử',
+              error: e,
+              onRetry: () => ref.invalidate(examSessionHistoryProvider),
+            ),
             data: (sessions) => sessions.isEmpty
                 ? const _EmptyHint(text: 'Chưa có lượt thi thử nào đã nộp.')
                 : Container(
                     decoration: BoxDecoration(
                       color: AppColors.card,
                       borderRadius: BorderRadius.circular(16),
-                      border:
-                          Border.all(color: AppColors.border, width: 1.0),
+                      border: Border.all(color: AppColors.border, width: 1.0),
                     ),
                     child: Column(
                       children: [

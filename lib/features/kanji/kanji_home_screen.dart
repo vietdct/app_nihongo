@@ -9,7 +9,9 @@ import '../../shared/level_badge.dart';
 import '../../shared/motion/animated_progress_bar.dart';
 import '../../shared/motion/press_scale.dart';
 import '../../shared/skeleton_layouts.dart';
+import '../../shared/state_views.dart';
 import '../lesson/providers/content_providers.dart';
+import '../lesson/providers/content_state.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/kanji_progress_providers.dart';
 
@@ -23,7 +25,7 @@ class KanjiHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final kanjiAsync = ref.watch(kanjiListProvider);
+    final kanjiAsync = resolveContentList(ref, ref.watch(kanjiListProvider));
     final progressAsync = ref.watch(kanjiProgressProvider);
     final selectedLevel = ref.watch(selectedLevelCodeProvider);
 
@@ -35,17 +37,20 @@ class KanjiHomeScreen extends ConsumerWidget {
       ),
       body: kanjiAsync.when(
         loading: () => const SectionedHomeSkeleton(),
-        error: (e, _) => Center(child: Text('Lỗi: $e')),
+        error: (e, _) => ErrorState(
+          error: e,
+          onRetry: () =>
+              retryContentSync(ref, streamProvider: kanjiListProvider),
+        ),
         data: (all) {
           if (all.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Chưa có Kanji nào cho $selectedLevel.\nNội dung đang được bổ sung dần.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.inkSoft),
-                ),
+            return RefreshIndicator(
+              onRefresh: () => pullToRefreshContent(context, ref),
+              child: EmptyState(
+                icon: Icons.edit_outlined,
+                title: 'Chưa có Kanji nào cho $selectedLevel',
+                message:
+                    'Nội dung đang được bổ sung dần. Kéo xuống để làm mới.',
               ),
             );
           }
@@ -74,93 +79,74 @@ class KanjiHomeScreen extends ConsumerWidget {
             if (p?.isKnown == true) knownCount++;
             if (p == null || p.isDueNow) dueCount++;
             if (p?.starred == true) starredItems.add(k);
-            if (p?.updatedAt != null) recentEntries.add(MapEntry(k, p!.updatedAt!));
+            if (p?.updatedAt != null) {
+              recentEntries.add(MapEntry(k, p!.updatedAt!));
+            }
           }
           recentEntries.sort((a, b) => b.value.compareTo(a.value));
           final recentItems = recentEntries.take(5).map((e) => e.key).toList();
           final knownPct = ((knownCount / all.length) * 100).round();
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-            children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => context.push('/kanji'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 14, vertical: 13,),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(Icons.search_rounded,
-                          color: AppColors.inkFaint, size: 20,),
-                      SizedBox(width: 10),
-                      Text(
-                        'Tra chữ Hán, Hán Việt hoặc nghĩa...',
-                        style: TextStyle(
-                            fontSize: 13.5, color: AppColors.inkFaint,),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              if (continueItem != null) ...[
-                const SizedBox(height: 24),
-                const _SectionLabel('Tiếp tục học'),
-                const SizedBox(height: 10),
-                _ContinueKanjiCard(
-                  kanji: continueItem,
-                  levelLabel: selectedLevel,
-                ),
-              ],
-              const SizedBox(height: 24),
-              const _SectionLabel('Kanji hôm nay'),
-              const SizedBox(height: 10),
-              _DailyKanjiCard(kanji: dailyItem),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const _SectionLabel('Tiến độ'),
-                  InkWell(
-                    onTap: () => context.push('/kanji/statistics'),
-                    child: const Text(
-                      'Xem thống kê →',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.indigo,
-                      ),
+          return RefreshIndicator(
+            onRefresh: () => pullToRefreshContent(context, ref),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => context.push('/kanji'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 13,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.search_rounded,
+                          color: AppColors.inkFaint,
+                          size: 20,
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'Tra chữ Hán, Hán Việt hoặc nghĩa...',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            color: AppColors.inkFaint,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
+                ),
+                if (continueItem != null) ...[
+                  const SizedBox(height: 24),
+                  const _SectionLabel('Tiếp tục học'),
+                  const SizedBox(height: 10),
+                  _ContinueKanjiCard(
+                    kanji: continueItem,
+                    levelLabel: selectedLevel,
+                  ),
                 ],
-              ),
-              const SizedBox(height: 10),
-              _KanjiProgressCard(
-                knownCount: knownCount,
-                total: all.length,
-                pct: knownPct,
-              ),
-              if (dueCount > 0) ...[
                 const SizedBox(height: 24),
-                const _SectionLabel('Cần ôn tập'),
+                const _SectionLabel('Kanji hôm nay'),
                 const SizedBox(height: 10),
-                _ReviewReminderCard(dueCount: dueCount),
-              ],
-              if (starredItems.isNotEmpty) ...[
+                _DailyKanjiCard(kanji: dailyItem),
                 const SizedBox(height: 24),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const _SectionLabel('Đã lưu'),
+                    const _SectionLabel('Tiến độ'),
                     InkWell(
-                      onTap: () => context.push('/kanji'),
+                      onTap: () => context.push('/kanji/statistics'),
                       child: const Text(
-                        'Xem tất cả',
+                        'Xem thống kê →',
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
@@ -171,39 +157,72 @@ class KanjiHomeScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 10),
-                _KanjiMiniList(items: starredItems.take(3).toList()),
-              ],
-              if (recentItems.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                const _SectionLabel('Gần đây'),
-                const SizedBox(height: 10),
-                _KanjiMiniList(items: recentItems),
-              ],
-              const SizedBox(height: 28),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => context.push('/kanji'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.indigo,
-                        side: const BorderSide(color: AppColors.indigo),
-                      ),
-                      child: const Text('Xem tất cả Kanji'),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => context.push('/kanji/draw'),
-                      style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.indigo,),
-                      child: const Text('Vẽ tìm Kanji'),
-                    ),
-                  ),
+                _KanjiProgressCard(
+                  knownCount: knownCount,
+                  total: all.length,
+                  pct: knownPct,
+                ),
+                if (dueCount > 0) ...[
+                  const SizedBox(height: 24),
+                  const _SectionLabel('Cần ôn tập'),
+                  const SizedBox(height: 10),
+                  _ReviewReminderCard(dueCount: dueCount),
                 ],
-              ),
-            ],
+                if (starredItems.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const _SectionLabel('Đã lưu'),
+                      InkWell(
+                        onTap: () => context.push('/kanji'),
+                        child: const Text(
+                          'Xem tất cả',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.indigo,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  _KanjiMiniList(items: starredItems.take(3).toList()),
+                ],
+                if (recentItems.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  const _SectionLabel('Gần đây'),
+                  const SizedBox(height: 10),
+                  _KanjiMiniList(items: recentItems),
+                ],
+                const SizedBox(height: 28),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => context.push('/kanji'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.indigo,
+                          side: const BorderSide(color: AppColors.indigo),
+                        ),
+                        child: const Text('Xem tất cả Kanji'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => context.push('/kanji/draw'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.indigo,
+                        ),
+                        child: const Text('Vẽ tìm Kanji'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           );
         },
       ),
@@ -284,11 +303,14 @@ class _ContinueKanjiCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('$levelLabel — Vào học ngay',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 14,
-                            color: Colors.white,),),
+                    Text(
+                      '$levelLabel — Vào học ngay',
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 14,
+                        color: Colors.white,
+                      ),
+                    ),
                     const SizedBox(height: 2),
                     Text(
                       kanji.hanViet.isNotEmpty
@@ -313,8 +335,11 @@ class _ContinueKanjiCard extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
                 alignment: Alignment.center,
-                child: const Icon(Icons.chevron_right_rounded,
-                    color: Colors.white, size: 22,),
+                child: const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Colors.white,
+                  size: 22,
+                ),
               ),
             ],
           ),
@@ -378,16 +403,23 @@ class _DailyKanjiCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    Text(kanji.meaningVi.join(', '),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 12.5, color: AppColors.inkSoft,),),
+                    Text(
+                      kanji.meaningVi.join(', '),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 12.5,
+                        color: AppColors.inkSoft,
+                      ),
+                    ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.inkFaint, size: 20,),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.inkFaint,
+                size: 20,
+              ),
             ],
           ),
         ),
@@ -397,8 +429,11 @@ class _DailyKanjiCard extends StatelessWidget {
 }
 
 class _KanjiProgressCard extends StatelessWidget {
-  const _KanjiProgressCard(
-      {required this.knownCount, required this.total, required this.pct,});
+  const _KanjiProgressCard({
+    required this.knownCount,
+    required this.total,
+    required this.pct,
+  });
 
   final int knownCount;
   final int total;
@@ -419,16 +454,22 @@ class _KanjiProgressCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('$knownCount/$total chữ đã thuộc',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12.5,
-                      color: AppColors.ink,),),
-              Text('$pct%',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 11,
-                      color: AppColors.indigo,),),
+              Text(
+                '$knownCount/$total chữ đã thuộc',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 12.5,
+                  color: AppColors.ink,
+                ),
+              ),
+              Text(
+                '$pct%',
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 11,
+                  color: AppColors.indigo,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
@@ -463,8 +504,11 @@ class _ReviewReminderCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              const Icon(Icons.refresh_rounded,
-                  color: AppColors.danger, size: 20,),
+              const Icon(
+                Icons.refresh_rounded,
+                color: AppColors.danger,
+                size: 20,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
@@ -476,8 +520,11 @@ class _ReviewReminderCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const Icon(Icons.chevron_right_rounded,
-                  color: AppColors.danger, size: 20,),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.danger,
+                size: 20,
+              ),
             ],
           ),
         ),
@@ -556,8 +603,11 @@ class _KanjiMiniList extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const Icon(Icons.chevron_right_rounded,
-                        color: AppColors.inkFaint, size: 18,),
+                    const Icon(
+                      Icons.chevron_right_rounded,
+                      color: AppColors.inkFaint,
+                      size: 18,
+                    ),
                   ],
                 ),
               ),

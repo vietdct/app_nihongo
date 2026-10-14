@@ -10,7 +10,9 @@ import '../../shared/debounced_search_field.dart';
 import '../../shared/lesson_filter_dropdown.dart';
 import '../../shared/level_badge.dart';
 import '../../shared/skeleton_layouts.dart';
+import '../../shared/state_views.dart';
 import '../lesson/providers/content_providers.dart';
+import '../lesson/providers/content_state.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/grammar_progress_providers.dart';
 
@@ -23,7 +25,8 @@ class GrammarListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final grammarAsync = ref.watch(grammarListProvider);
+    final grammarAsync =
+        resolveContentList(ref, ref.watch(grammarListProvider));
     final query = ref.watch(_grammarSearchQueryProvider).trim().toLowerCase();
     final selectedLevel = ref.watch(selectedLevelCodeProvider);
     final showStarredOnly = ref.watch(_showStarredOnlyProvider);
@@ -111,17 +114,22 @@ class GrammarListScreen extends ConsumerWidget {
           Expanded(
             child: grammarAsync.when(
               loading: () => const ListCardSkeleton(),
-              error: (e, _) => Center(child: Text('Lỗi: $e')),
+              error: (e, _) => ErrorState(
+                error: e,
+                onRetry: () => retryContentSync(
+                  ref,
+                  streamProvider: grammarListProvider,
+                ),
+              ),
               data: (all) {
                 if (all.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Chưa có ngữ pháp nào cho $selectedLevel.\nNội dung đang được bổ sung dần.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.inkSoft),
-                      ),
+                  return RefreshIndicator(
+                    onRefresh: () => pullToRefreshContent(context, ref),
+                    child: EmptyState(
+                      icon: Icons.description_outlined,
+                      title: 'Chưa có ngữ pháp nào cho $selectedLevel',
+                      message:
+                          'Nội dung đang được bổ sung dần. Kéo xuống để làm mới.',
                     ),
                   );
                 }
@@ -158,34 +166,40 @@ class GrammarListScreen extends ConsumerWidget {
                 }
 
                 if (filtered.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        showStarredOnly
-                            ? 'Chưa có ngữ pháp nào được lưu.\nMở Flashcard và chạm ngôi sao để lưu lại.'
-                            : 'Không tìm thấy ngữ pháp nào.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.inkSoft),
-                      ),
+                  return RefreshIndicator(
+                    onRefresh: () => pullToRefreshContent(context, ref),
+                    child: EmptyState(
+                      icon: showStarredOnly
+                          ? Icons.star_outline_rounded
+                          : Icons.search_off_rounded,
+                      title: showStarredOnly
+                          ? 'Chưa có ngữ pháp nào được lưu'
+                          : 'Không tìm thấy ngữ pháp nào',
+                      message: showStarredOnly
+                          ? 'Mở Flashcard và chạm ngôi sao để lưu lại.'
+                          : 'Thử đổi từ khoá hoặc bộ lọc bài học.',
                     ),
                   );
                 }
-                return Container(
-                  margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(18),
-                    border: Border.all(color: AppColors.border, width: 1.0),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: ListView.separated(
-                    itemCount: filtered.length,
-                    separatorBuilder: (_, __) =>
-                        const Divider(height: 1, color: AppColors.border),
-                    itemBuilder: (context, i) => _GrammarTile(
-                      grammar: filtered[i],
-                      starred: progressMap[filtered[i].id]?.starred == true,
+                return RefreshIndicator(
+                  onRefresh: () => pullToRefreshContent(context, ref),
+                  child: Container(
+                    margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: AppColors.border, width: 1.0),
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, __) =>
+                          const Divider(height: 1, color: AppColors.border),
+                      itemBuilder: (context, i) => _GrammarTile(
+                        grammar: filtered[i],
+                        starred: progressMap[filtered[i].id]?.starred == true,
+                      ),
                     ),
                   ),
                 );
@@ -289,4 +303,3 @@ class _GrammarTile extends StatelessWidget {
     );
   }
 }
-

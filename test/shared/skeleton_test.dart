@@ -3,12 +3,14 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:nihongo/domain/entities/jlpt_level.dart';
 import 'package:nihongo/domain/entities/lesson.dart';
 import 'package:nihongo/features/lesson/lesson_list_screen.dart';
 import 'package:nihongo/features/lesson/providers/content_providers.dart';
 import 'package:nihongo/features/lesson/providers/level_providers.dart';
 import 'package:nihongo/shared/skeleton.dart';
 import 'package:nihongo/shared/skeleton_layouts.dart';
+import 'package:nihongo/shared/state_views.dart';
 
 Widget _app(
   Widget child, {
@@ -190,6 +192,14 @@ void main() {
         ProviderScope(
           overrides: [
             selectedLevelCodeProvider.overrideWith((ref) => 'N5'),
+            // Đồng bộ nền đã xong thành công: để kiểm trạng thái của riêng
+            // luồng danh sách (rỗng chỉ được kết luận sau đồng bộ thành công).
+            jlptLevelsProvider.overrideWith(
+              (ref) async => const [
+                JlptLevel(id: 'l5', code: 'N5', title: 'N5', orderIndex: 0),
+              ],
+            ),
+            contentRefreshProvider.overrideWith((ref) async {}),
             lessonsProvider.overrideWith((ref) => controller.stream),
           ],
           child: _app(const LessonListScreen()),
@@ -232,7 +242,8 @@ void main() {
       c.addError(Exception('mất kết nối'));
       await tester.pumpAndSettle();
       expect(find.byType(LessonListSkeleton), findsNothing);
-      expect(find.textContaining('Lỗi:'), findsOneWidget);
+      expect(find.byType(ErrorState), findsOneWidget);
+      expect(find.textContaining('Exception'), findsNothing);
       expect(find.textContaining('Chưa có bài học nào'), findsNothing);
     });
   });

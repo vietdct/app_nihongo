@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../shared/motion/animated_progress_bar.dart';
+import '../../../shared/state_views.dart';
 import '../../grammar/providers/grammar_progress_providers.dart';
 import '../../kaiwa/providers/kaiwa_conversation_providers.dart';
 import '../../kanji/providers/kanji_progress_providers.dart';
@@ -89,7 +90,12 @@ class LearningOverviewScreen extends ConsumerWidget {
               padding: EdgeInsets.symmetric(vertical: 20),
               child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
             ),
-            error: (e, _) => Text('Lỗi tải tiến độ: $e'),
+            error: (e, _) => ErrorState(
+              compact: true,
+              title: 'Không tải được tiến độ',
+              error: e,
+              onRetry: () => ref.invalidate(jlptLevelProgressProvider),
+            ),
             data: (levels) => Column(
               children: [
                 for (final lp in levels) ...[

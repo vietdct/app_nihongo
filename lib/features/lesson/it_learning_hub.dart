@@ -11,7 +11,9 @@ import '../../shared/motion/animated_progress_bar.dart';
 import '../../shared/motion/press_scale.dart';
 import '../../shared/motion/stagger.dart';
 import '../../shared/skeleton_layouts.dart';
+import '../../shared/state_views.dart';
 import 'providers/content_providers.dart';
+import 'providers/content_state.dart';
 
 /// Tiến độ đã lưu của mọi bài trong cấp độ đang chọn, 1 query duy nhất —
 /// nguồn thật là `user_lesson_progress` (chỉ có bước dừng + completed_at).
@@ -69,7 +71,7 @@ class ItLearningHub extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final lessonsAsync = ref.watch(lessonsProvider);
+    final lessonsAsync = resolveContentList(ref, ref.watch(lessonsProvider));
     final progressAsync = ref.watch(lessonProgressMapProvider);
 
     return Scaffold(
@@ -80,13 +82,20 @@ class ItLearningHub extends ConsumerWidget {
       body: lessonsAsync.when(
         loading: () => const SectionedHomeSkeleton(
             showSearchBar: false, cardHeights: [120, 96, 96]),
-        error: (_, __) =>
-            _ErrorState(onRetry: () => ref.invalidate(lessonsProvider)),
+        error: (e, _) => ErrorState(
+          error: e,
+          onRetry: () => retryContentSync(ref, streamProvider: lessonsProvider),
+        ),
         data: (lessons) {
           if (lessons.isEmpty) {
-            return const Center(
-              child: Text('Chưa có nội dung bài học.',
-                  style: TextStyle(color: AppColors.inkSoft)),
+            return RefreshIndicator(
+              onRefresh: () => pullToRefreshContent(context, ref),
+              child: const EmptyState(
+                icon: Icons.menu_book_outlined,
+                title: 'Chưa có nội dung bài học',
+                message:
+                    'Nội dung đang được bổ sung dần. Kéo xuống để làm mới.',
+              ),
             );
           }
           final sorted = [...lessons]
@@ -97,11 +106,14 @@ class ItLearningHub extends ConsumerWidget {
               ref.watch(vocabularyLessonAssignmentsProvider).valueOrNull);
           final grammarCount = _countByLesson(
               ref.watch(grammarLessonAssignmentsProvider).valueOrNull);
-          return _HubBody(
-            lessons: sorted,
-            progress: progress,
-            vocabCount: vocabCount,
-            grammarCount: grammarCount,
+          return RefreshIndicator(
+            onRefresh: () => pullToRefreshContent(context, ref),
+            child: _HubBody(
+              lessons: sorted,
+              progress: progress,
+              vocabCount: vocabCount,
+              grammarCount: grammarCount,
+            ),
           );
         },
       ),
@@ -144,6 +156,7 @@ class _HubBody extends StatelessWidget {
     // trình (tối đa 8 mục); các bài còn lại hiện ngay.
     return StaggerGroup(
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
         children: [
           StaggerItem(
@@ -455,27 +468,6 @@ class _Bar extends StatelessWidget {
       minHeight: 6,
       backgroundColor: AppColors.chip,
       color: color,
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.onRetry});
-
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Text('Không thể tải nội dung.',
-              style: TextStyle(color: AppColors.inkSoft)),
-          const SizedBox(height: 12),
-          OutlinedButton(onPressed: onRetry, child: const Text('Thử lại')),
-        ],
-      ),
     );
   }
 }

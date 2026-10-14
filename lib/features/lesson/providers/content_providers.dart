@@ -11,12 +11,28 @@ import 'level_providers.dart';
 /// watchLessons/watchVocabulary/watchKanji đọc Drift ngay lập tức,
 /// provider này chỉ âm thầm làm mới cache nền cho cấp độ đang chọn).
 final contentRefreshProvider = FutureProvider<void>((ref) async {
-  final levelId = ref.watch(currentLevelIdProvider);
-  if (levelId == null) return;
-  final coreN5Only = ref.watch(selectedLevelCodeProvider) == 'N5';
+  final target = syncTargetOf(ref.watch);
+  if (target == null) return;
   final repo = ref.watch(contentRepositoryProvider);
-  await repo.refreshFromRemote(levelId, coreN5Only: coreN5Only);
+  await repo.refreshFromRemote(
+    target.levelId,
+    coreN5Only: target.coreN5Only,
+  );
 });
+
+typedef ProviderReader = T Function<T>(ProviderListenable<T> provider);
+
+/// Cấp độ + phạm vi cần đồng bộ, dùng chung cho đồng bộ nền và "kéo để làm
+/// mới" để hai đường luôn gọi repository với cùng tham số. null = chưa biết
+/// cấp độ (danh sách cấp độ chưa tải).
+({String levelId, bool coreN5Only})? syncTargetOf(ProviderReader read) {
+  final levelId = read(currentLevelIdProvider);
+  if (levelId == null) return null;
+  return (
+    levelId: levelId,
+    coreN5Only: read(selectedLevelCodeProvider) == 'N5',
+  );
+}
 
 final lessonsProvider = StreamProvider<List<Lesson>>((ref) {
   ref.watch(contentRefreshProvider); // trigger refresh nền, không đợi kết quả

@@ -9,7 +9,9 @@ import '../../shared/debounced_search_field.dart';
 import '../../shared/lesson_filter_dropdown.dart';
 import '../../shared/level_badge.dart';
 import '../../shared/skeleton_layouts.dart';
+import '../../shared/state_views.dart';
 import '../lesson/providers/content_providers.dart';
+import '../lesson/providers/content_state.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/kanji_progress_providers.dart';
 
@@ -22,7 +24,7 @@ class KanjiListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final kanjiAsync = ref.watch(kanjiListProvider);
+    final kanjiAsync = resolveContentList(ref, ref.watch(kanjiListProvider));
     final query = ref.watch(_kanjiSearchQueryProvider).trim();
     final selectedLevel = ref.watch(selectedLevelCodeProvider);
     final showStarredOnly = ref.watch(_showStarredOnlyProvider);
@@ -72,7 +74,8 @@ class KanjiListScreen extends ConsumerWidget {
                 kanjiAsync.valueOrNull == null
                     ? 'Kanji được tổng hợp từ các từ vựng của khóa Tiếng Nhật IT.'
                     : '${kanjiAsync.valueOrNull!.length} chữ Kanji được tổng hợp từ các từ vựng của khóa Tiếng Nhật IT.',
-                style: const TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
+                style:
+                    const TextStyle(fontSize: 12.5, color: AppColors.inkSoft),
               ),
             ),
           Padding(
@@ -115,17 +118,20 @@ class KanjiListScreen extends ConsumerWidget {
           Expanded(
             child: kanjiAsync.when(
               loading: () => const KanjiGridSkeleton(),
-              error: (e, _) => Center(child: Text('Lỗi: $e')),
+              error: (e, _) => ErrorState(
+                error: e,
+                onRetry: () =>
+                    retryContentSync(ref, streamProvider: kanjiListProvider),
+              ),
               data: (all) {
                 if (all.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        'Chưa có kanji nào cho $selectedLevel.\nNội dung đang được bổ sung dần.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.inkSoft),
-                      ),
+                  return RefreshIndicator(
+                    onRefresh: () => pullToRefreshContent(context, ref),
+                    child: EmptyState(
+                      icon: Icons.edit_outlined,
+                      title: 'Chưa có kanji nào cho $selectedLevel',
+                      message:
+                          'Nội dung đang được bổ sung dần. Kéo xuống để làm mới.',
                     ),
                   );
                 }
@@ -165,83 +171,90 @@ class KanjiListScreen extends ConsumerWidget {
                 }
 
                 if (filtered.isEmpty) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Text(
-                        showStarredOnly
-                            ? 'Chưa có chữ nào được lưu.\nMở flashcard và chạm ngôi sao để lưu chữ lại.'
-                            : 'Không tìm thấy kanji nào.',
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: AppColors.inkSoft),
-                      ),
+                  return RefreshIndicator(
+                    onRefresh: () => pullToRefreshContent(context, ref),
+                    child: EmptyState(
+                      icon: showStarredOnly
+                          ? Icons.star_outline_rounded
+                          : Icons.search_off_rounded,
+                      title: showStarredOnly
+                          ? 'Chưa có chữ nào được lưu'
+                          : 'Không tìm thấy kanji nào',
+                      message: showStarredOnly
+                          ? 'Mở flashcard và chạm ngôi sao để lưu chữ lại.'
+                          : 'Thử đổi từ khoá hoặc bộ lọc bài học.',
                     ),
                   );
                 }
-                return GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 4,
-                    mainAxisSpacing: 10,
-                    crossAxisSpacing: 10,
-                    childAspectRatio: 0.9,
-                  ),
-                  itemCount: filtered.length,
-                  itemBuilder: (context, i) {
-                    final k = filtered[i];
-                    final starred = progressMap[k.id]?.starred == true;
-                    return InkWell(
-                      borderRadius: BorderRadius.circular(16),
-                      onTap: () => context.push('/kanji/${k.id}'),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: AppColors.card,
-                          borderRadius: BorderRadius.circular(16),
-                          border:
-                              Border.all(color: AppColors.border, width: 1.0),
-                        ),
-                        child: Stack(
-                          children: [
-                            Center(
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(
-                                    k.character,
-                                    style: AppFonts.zenMaruGothic(
-                                      fontSize: 26,
-                                      color: AppColors.ink,
+                return RefreshIndicator(
+                  onRefresh: () => pullToRefreshContent(context, ref),
+                  child: GridView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      mainAxisSpacing: 10,
+                      crossAxisSpacing: 10,
+                      childAspectRatio: 0.9,
+                    ),
+                    itemCount: filtered.length,
+                    itemBuilder: (context, i) {
+                      final k = filtered[i];
+                      final starred = progressMap[k.id]?.starred == true;
+                      return InkWell(
+                        borderRadius: BorderRadius.circular(16),
+                        onTap: () => context.push('/kanji/${k.id}'),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: AppColors.card,
+                            borderRadius: BorderRadius.circular(16),
+                            border:
+                                Border.all(color: AppColors.border, width: 1.0),
+                          ),
+                          child: Stack(
+                            children: [
+                              Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      k.character,
+                                      style: AppFonts.zenMaruGothic(
+                                        fontSize: 26,
+                                        color: AppColors.ink,
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 5),
-                                  Text(
-                                    k.meaningVi.join(', '),
-                                    style: const TextStyle(
-                                      fontSize: 10.5,
-                                      color: AppColors.inkSoft,
+                                    const SizedBox(height: 5),
+                                    Text(
+                                      k.meaningVi.join(', '),
+                                      style: const TextStyle(
+                                        fontSize: 10.5,
+                                        color: AppColors.inkSoft,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                    textAlign: TextAlign.center,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            if (starred)
-                              const Positioned(
-                                top: 5,
-                                right: 5,
-                                child: Icon(
-                                  Icons.star_rounded,
-                                  size: 14,
-                                  color: AppColors.accent,
+                                  ],
                                 ),
                               ),
-                          ],
+                              if (starred)
+                                const Positioned(
+                                  top: 5,
+                                  right: 5,
+                                  child: Icon(
+                                    Icons.star_rounded,
+                                    size: 14,
+                                    color: AppColors.accent,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 );
               },
             ),

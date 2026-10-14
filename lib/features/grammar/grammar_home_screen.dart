@@ -9,7 +9,9 @@ import '../../shared/level_badge.dart';
 import '../../shared/motion/animated_progress_bar.dart';
 import '../../shared/motion/press_scale.dart';
 import '../../shared/skeleton_layouts.dart';
+import '../../shared/state_views.dart';
 import '../lesson/providers/content_providers.dart';
+import '../lesson/providers/content_state.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/grammar_progress_providers.dart';
 
@@ -23,7 +25,8 @@ class GrammarHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final grammarAsync = ref.watch(grammarListProvider);
+    final grammarAsync =
+        resolveContentList(ref, ref.watch(grammarListProvider));
     final progressAsync = ref.watch(grammarProgressProvider);
     final selectedLevel = ref.watch(selectedLevelCodeProvider);
 
@@ -35,17 +38,20 @@ class GrammarHomeScreen extends ConsumerWidget {
       ),
       body: grammarAsync.when(
         loading: () => const SectionedHomeSkeleton(),
-        error: (e, _) => Center(child: Text('Lỗi: $e')),
+        error: (e, _) => ErrorState(
+          error: e,
+          onRetry: () =>
+              retryContentSync(ref, streamProvider: grammarListProvider),
+        ),
         data: (all) {
           if (all.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Chưa có ngữ pháp nào cho $selectedLevel.\nNội dung đang được bổ sung dần.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.inkSoft),
-                ),
+            return RefreshIndicator(
+              onRefresh: () => pullToRefreshContent(context, ref),
+              child: EmptyState(
+                icon: Icons.description_outlined,
+                title: 'Chưa có ngữ pháp nào cho $selectedLevel',
+                message:
+                    'Nội dung đang được bổ sung dần. Kéo xuống để làm mới.',
               ),
             );
           }
@@ -82,148 +88,152 @@ class GrammarHomeScreen extends ConsumerWidget {
           final recentItems = recentEntries.take(5).map((e) => e.key).toList();
           final knownPct = ((knownCount / all.length) * 100).round();
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-            children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => context.push('/grammar'),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 13,
-                  ),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(
-                        Icons.search_rounded,
-                        color: AppColors.inkFaint,
-                        size: 20,
-                      ),
-                      SizedBox(width: 10),
-                      Text(
-                        'Tra tiêu đề hoặc giải thích ngữ pháp...',
-                        style: TextStyle(
-                          fontSize: 13.5,
+          return RefreshIndicator(
+            onRefresh: () => pullToRefreshContent(context, ref),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => context.push('/grammar'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 13,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.search_rounded,
                           color: AppColors.inkFaint,
+                          size: 20,
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'Tra tiêu đề hoặc giải thích ngữ pháp...',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            color: AppColors.inkFaint,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (continueItem != null) ...[
+                  const SizedBox(height: 24),
+                  const _SectionLabel('Tiếp tục học'),
+                  const SizedBox(height: 10),
+                  _ContinueGrammarCard(
+                    grammar: continueItem,
+                    levelLabel: selectedLevel,
+                  ),
+                ],
+                const SizedBox(height: 24),
+                const _SectionLabel('Ngữ pháp hôm nay'),
+                const SizedBox(height: 10),
+                _DailyGrammarCard(grammar: dailyItem),
+                const SizedBox(height: 24),
+                const _SectionLabel('Tiến độ'),
+                const SizedBox(height: 10),
+                _GrammarProgressCard(
+                  knownCount: knownCount,
+                  total: all.length,
+                  pct: knownPct,
+                ),
+                if (dueCount > 0) ...[
+                  const SizedBox(height: 24),
+                  const _SectionLabel('Cần ôn tập'),
+                  const SizedBox(height: 10),
+                  _ReviewReminderCard(dueCount: dueCount),
+                ],
+                if (starredItems.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const _SectionLabel('Đã lưu'),
+                      InkWell(
+                        onTap: () => context.push('/grammar'),
+                        child: const Text(
+                          'Xem tất cả',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.plum,
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
-              ),
-              if (continueItem != null) ...[
-                const SizedBox(height: 24),
-                const _SectionLabel('Tiếp tục học'),
-                const SizedBox(height: 10),
-                _ContinueGrammarCard(
-                  grammar: continueItem,
-                  levelLabel: selectedLevel,
-                ),
-              ],
-              const SizedBox(height: 24),
-              const _SectionLabel('Ngữ pháp hôm nay'),
-              const SizedBox(height: 10),
-              _DailyGrammarCard(grammar: dailyItem),
-              const SizedBox(height: 24),
-              const _SectionLabel('Tiến độ'),
-              const SizedBox(height: 10),
-              _GrammarProgressCard(
-                knownCount: knownCount,
-                total: all.length,
-                pct: knownPct,
-              ),
-              if (dueCount > 0) ...[
-                const SizedBox(height: 24),
-                const _SectionLabel('Cần ôn tập'),
-                const SizedBox(height: 10),
-                _ReviewReminderCard(dueCount: dueCount),
-              ],
-              if (starredItems.isNotEmpty) ...[
-                const SizedBox(height: 24),
+                  const SizedBox(height: 10),
+                  _GrammarMiniList(items: starredItems.take(3).toList()),
+                ],
+                if (recentItems.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  const _SectionLabel('Gần đây'),
+                  const SizedBox(height: 10),
+                  _GrammarMiniList(items: recentItems),
+                ],
+                const SizedBox(height: 28),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const _SectionLabel('Đã lưu'),
-                    InkWell(
-                      onTap: () => context.push('/grammar'),
-                      child: const Text(
-                        'Xem tất cả',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.plum,
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => context.push('/grammar'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.plum,
+                          side: const BorderSide(color: AppColors.plum),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                        child: const Text(
+                          'Xem tất cả',
+                          style: TextStyle(fontSize: 12.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: PressScale(
+                        child: FilledButton(
+                          onPressed: () => context.push('/grammar/practice'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.plum,
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                          child: const Text(
+                            'Luyện tập',
+                            style: TextStyle(fontSize: 12.5),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: PressScale(
+                        child: FilledButton(
+                          onPressed: () => context.push('/grammar/flashcards'),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF8A3B70),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                          child: const Text(
+                            'Flashcard',
+                            style: TextStyle(fontSize: 12.5),
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                _GrammarMiniList(items: starredItems.take(3).toList()),
               ],
-              if (recentItems.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                const _SectionLabel('Gần đây'),
-                const SizedBox(height: 10),
-                _GrammarMiniList(items: recentItems),
-              ],
-              const SizedBox(height: 28),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => context.push('/grammar'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.plum,
-                        side: const BorderSide(color: AppColors.plum),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                      ),
-                      child: const Text(
-                        'Xem tất cả',
-                        style: TextStyle(fontSize: 12.5),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: PressScale(
-                      child: FilledButton(
-                        onPressed: () => context.push('/grammar/practice'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppColors.plum,
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
-                        child: const Text(
-                          'Luyện tập',
-                          style: TextStyle(fontSize: 12.5),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: PressScale(
-                      child: FilledButton(
-                        onPressed: () => context.push('/grammar/flashcards'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: const Color(0xFF8A3B70),
-                          padding: const EdgeInsets.symmetric(horizontal: 4),
-                        ),
-                        child: const Text(
-                          'Flashcard',
-                          style: TextStyle(fontSize: 12.5),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           );
         },
       ),

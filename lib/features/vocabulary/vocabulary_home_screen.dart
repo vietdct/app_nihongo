@@ -11,7 +11,9 @@ import '../../shared/jp_speak_button.dart';
 import '../../shared/level_badge.dart';
 import '../../shared/motion/press_scale.dart';
 import '../../shared/skeleton_layouts.dart';
+import '../../shared/state_views.dart';
 import '../lesson/providers/content_providers.dart';
+import '../lesson/providers/content_state.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/vocab_progress_providers.dart';
 import 'vocabulary_list_screen.dart' show showVocabDetailSheet;
@@ -32,7 +34,8 @@ class VocabularyHomeScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final vocabAsync = ref.watch(vocabularyListProvider);
+    final vocabAsync =
+        resolveContentList(ref, ref.watch(vocabularyListProvider));
     final progressAsync = ref.watch(vocabProgressProvider);
     final selectedLevel = ref.watch(selectedLevelCodeProvider);
     final assignments =
@@ -62,17 +65,20 @@ class VocabularyHomeScreen extends ConsumerWidget {
       ),
       body: vocabAsync.when(
         loading: () => const SectionedHomeSkeleton(),
-        error: (e, _) => Center(child: Text('Lỗi: $e')),
+        error: (e, _) => ErrorState(
+          error: e,
+          onRetry: () =>
+              retryContentSync(ref, streamProvider: vocabularyListProvider),
+        ),
         data: (all) {
           if (all.isEmpty) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Text(
-                  'Chưa có từ vựng nào cho $selectedLevel.\nNội dung đang được bổ sung dần.',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(color: AppColors.inkSoft),
-                ),
+            return RefreshIndicator(
+              onRefresh: () => pullToRefreshContent(context, ref),
+              child: EmptyState(
+                icon: Icons.translate_rounded,
+                title: 'Chưa có từ vựng nào cho $selectedLevel',
+                message:
+                    'Nội dung đang được bổ sung dần. Kéo xuống để làm mới.',
               ),
             );
           }
@@ -125,248 +131,254 @@ class VocabularyHomeScreen extends ConsumerWidget {
                   .clamp(0, 100)
                   .round();
 
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
-            children: [
-              InkWell(
-                borderRadius: BorderRadius.circular(14),
-                onTap: () => context.push('/vocabulary/list'),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                  decoration: BoxDecoration(
-                    color: AppColors.card,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: AppColors.border),
-                  ),
-                  child: const Row(
-                    children: [
-                      Icon(
-                        Icons.search_rounded,
-                        color: AppColors.inkFaint,
-                        size: 20,
-                      ),
-                      SizedBox(width: 10),
-                      Text(
-                        'Tra từ vựng hoặc nghĩa...',
-                        style: TextStyle(
-                          fontSize: 13.5,
+          return RefreshIndicator(
+            onRefresh: () => pullToRefreshContent(context, ref),
+            child: ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 28),
+              children: [
+                InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => context.push('/vocabulary/list'),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 13,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.card,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(
+                          Icons.search_rounded,
                           color: AppColors.inkFaint,
+                          size: 20,
+                        ),
+                        SizedBox(width: 10),
+                        Text(
+                          'Tra từ vựng hoặc nghĩa...',
+                          style: TextStyle(
+                            fontSize: 13.5,
+                            color: AppColors.inkFaint,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (wordOfDay != null) ...[
+                  const SizedBox(height: 20),
+                  const _SectionLabel('Từ vựng hôm nay'),
+                  const SizedBox(height: 10),
+                  _WordOfDayCard(vocab: wordOfDay),
+                ],
+                const SizedBox(height: 24),
+                const _SectionLabel('Hôm nay'),
+                const SizedBox(height: 10),
+                IntrinsicHeight(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(
+                        child: _HeroCard(
+                          icon: Icons.auto_awesome_rounded,
+                          title: 'Từ vựng hôm nay',
+                          value: '$newCount từ mới',
+                          colors: const [AppColors.moss, AppColors.teal],
+                          onTap: () => context.push('/vocabulary/flashcards'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _HeroCard(
+                          icon: Icons.refresh_rounded,
+                          title: 'Ôn tập SRS',
+                          value: '$dueCount từ cần ôn',
+                          colors: const [
+                            AppColors.accent,
+                            AppColors.accentStrong,
+                          ],
+                          onTap: () => context.push('/vocabulary/review'),
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-              if (wordOfDay != null) ...[
-                const SizedBox(height: 20),
-                const _SectionLabel('Từ vựng hôm nay'),
-                const SizedBox(height: 10),
-                _WordOfDayCard(vocab: wordOfDay),
-              ],
-              const SizedBox(height: 24),
-              const _SectionLabel('Hôm nay'),
-              const SizedBox(height: 10),
-              IntrinsicHeight(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: _HeroCard(
-                        icon: Icons.auto_awesome_rounded,
-                        title: 'Từ vựng hôm nay',
-                        value: '$newCount từ mới',
-                        colors: const [AppColors.moss, AppColors.teal],
-                        onTap: () => context.push('/vocabulary/flashcards'),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _HeroCard(
-                        icon: Icons.refresh_rounded,
-                        title: 'Ôn tập SRS',
-                        value: '$dueCount từ cần ôn',
-                        colors: const [
-                          AppColors.accent,
-                          AppColors.accentStrong,
-                        ],
-                        onTap: () => context.push('/vocabulary/review'),
-                      ),
-                    ),
-                  ],
+                ..._lessonDeckSection(
+                  context,
+                  lessons,
+                  assignments,
+                  isIt: selectedLevel == 'IT',
                 ),
-              ),
-              ..._lessonDeckSection(
-                context,
-                lessons,
-                assignments,
-                isIt: selectedLevel == 'IT',
-              ),
-              const SizedBox(height: 24),
-              const _SectionLabel('Tiến độ học tập'),
-              const SizedBox(height: 10),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.card,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: AppColors.border, width: 1.0),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _ProgressRing(
-                        label: 'Đã học',
-                        sublabel: '$learnedCount/${all.length} từ',
-                        percent: learnedPct,
-                        color: AppColors.moss,
-                      ),
-                    ),
-                    Expanded(
-                      child: _ProgressRing(
-                        label: 'Đã thuộc',
-                        sublabel: '$masteredCount/${all.length} từ',
-                        percent: masteredPct,
-                        color: AppColors.indigo,
-                      ),
-                    ),
-                    Expanded(
-                      child: _ProgressRing(
-                        label: 'Độ chính xác',
-                        sublabel: easeCount == 0
-                            ? 'Chưa có dữ liệu'
-                            : '$easeCount từ đã ôn',
-                        percent: accuracyPct,
-                        color: AppColors.accent,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (starredItems.isNotEmpty) ...[
                 const SizedBox(height: 24),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const _SectionLabel('Yêu thích'),
-                    InkWell(
-                      onTap: () => context.push('/vocabulary/list'),
-                      child: const Text(
-                        'Xem tất cả',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
+                const _SectionLabel('Tiến độ học tập'),
+                const SizedBox(height: 10),
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 18, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.card,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: AppColors.border, width: 1.0),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _ProgressRing(
+                          label: 'Đã học',
+                          sublabel: '$learnedCount/${all.length} từ',
+                          percent: learnedPct,
                           color: AppColors.moss,
+                        ),
+                      ),
+                      Expanded(
+                        child: _ProgressRing(
+                          label: 'Đã thuộc',
+                          sublabel: '$masteredCount/${all.length} từ',
+                          percent: masteredPct,
+                          color: AppColors.indigo,
+                        ),
+                      ),
+                      Expanded(
+                        child: _ProgressRing(
+                          label: 'Độ chính xác',
+                          sublabel: easeCount == 0
+                              ? 'Chưa có dữ liệu'
+                              : '$easeCount từ đã ôn',
+                          percent: accuracyPct,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (starredItems.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const _SectionLabel('Yêu thích'),
+                      InkWell(
+                        onTap: () => context.push('/vocabulary/list'),
+                        child: const Text(
+                          'Xem tất cả',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.moss,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    height: 132,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: starredItems.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 10),
+                      itemBuilder: (context, i) => _VocabMiniCard(
+                        vocab: starredItems[i],
+                        trailingIcon: Icons.star_rounded,
+                        trailingColor: AppColors.accent,
+                        onTap: () =>
+                            showVocabDetailSheet(context, starredItems[i]),
+                      ),
+                    ),
+                  ),
+                ],
+                if (recentItems.isNotEmpty) ...[
+                  const SizedBox(height: 24),
+                  const _SectionLabel('Học gần đây'),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    // Cao hơn thẻ "Yêu thích" (132) vì thẻ này còn có thêm
+                    // badge trạng thái bên dưới — nếu chỉ 132, nghĩa dài 2
+                    // dòng (vd それ "cái đó (gần người nghe)") + badge sẽ
+                    // tràn ra ngoài Column (RenderFlex overflow).
+                    height: 144,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: recentItems.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 10),
+                      itemBuilder: (context, i) {
+                        final vocab = recentItems[i].key;
+                        final p = recentItems[i].value;
+                        final String badge;
+                        final Color badgeColor;
+                        if (p.isKnown == true) {
+                          badge = 'Đã thuộc';
+                          badgeColor = AppColors.moss;
+                        } else if (p.isKnown == false) {
+                          badge = 'Đang học';
+                          badgeColor = AppColors.accentStrong;
+                        } else {
+                          badge = 'Đang ôn';
+                          badgeColor = AppColors.indigo;
+                        }
+                        return _VocabMiniCard(
+                          vocab: vocab,
+                          badge: badge,
+                          badgeColor: badgeColor,
+                          onTap: () => showVocabDetailSheet(context, vocab),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 28),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => context.push('/vocabulary/list'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppColors.moss,
+                          side: const BorderSide(color: AppColors.moss),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                        child: const Text(
+                          'Xem tất cả',
+                          style: TextStyle(fontSize: 12.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => context.push('/vocabulary/review'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.moss,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                        child: const Text(
+                          'Ôn tập',
+                          style: TextStyle(fontSize: 12.5),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => context.push('/vocabulary/flashcards'),
+                        style: FilledButton.styleFrom(
+                          backgroundColor: AppColors.teal,
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                        ),
+                        child: const Text(
+                          'Flashcard',
+                          style: TextStyle(fontSize: 12.5),
                         ),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  height: 132,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: starredItems.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
-                    itemBuilder: (context, i) => _VocabMiniCard(
-                      vocab: starredItems[i],
-                      trailingIcon: Icons.star_rounded,
-                      trailingColor: AppColors.accent,
-                      onTap: () =>
-                          showVocabDetailSheet(context, starredItems[i]),
-                    ),
-                  ),
-                ),
               ],
-              if (recentItems.isNotEmpty) ...[
-                const SizedBox(height: 24),
-                const _SectionLabel('Học gần đây'),
-                const SizedBox(height: 10),
-                SizedBox(
-                  // Cao hơn thẻ "Yêu thích" (132) vì thẻ này còn có thêm
-                  // badge trạng thái bên dưới — nếu chỉ 132, nghĩa dài 2
-                  // dòng (vd それ "cái đó (gần người nghe)") + badge sẽ
-                  // tràn ra ngoài Column (RenderFlex overflow).
-                  height: 144,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: recentItems.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 10),
-                    itemBuilder: (context, i) {
-                      final vocab = recentItems[i].key;
-                      final p = recentItems[i].value;
-                      final String badge;
-                      final Color badgeColor;
-                      if (p.isKnown == true) {
-                        badge = 'Đã thuộc';
-                        badgeColor = AppColors.moss;
-                      } else if (p.isKnown == false) {
-                        badge = 'Đang học';
-                        badgeColor = AppColors.accentStrong;
-                      } else {
-                        badge = 'Đang ôn';
-                        badgeColor = AppColors.indigo;
-                      }
-                      return _VocabMiniCard(
-                        vocab: vocab,
-                        badge: badge,
-                        badgeColor: badgeColor,
-                        onTap: () => showVocabDetailSheet(context, vocab),
-                      );
-                    },
-                  ),
-                ),
-              ],
-              const SizedBox(height: 28),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: () => context.push('/vocabulary/list'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.moss,
-                        side: const BorderSide(color: AppColors.moss),
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                      ),
-                      child: const Text(
-                        'Xem tất cả',
-                        style: TextStyle(fontSize: 12.5),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => context.push('/vocabulary/review'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.moss,
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                      ),
-                      child: const Text(
-                        'Ôn tập',
-                        style: TextStyle(fontSize: 12.5),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: () => context.push('/vocabulary/flashcards'),
-                      style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.teal,
-                        padding: const EdgeInsets.symmetric(horizontal: 4),
-                      ),
-                      child: const Text(
-                        'Flashcard',
-                        style: TextStyle(fontSize: 12.5),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+            ),
           );
         },
       ),
@@ -655,7 +667,8 @@ class _VocabMiniCard extends StatelessWidget {
               if (badge != null) ...[
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: (badgeColor ?? AppColors.inkFaint)
                         .withValues(alpha: 0.14),
@@ -745,7 +758,8 @@ class _LessonDeckCard extends StatelessWidget {
               ),
               Text(
                 '$wordCount từ',
-                style: const TextStyle(fontSize: 11.5, color: AppColors.inkSoft),
+                style:
+                    const TextStyle(fontSize: 11.5, color: AppColors.inkSoft),
               ),
             ],
           ),

@@ -22,7 +22,9 @@ import '../../shared/vocab_status_filter_dropdown.dart';
 import '../../shared/motion/playing_indicator.dart';
 import '../../shared/motion/stagger.dart';
 import '../../shared/skeleton_layouts.dart';
+import '../../shared/state_views.dart';
 import '../lesson/providers/content_providers.dart';
+import '../lesson/providers/content_state.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/vocab_progress_providers.dart';
 import 'vocabulary_lookup_screen.dart';
@@ -40,7 +42,8 @@ class VocabularyListScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final vocabAsync = ref.watch(vocabularyListProvider);
+    final vocabAsync =
+        resolveContentList(ref, ref.watch(vocabularyListProvider));
     final query = ref.watch(_vocabSearchQueryProvider).trim().toLowerCase();
     final selectedLevel = ref.watch(selectedLevelCodeProvider);
     final showStarredOnly = ref.watch(_showStarredOnlyProvider);
@@ -180,7 +183,13 @@ class VocabularyListScreen extends ConsumerWidget {
               active: vocabAsync.hasValue,
               child: vocabAsync.when(
                 loading: () => const ListCardSkeleton(trailingPill: true),
-                error: (e, _) => Center(child: Text('Lỗi: $e')),
+                error: (e, _) => ErrorState(
+                  error: e,
+                  onRetry: () => retryContentSync(
+                    ref,
+                    streamProvider: vocabularyListProvider,
+                  ),
+                ),
                 data: (all) {
                   var filtered = all;
                   if (selectedLesson == unassignedLessonFilter) {
@@ -262,48 +271,54 @@ class VocabularyListScreen extends ConsumerWidget {
                   }
 
                   if (all.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          'Chưa có từ vựng nào cho $selectedLevel.\nNội dung đang được bổ sung dần.',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppColors.inkSoft),
-                        ),
+                    return RefreshIndicator(
+                      onRefresh: () => pullToRefreshContent(context, ref),
+                      child: EmptyState(
+                        icon: Icons.translate_rounded,
+                        title: 'Chưa có từ vựng nào cho $selectedLevel',
+                        message:
+                            'Nội dung đang được bổ sung dần. Kéo xuống để làm mới.',
                       ),
                     );
                   }
                   if (filtered.isEmpty) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(24),
-                        child: Text(
-                          showStarredOnly
-                              ? 'Chưa có từ nào được lưu.\nMở Flashcard và chạm ngôi sao để lưu từ lại.'
-                              : 'Không tìm thấy từ nào.',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(color: AppColors.inkSoft),
-                        ),
+                    return RefreshIndicator(
+                      onRefresh: () => pullToRefreshContent(context, ref),
+                      child: EmptyState(
+                        icon: showStarredOnly
+                            ? Icons.star_outline_rounded
+                            : Icons.search_off_rounded,
+                        title: showStarredOnly
+                            ? 'Chưa có từ nào được lưu'
+                            : 'Không tìm thấy từ nào',
+                        message: showStarredOnly
+                            ? 'Mở Flashcard và chạm ngôi sao để lưu từ lại.'
+                            : 'Thử đổi từ khoá hoặc bộ lọc bài học.',
                       ),
                     );
                   }
-                  return Container(
-                    margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
-                    decoration: BoxDecoration(
-                      color: AppColors.card,
-                      borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: AppColors.border, width: 1.0),
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: ListView.separated(
-                      itemCount: filtered.length,
-                      separatorBuilder: (_, __) =>
-                          const Divider(height: 1, color: AppColors.border),
-                      itemBuilder: (context, i) => StaggerItem(
-                        index: i,
-                        child: _VocabTile(
-                          vocab: filtered[i],
-                          starred: progressMap[filtered[i].id]?.starred == true,
+                  return RefreshIndicator(
+                    onRefresh: () => pullToRefreshContent(context, ref),
+                    child: Container(
+                      margin: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                      decoration: BoxDecoration(
+                        color: AppColors.card,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: AppColors.border, width: 1.0),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: ListView.separated(
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) =>
+                            const Divider(height: 1, color: AppColors.border),
+                        itemBuilder: (context, i) => StaggerItem(
+                          index: i,
+                          child: _VocabTile(
+                            vocab: filtered[i],
+                            starred:
+                                progressMap[filtered[i].id]?.starred == true,
+                          ),
                         ),
                       ),
                     ),
@@ -321,9 +336,10 @@ class VocabularyListScreen extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
-    ref.invalidate(contentRefreshProvider);
+    // Dùng chung ContentRefresher với kéo-để-làm-mới: không nháy lại danh sách
+    // và bấm liên tiếp chỉ dùng lại request đang chạy.
     try {
-      await ref.read(contentRefreshProvider.future);
+      await ref.read(contentRefresherProvider).refresh();
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Đã làm mới nội dung từ vựng.')),
