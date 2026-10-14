@@ -7,6 +7,7 @@ import '../../domain/entities/kaiwa_conversation.dart';
 import '../../domain/entities/kaiwa_persona.dart';
 import '../../domain/entities/kaiwa_scenario.dart';
 import '../../domain/services/kaiwa_streak.dart';
+import '../../shared/motion/press_scale.dart';
 import '../home/providers/profile_providers.dart';
 import '../lesson/providers/level_providers.dart';
 import 'kaiwa_chat_screen.dart';
@@ -378,15 +379,17 @@ class _KaiwaHero extends StatelessWidget {
               const SizedBox(height: 14),
               SizedBox(
                 width: double.infinity,
-                child: FilledButton.icon(
-                  style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.card,
-                    foregroundColor: AppColors.teal,
-                    padding: const EdgeInsets.symmetric(vertical: 14),
+                child: PressScale(
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.card,
+                      foregroundColor: AppColors.teal,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    onPressed: onStart,
+                    icon: const Icon(Icons.mic_rounded),
+                    label: const Text('Bắt đầu hội thoại', style: TextStyle(fontWeight: FontWeight.w800)),
                   ),
-                  onPressed: onStart,
-                  icon: const Icon(Icons.mic_rounded),
-                  label: const Text('Bắt đầu hội thoại', style: TextStyle(fontWeight: FontWeight.w800)),
                 ),
               ),
             ],

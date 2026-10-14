@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/motion/animated_progress_bar.dart';
 import '../../grammar/providers/grammar_progress_providers.dart';
 import '../../kaiwa/providers/kaiwa_conversation_providers.dart';
 import '../../kanji/providers/kanji_progress_providers.dart';
@@ -160,14 +161,12 @@ class _LevelProgressRow extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: progress.ratio,
-              minHeight: 6,
-              backgroundColor: AppColors.border,
-              valueColor: const AlwaysStoppedAnimation(AppColors.accent),
-            ),
+          AnimatedProgressBar(
+            value: progress.ratio,
+            minHeight: 6,
+            backgroundColor: AppColors.border,
+            color: AppColors.accent,
+            borderRadius: 6,
           ),
         ],
       ),

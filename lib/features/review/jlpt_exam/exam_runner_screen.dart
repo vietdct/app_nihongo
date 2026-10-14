@@ -12,6 +12,7 @@ import '../../../core/services/speaker_voices.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/listening_dialogue.dart';
 import '../../../domain/services/quiz_generator.dart';
+import '../../../shared/motion/animated_progress_bar.dart';
 import '../../lesson/providers/level_providers.dart';
 import 'exam_result_screen.dart';
 import 'mini_test/mini_test_result_screen.dart';
@@ -901,14 +902,12 @@ class _ExamHeader extends StatelessWidget {
               ),
             ],
           ),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: questionNumber / questionTotal,
-              minHeight: 6,
-              backgroundColor: AppColors.chip,
-              valueColor: const AlwaysStoppedAnimation(AppColors.indigo),
-            ),
+          AnimatedProgressBar(
+            value: questionNumber / questionTotal,
+            minHeight: 6,
+            backgroundColor: AppColors.chip,
+            color: AppColors.indigo,
+            borderRadius: 99,
           ),
         ],
       ),

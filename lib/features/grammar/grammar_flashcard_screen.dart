@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/grammar_point.dart';
+import '../../shared/motion/animated_progress_bar.dart';
 import '../lesson/providers/content_providers.dart';
 import 'providers/grammar_progress_providers.dart';
 import 'widgets/grammar_content_sections.dart';
@@ -211,14 +212,11 @@ class _GrammarFlashcardScreenState
                   ],
                 ),
                 const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(100),
-                  child: LinearProgressIndicator(
-                    value: (_index + 1) / total,
-                    minHeight: 5,
-                    backgroundColor: AppColors.chip,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.plum),
-                  ),
+                AnimatedProgressBar(
+                  value: (_index + 1) / total,
+                  minHeight: 5,
+                  backgroundColor: AppColors.chip,
+                  color: AppColors.plum,
                 ),
                 const SizedBox(height: 20),
                 Expanded(

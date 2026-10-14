@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../domain/entities/lesson.dart';
 import '../../domain/services/practice_strategy.dart' show containsKanji;
 import '../../shared/level_badge.dart';
+import '../../shared/motion/press_scale.dart';
 import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/listening_dialogue_providers.dart';
@@ -344,46 +345,48 @@ class _QuizCategoryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.border, width: 0.6),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 52,
-              height: 52,
-              decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
-              alignment: Alignment.center,
-              child: Text(glyph,
-                  style: AppFonts.zenMaruGothic(fontSize: 22, color: color),),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(label,
-                      style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                          color: AppColors.ink,),),
-                  if (subtitle != null)
-                    Text(subtitle!,
-                        style: const TextStyle(
-                            fontSize: 12.5, color: AppColors.inkSoft),),
-                ],
+    return PressScale(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border, width: 0.6),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(color: bg, shape: BoxShape.circle),
+                alignment: Alignment.center,
+                child: Text(glyph,
+                    style: AppFonts.zenMaruGothic(fontSize: 22, color: color),),
               ),
-            ),
-            const Icon(Icons.chevron_right_rounded,
-                color: AppColors.inkFaint,),
-          ],
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label,
+                        style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.ink,),),
+                    if (subtitle != null)
+                      Text(subtitle!,
+                          style: const TextStyle(
+                              fontSize: 12.5, color: AppColors.inkSoft),),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded,
+                  color: AppColors.inkFaint,),
+            ],
+          ),
         ),
       ),
     );

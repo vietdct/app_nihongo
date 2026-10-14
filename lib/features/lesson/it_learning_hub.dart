@@ -7,6 +7,9 @@ import '../../core/theme/app_theme.dart';
 import '../../domain/entities/lesson.dart';
 import '../../domain/entities/lesson_progress.dart';
 import '../../shared/level_badge.dart';
+import '../../shared/motion/animated_progress_bar.dart';
+import '../../shared/motion/fade_switcher.dart';
+import '../../shared/motion/press_scale.dart';
 import 'providers/content_providers.dart';
 
 /// Tiến độ đã lưu của mọi bài trong cấp độ đang chọn, 1 query duy nhất —
@@ -73,13 +76,17 @@ class ItLearningHub extends ConsumerWidget {
         title: const Text('Tiếng Nhật IT'),
         actions: const [LevelBadge(), SizedBox(width: 12)],
       ),
-      body: lessonsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (_, __) =>
-            _ErrorState(onRetry: () => ref.invalidate(lessonsProvider)),
+      body: FadeSwitcher(
+        child: lessonsAsync.when(
+        loading: () => const Center(
+            key: ValueKey('loading'), child: CircularProgressIndicator()),
+        error: (_, __) => _ErrorState(
+            key: const ValueKey('error'),
+            onRetry: () => ref.invalidate(lessonsProvider)),
         data: (lessons) {
           if (lessons.isEmpty) {
             return const Center(
+              key: ValueKey('empty'),
               child: Text('Chưa có nội dung bài học.',
                   style: TextStyle(color: AppColors.inkSoft)),
             );
@@ -93,12 +100,14 @@ class ItLearningHub extends ConsumerWidget {
           final grammarCount = _countByLesson(
               ref.watch(grammarLessonAssignmentsProvider).valueOrNull);
           return _HubBody(
+            key: const ValueKey('data'),
             lessons: sorted,
             progress: progress,
             vocabCount: vocabCount,
             grammarCount: grammarCount,
           );
         },
+        ),
       ),
     );
   }
@@ -115,6 +124,7 @@ class ItLearningHub extends ConsumerWidget {
 
 class _HubBody extends StatelessWidget {
   const _HubBody({
+    super.key,
     required this.lessons,
     required this.progress,
     required this.vocabCount,
@@ -297,24 +307,26 @@ class _QuickAccess extends StatelessWidget {
       children: [
         for (var i = 0; i < items.length; i++) ...[
           Expanded(
-            child: InkWell(
-              borderRadius: BorderRadius.circular(16),
-              onTap: () => context.push(items[i].route),
-              child: Container(
-                constraints: const BoxConstraints(minHeight: 72),
-                padding: const EdgeInsets.symmetric(vertical: 10),
-                decoration: _cardDecoration(),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(items[i].icon, color: items[i].color),
-                    const SizedBox(height: 4),
-                    Text(items[i].label,
-                        style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.ink)),
-                  ],
+            child: PressScale(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(16),
+                onTap: () => context.push(items[i].route),
+                child: Container(
+                  constraints: const BoxConstraints(minHeight: 72),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  decoration: _cardDecoration(),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(items[i].icon, color: items[i].color),
+                      const SizedBox(height: 4),
+                      Text(items[i].label,
+                          style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.ink)),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -368,53 +380,55 @@ class _RoadmapTile extends StatelessWidget {
     ].join(' · ');
     final ratio = status == _LessonStatus.inProgress ? progress?.ratio : null;
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => context.push('/lessons/${lesson.id}/run'),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: _cardDecoration(highlight: isCurrent),
-        child: Row(
-          children: [
-            Icon(icon, color: color),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(t.badge,
-                      style: AppFonts.zenMaruGothic(
-                          fontSize: 13, color: AppColors.inkSoft)),
-                  const SizedBox(height: 2),
-                  Text(t.title,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AppFonts.zenMaruGothic(
-                              fontSize: 14.5, color: AppColors.ink)
-                          .copyWith(height: 1.35)),
-                  if (lesson.description != null) ...[
+    return PressScale(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => context.push('/lessons/${lesson.id}/run'),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: _cardDecoration(highlight: isCurrent),
+          child: Row(
+            children: [
+              Icon(icon, color: color),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(t.badge,
+                        style: AppFonts.zenMaruGothic(
+                            fontSize: 13, color: AppColors.inkSoft)),
                     const SizedBox(height: 2),
-                    Text(lesson.description!,
+                    Text(t.title,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                            fontSize: 12, color: AppColors.inkSoft)),
-                  ],
-                  const SizedBox(height: 6),
-                  Text(meta.isEmpty ? text : '$text · $meta',
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: color)),
-                  if (ratio != null) ...[
+                        style: AppFonts.zenMaruGothic(
+                                fontSize: 14.5, color: AppColors.ink)
+                            .copyWith(height: 1.35)),
+                    if (lesson.description != null) ...[
+                      const SizedBox(height: 2),
+                      Text(lesson.description!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 12, color: AppColors.inkSoft)),
+                    ],
                     const SizedBox(height: 6),
-                    _Bar(value: ratio, color: AppColors.accent),
+                    Text(meta.isEmpty ? text : '$text · $meta',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: color)),
+                    if (ratio != null) ...[
+                      const SizedBox(height: 6),
+                      _Bar(value: ratio, color: AppColors.accent),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const Icon(Icons.chevron_right, color: AppColors.inkFaint),
-          ],
+              const Icon(Icons.chevron_right, color: AppColors.inkFaint),
+            ],
+          ),
         ),
       ),
     );
@@ -429,20 +443,17 @@ class _Bar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(100),
-      child: LinearProgressIndicator(
-        value: value.clamp(0.0, 1.0),
-        minHeight: 6,
-        backgroundColor: AppColors.chip,
-        valueColor: AlwaysStoppedAnimation(color),
-      ),
+    return AnimatedProgressBar(
+      value: value.clamp(0.0, 1.0),
+      minHeight: 6,
+      backgroundColor: AppColors.chip,
+      color: color,
     );
   }
 }
 
 class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.onRetry});
+  const _ErrorState({super.key, required this.onRetry});
 
   final VoidCallback onRetry;
 

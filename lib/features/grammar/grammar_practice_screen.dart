@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/theme/app_theme.dart';
 import '../../domain/services/grammar_practice_generator.dart';
+import '../../shared/motion/animated_progress_bar.dart';
 import 'providers/grammar_practice_providers.dart';
 
 /// Practice mở rộng — khác `/quiz/grammar` (trắc nghiệm chọn-phát-ăn-ngay):
@@ -137,14 +138,11 @@ class _GrammarPracticeScreenState extends ConsumerState<GrammarPracticeScreen> {
                   ),
                 ),
                 const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(100),
-                  child: LinearProgressIndicator(
-                    value: (_index + 1) / exercises.length,
-                    minHeight: 6,
-                    backgroundColor: AppColors.chip,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.plum),
-                  ),
+                AnimatedProgressBar(
+                  value: (_index + 1) / exercises.length,
+                  minHeight: 6,
+                  backgroundColor: AppColors.chip,
+                  color: AppColors.plum,
                 ),
                 const SizedBox(height: 24),
                 Expanded(

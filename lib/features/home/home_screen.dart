@@ -7,6 +7,8 @@ import '../../core/theme/app_theme.dart';
 import '../../domain/entities/vocabulary.dart';
 import '../../domain/services/word_of_the_day.dart';
 import '../../shared/level_badge.dart';
+import '../../shared/motion/animated_progress_bar.dart';
+import '../../shared/motion/press_scale.dart';
 import '../auth/auth_controller.dart';
 import '../grammar/providers/grammar_progress_providers.dart';
 import '../kanji/providers/kanji_progress_providers.dart';
@@ -583,8 +585,6 @@ class _ContinueLessonCard extends StatefulWidget {
 }
 
 class _ContinueLessonCardState extends State<_ContinueLessonCard> {
-  bool _pressed = false;
-
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -598,13 +598,9 @@ class _ContinueLessonCardState extends State<_ContinueLessonCard> {
             ? 'Bắt đầu bài học'
             : 'Tiếp tục học';
 
-    return AnimatedScale(
-      scale: _pressed ? 0.97 : 1,
-      duration: const Duration(milliseconds: 120),
-      curve: Curves.easeOut,
+    return PressScale(
       child: InkWell(
         borderRadius: BorderRadius.circular(20),
-        onHighlightChanged: (v) => setState(() => _pressed = v),
         onTap: () => context.push('/lessons/$lessonId/run'),
         child: Container(
           padding: const EdgeInsets.all(16),
@@ -674,18 +670,12 @@ class _ContinueLessonCardState extends State<_ContinueLessonCard> {
                               Row(
                                 children: [
                                   Expanded(
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(100),
-                                      child: LinearProgressIndicator(
-                                        value: ratio.clamp(0, 1),
-                                        minHeight: 6,
-                                        backgroundColor: Colors.white
-                                            .withValues(alpha: 0.25),
-                                        valueColor:
-                                            const AlwaysStoppedAnimation(
-                                          Colors.white,
-                                        ),
-                                      ),
+                                    child: AnimatedProgressBar(
+                                      value: ratio.clamp(0, 1),
+                                      minHeight: 6,
+                                      backgroundColor:
+                                          Colors.white.withValues(alpha: 0.25),
+                                      color: Colors.white,
                                     ),
                                   ),
                                   const SizedBox(width: 8),
@@ -1032,74 +1022,76 @@ class _ProgressGaugeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () => context.push(data.route),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.border, width: 1.0),
-        ),
-        child: Column(
-          children: [
-            SizedBox(
-              width: 60,
-              height: 60,
-              child: Stack(
-                alignment: Alignment.center,
-                children: [
-                  const SizedBox.expand(
-                    child: CircularProgressIndicator(
-                      value: 1,
-                      strokeWidth: 5,
-                      color: AppColors.chip,
-                    ),
-                  ),
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0, end: data.pct / 100),
-                    duration: const Duration(milliseconds: 800),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, _) => SizedBox.expand(
+    return PressScale(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => context.push(data.route),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border, width: 1.0),
+          ),
+          child: Column(
+            children: [
+              SizedBox(
+                width: 60,
+                height: 60,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    const SizedBox.expand(
                       child: CircularProgressIndicator(
-                        value: value,
+                        value: 1,
                         strokeWidth: 5,
-                        strokeCap: StrokeCap.round,
+                        color: AppColors.chip,
+                      ),
+                    ),
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0, end: data.pct / 100),
+                      duration: const Duration(milliseconds: 800),
+                      curve: Curves.easeOutCubic,
+                      builder: (context, value, _) => SizedBox.expand(
+                        child: CircularProgressIndicator(
+                          value: value,
+                          strokeWidth: 5,
+                          strokeCap: StrokeCap.round,
+                          color: data.color,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '${data.pct}%',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w800,
                         color: data.color,
                       ),
                     ),
-                  ),
-                  Text(
-                    '${data.pct}%',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
-                      color: data.color,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              data.label,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-                color: AppColors.ink,
+              const SizedBox(height: 8),
+              Text(
+                data.label,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.ink,
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              '${data.known}/${data.total}',
-              style: const TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: AppColors.inkSoft,
+              const SizedBox(height: 2),
+              Text(
+                '${data.known}/${data.total}',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.inkSoft,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1120,99 +1112,101 @@ class _WordOfDayCard extends StatelessWidget {
     final meaningVi = vocab.primaryMeaning.isEmpty
         ? 'Đang cập nhật nghĩa…'
         : vocab.primaryMeaning;
-    return InkWell(
-      borderRadius: BorderRadius.circular(18),
-      onTap: () => context.push('/vocabulary'),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: AppColors.card,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: AppColors.border, width: 1.0),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.mossSoft, AppColors.tealSoft],
+    return PressScale(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(18),
+        onTap: () => context.push('/vocabulary'),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppColors.card,
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: AppColors.border, width: 1.0),
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.mossSoft, AppColors.tealSoft],
+                  ),
+                  borderRadius: BorderRadius.circular(16),
                 ),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                vocab.word.isEmpty ? '' : vocab.word[0],
-                style: AppFonts.zenMaruGothic(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  color: AppColors.moss,
+                alignment: Alignment.center,
+                child: Text(
+                  vocab.word.isEmpty ? '' : vocab.word[0],
+                  style: AppFonts.zenMaruGothic(
+                    fontSize: 26,
+                    fontWeight: FontWeight.w900,
+                    color: AppColors.moss,
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        vocab.word,
-                        style: AppFonts.zenMaruGothic(
-                          fontSize: 17,
-                          fontWeight: FontWeight.w800,
-                          color: AppColors.ink,
-                        ),
-                      ),
-                      const SizedBox(width: 6),
-                      Expanded(
-                        child: Text(
-                          vocab.reading,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          vocab.word,
                           style: AppFonts.zenMaruGothic(
-                            fontSize: 10.5,
-                            color: AppColors.inkSoft,
+                            fontSize: 17,
+                            fontWeight: FontWeight.w800,
+                            color: AppColors.ink,
                           ),
+                        ),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            vocab.reading,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppFonts.zenMaruGothic(
+                              fontSize: 10.5,
+                              color: AppColors.inkSoft,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      meaningVi,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: AppColors.inkSoft,
+                      ),
+                    ),
+                    if (meaning?.exampleJp != null) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        meaning!.exampleJp!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 10.5,
+                          color: AppColors.inkSoft,
+                          fontStyle: FontStyle.italic,
                         ),
                       ),
                     ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    meaningVi,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.inkSoft,
-                    ),
-                  ),
-                  if (meaning?.exampleJp != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      meaning!.exampleJp!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        fontSize: 10.5,
-                        color: AppColors.inkSoft,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
                   ],
-                ],
+                ),
               ),
-            ),
-            const Icon(
-              Icons.chevron_right_rounded,
-              color: AppColors.inkFaint,
-              size: 20,
-            ),
-          ],
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: AppColors.inkFaint,
+                size: 20,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -12,6 +12,7 @@ import '../../core/services/jp_voice_prefs.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/lesson.dart' show LessonItemType;
 import '../../domain/services/quiz_generator.dart';
+import '../../shared/motion/animated_progress_bar.dart';
 import '../home/providers/mission_providers.dart';
 import '../home/providers/profile_providers.dart';
 import 'providers/quiz_providers.dart';
@@ -639,14 +640,11 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(100),
-                  child: LinearProgressIndicator(
-                    value: _index / widget.questions.length,
-                    minHeight: 9,
-                    backgroundColor: AppColors.border,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.accent),
-                  ),
+                child: AnimatedProgressBar(
+                  value: _index / widget.questions.length,
+                  minHeight: 9,
+                  backgroundColor: AppColors.border,
+                  color: AppColors.accent,
                 ),
               ),
               const SizedBox(width: 10),
