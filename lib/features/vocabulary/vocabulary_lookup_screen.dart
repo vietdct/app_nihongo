@@ -267,7 +267,17 @@ class _VocabularyLookupScreenState extends ConsumerState<VocabularyLookupScreen>
     final controller = ref.read(vocabProgressControllerProvider);
     if (controller == null) return;
     setState(() => _starredOverride = !current);
-    await controller.setStarred(widget.vocab.id, !current);
+    try {
+      await controller.setStarred(widget.vocab.id, !current);
+    } catch (_) {
+      // Lưu thất bại: trả icon về trạng thái cũ để không báo "đã lưu" giả.
+      if (!mounted) return;
+      setState(() => _starredOverride = current);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không lưu được, vui lòng thử lại.')),
+      );
+      return;
+    }
     if (mounted) ref.invalidate(vocabProgressProvider);
   }
 

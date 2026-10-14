@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../domain/entities/lesson.dart';
+import '../../../shared/motion/enter_transition.dart';
+import '../../../shared/motion/pop_in.dart';
 import '../lesson_runner_steps.dart';
 
 Color _phaseColor(LessonPhase phase) => switch (phase) {
@@ -64,7 +66,11 @@ Future<bool?> showPhaseCompleteSheet(
           children: [
             Row(
               children: [
-                Icon(Icons.check_circle_rounded, color: color, size: 28),
+                // Chốt chặng vừa được xác nhận (sheet chỉ mở khi xong 1 pha):
+                // check nảy một lần lúc sheet mở.
+                PopIn(
+                  child: Icon(Icons.check_circle_rounded, color: color, size: 28),
+                ),
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
@@ -76,11 +82,19 @@ Future<bool?> showPhaseCompleteSheet(
             ),
             if (lines.isNotEmpty) ...[
               const SizedBox(height: 14),
-              for (final l in lines)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: Text(l, style: const TextStyle(fontSize: 14.5, color: AppColors.ink)),
+              EnterTransition(
+                offset: const Offset(0, 0.15),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final l in lines)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(l, style: const TextStyle(fontSize: 14.5, color: AppColors.ink)),
+                      ),
+                  ],
                 ),
+              ),
             ],
             const SizedBox(height: 18),
             SizedBox(

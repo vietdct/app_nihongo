@@ -9,6 +9,7 @@ import 'providers/grammar_comparison_providers.dart';
 import 'providers/grammar_progress_providers.dart';
 import 'widgets/grammar_content_sections.dart';
 import '../../shared/jp_example_text.dart';
+import '../../shared/motion/playing_indicator.dart';
 
 /// Trang tra cứu TĨNH cho 1 điểm ngữ pháp — khác `GrammarFlashcardScreen`
 /// (bộ thẻ vuốt qua dùng để luyện tập): đây là nơi xem/đánh dấu lại một mẫu
@@ -61,9 +62,13 @@ class GrammarDetailScreen extends ConsumerWidget {
           if (grammar != null)
             IconButton(
               tooltip: starred ? 'Bỏ lưu' : 'Lưu lại',
-              icon: Icon(
-                starred ? Icons.star_rounded : Icons.star_border_rounded,
-                color: starred ? AppColors.accent : null,
+              // Icon chỉ đổi khi dữ liệu đã lưu xong và tải lại (không lạc quan).
+              icon: SwapIcon(
+                icon: starred ? Icons.star_rounded : Icons.star_border_rounded,
+                size: 24,
+                color: starred
+                    ? AppColors.accent
+                    : (IconTheme.of(context).color ?? AppColors.ink),
               ),
               onPressed: () => toggleStarred(grammar, starred),
             ),

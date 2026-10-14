@@ -19,6 +19,7 @@ import '../../shared/lesson_filter_dropdown.dart';
 import '../../shared/level_badge.dart';
 import '../../shared/vocab_category_filter_dropdown.dart';
 import '../../shared/vocab_status_filter_dropdown.dart';
+import '../../shared/motion/playing_indicator.dart';
 import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/vocab_progress_providers.dart';
@@ -765,8 +766,8 @@ class _VocabHeader extends StatelessWidget {
                 padding: EdgeInsets.zero,
                 constraints:
                     const BoxConstraints.tightFor(width: 44, height: 44),
-                icon: Icon(
-                  starred ? Icons.star_rounded : Icons.star_border_rounded,
+                icon: SwapIcon(
+                  icon: starred ? Icons.star_rounded : Icons.star_border_rounded,
                   color: AppColors.accent,
                   size: 21,
                 ),

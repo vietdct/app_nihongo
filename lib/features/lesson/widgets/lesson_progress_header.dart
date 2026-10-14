@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/motion/fade_switcher.dart';
 import '../lesson_runner_steps.dart';
 
 enum _SegmentState { done, active, upcoming }
@@ -49,13 +51,18 @@ class LessonProgressHeader extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    '${currentPhase.index + 1}/${LessonPhase.values.length} · ${phaseLabel(currentPhase)}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.4,
-                      color: _PhaseSegment._colorOf(currentPhase),
+                  // Nhãn pha mờ chuyển khi sang pha mới (key theo pha, rebuild
+                  // cùng pha thì không chạy).
+                  FadeSwitcher(
+                    child: Text(
+                      '${currentPhase.index + 1}/${LessonPhase.values.length} · ${phaseLabel(currentPhase)}',
+                      key: ValueKey(currentPhase),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 0.4,
+                        color: _PhaseSegment._colorOf(currentPhase),
+                      ),
                     ),
                   ),
                 ],
@@ -92,8 +99,8 @@ class _PhaseSegment extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = state == _SegmentState.upcoming ? AppColors.chip : _colorOf(phase);
     return AnimatedContainer(
-      duration: const Duration(milliseconds: 280),
-      curve: Curves.easeOutCubic,
+      duration: AppMotion.resolve(context, AppMotion.emphasized),
+      curve: AppMotion.curveSmooth,
       height: 6,
       decoration: BoxDecoration(
         color: color,

@@ -9,6 +9,7 @@ import '../lesson/providers/content_providers.dart';
 import 'providers/grammar_progress_providers.dart';
 import 'widgets/grammar_content_sections.dart';
 import '../../shared/jp_example_text.dart';
+import '../../shared/motion/playing_indicator.dart';
 
 /// Bộ thẻ ngữ pháp vuốt qua — vuốt phải để đánh dấu đã thuộc, vuốt trái để
 /// đánh dấu chưa thuộc (gom vào danh sách ôn lại cuối phiên). Mỗi thẻ là 1
@@ -61,7 +62,17 @@ class _GrammarFlashcardScreenState
   ) async {
     final next = !current;
     setState(() => _starredOverride[g.id] = next);
-    await controller?.setStarred(g.id, next);
+    try {
+      await controller?.setStarred(g.id, next);
+    } catch (_) {
+      // Lưu thất bại: trả icon về trạng thái cũ để không báo "đã lưu" giả.
+      if (!mounted) return;
+      setState(() => _starredOverride[g.id] = current);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không lưu được, vui lòng thử lại.')),
+      );
+      return;
+    }
     if (mounted) ref.invalidate(grammarProgressProvider);
   }
 
@@ -515,8 +526,8 @@ class _SwipeableGrammarCardState extends State<_SwipeableGrammarCard>
                   onTap: widget.onToggleStar,
                   child: Container(
                     padding: const EdgeInsets.all(4),
-                    child: Icon(
-                      widget.starred
+                    child: SwapIcon(
+                      icon: widget.starred
                           ? Icons.star_rounded
                           : Icons.star_border_rounded,
                       color: widget.starred

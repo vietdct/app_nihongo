@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/supabase_providers.dart';
+import '../../core/theme/app_motion.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/lesson.dart';
 import '../../domain/entities/lesson_progress.dart';
@@ -47,11 +48,16 @@ class _LessonRunnerScreenState extends ConsumerState<LessonRunnerScreen> {
 
   void _advanceTo(int index) {
     ref.read(lessonRunnerControllerProvider(widget.lessonId).notifier).goTo(index);
-    _pageController.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 320),
-      curve: Curves.easeOutCubic,
-    );
+    // Giảm chuyển động: sang bước mới ngay; còn lại trượt ngắn như cũ.
+    if (AppMotion.reduced(context)) {
+      _pageController.jumpToPage(index);
+    } else {
+      _pageController.animateToPage(
+        index,
+        duration: const Duration(milliseconds: 320),
+        curve: AppMotion.curveSmooth,
+      );
+    }
     unawaited(_persistStep(index));
   }
 

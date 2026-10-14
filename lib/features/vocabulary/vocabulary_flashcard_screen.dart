@@ -11,6 +11,7 @@ import '../../shared/card_stamp_label.dart';
 import '../../shared/flip_card.dart';
 import '../../shared/gradient_card_shell.dart';
 import '../../shared/lesson_filter_dropdown.dart';
+import '../../shared/motion/playing_indicator.dart';
 import '../home/providers/mission_providers.dart';
 import '../lesson/providers/content_providers.dart';
 import 'providers/vocab_progress_providers.dart';
@@ -127,7 +128,17 @@ class _VocabularyFlashcardScreenState
   ) async {
     final next = !current;
     setState(() => _starredOverride[v.id] = next);
-    await controller?.setStarred(v.id, next);
+    try {
+      await controller?.setStarred(v.id, next);
+    } catch (_) {
+      // Lưu thất bại: trả icon về trạng thái cũ để không báo "đã lưu" giả.
+      if (!mounted) return;
+      setState(() => _starredOverride[v.id] = current);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không lưu được, vui lòng thử lại.')),
+      );
+      return;
+    }
     if (mounted) ref.invalidate(vocabProgressProvider);
   }
 
@@ -840,8 +851,8 @@ class _SwipeableVocabCardState extends State<_SwipeableVocabCard>
                   onTap: widget.onToggleStar,
                   child: Container(
                     padding: const EdgeInsets.all(4),
-                    child: Icon(
-                      widget.starred
+                    child: SwapIcon(
+                      icon: widget.starred
                           ? Icons.star_rounded
                           : Icons.star_border_rounded,
                       color: widget.starred
