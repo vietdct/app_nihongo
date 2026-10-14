@@ -20,11 +20,23 @@ const _q2 = QuizQuestion(
   correctIndex: 0,
 );
 
+const _qLast = QuizQuestion(
+  promptVi: 'Chọn nghĩa đúng',
+  displayJp: '障害',
+  options: ['Tiến độ', 'Cuộc họp', 'Báo cáo', 'Sự cố'],
+  correctIndex: 3,
+  explanationVi: 'Giải thích dài để khung phản hồi cao hơn. '
+      'Giải thích dài để khung phản hồi cao hơn. '
+      'Giải thích dài để khung phản hồi cao hơn.',
+);
+
 Future<void> _open(
   WidgetTester tester, {
   bool reduceMotion = false,
+  List<QuizQuestion> questions = const [_q1, _q2],
+  Size size = const Size(1170, 2532),
 }) async {
-  tester.view.physicalSize = const Size(1170, 2532);
+  tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 3;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(
@@ -36,7 +48,7 @@ Future<void> _open(
               MediaQuery.of(context).copyWith(disableAnimations: reduceMotion),
           child: child!,
         ),
-        home: const QuizScreen(questions: [_q1, _q2], title: 'Luyện tập'),
+        home: QuizScreen(questions: questions, title: 'Luyện tập'),
       ),
     ),
   );
@@ -66,6 +78,24 @@ void main() {
     expect(find.byIcon(Icons.cancel_rounded), findsOneWidget);
     expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
     expect(find.text('Tiếp tục'), findsOneWidget);
+  });
+
+  testWidgets(
+      'màn thấp: sau khi trả lời, cuộn để đáp án đúng nằm trên khung phản hồi',
+      (tester) async {
+    await _open(tester,
+        questions: const [_qLast, _q2], size: const Size(1125, 1830));
+    await tester.tap(find.text('Tiến độ'));
+    // Pump từng khung hình như máy thật: timer cuộn chạy sau khi khung
+    // phản hồi đã mở xong, hình học phải được layout lại giữa các khung.
+    for (var i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+
+    final tick = tester.getRect(find.byIcon(Icons.check_circle_rounded));
+    final feedbackTop = tester.getTopLeft(find.text('Tiếp tục')).dy;
+    expect(tick.top, greaterThanOrEqualTo(0));
+    expect(tick.bottom, lessThanOrEqualTo(feedbackTop));
   });
 
   testWidgets('trả lời đúng: chỉ có icon tick', (tester) async {

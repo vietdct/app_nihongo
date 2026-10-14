@@ -91,6 +91,11 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
   /// khi đang nghe dù widget bị rebuild.
   bool _scriptOpen = false;
   final ScrollController _listeningScroll = ScrollController();
+  /// Cuộn thân câu hỏi thường + khoá thẻ đáp án đúng: khung phản hồi hiện ra
+  /// làm vùng cuộn thấp lại, đáp án đúng có thể bị đẩy khỏi màn hình.
+  final ScrollController _bodyScroll = ScrollController();
+  final GlobalKey _correctOptionKey = GlobalKey();
+  Timer? _revealTimer;
   Timer? _wholeQuizTimer;
   int? _wholeQuizSecondsLeft;
 
@@ -203,11 +208,13 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
   void dispose() {
     _timerController.dispose();
     _wholeQuizTimer?.cancel();
+    _revealTimer?.cancel();
     unawaited(_tts.stop());
     unawaited(_audio.dispose());
     _player.state.removeListener(_onPlayerStateChanged);
     _player.dispose();
     _listeningScroll.dispose();
+    _bodyScroll.dispose();
     super.dispose();
   }
 
@@ -401,9 +408,32 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
         ),);
       }
     });
+    _revealCorrectOption();
     if (isCorrect) {
       unawaited(ref.read(quizXpControllerProvider)?.addXp(_xpPerCorrect));
     }
+  }
+
+  /// Sau khi khung phản hồi mở xong (đổi kích thước), cuộn tối thiểu để thẻ
+  /// đáp án đúng nằm trong vùng nhìn. Chỉ cuộn khi cần; chỉ áp dụng cho thân
+  /// câu hỏi thường (Nghe hiểu có `_listeningScroll` riêng).
+  void _revealCorrectOption() {
+    _revealTimer?.cancel();
+    final index = _index;
+    final wait = AppMotion.reduced(context)
+        ? Duration.zero
+        : AppMotion.standard + const Duration(milliseconds: 40);
+    _revealTimer = Timer(wait, () {
+      if (!mounted || !_answered || _index != index) return;
+      final target = _correctOptionKey.currentContext;
+      if (target == null) return;
+      unawaited(Scrollable.ensureVisible(
+        target,
+        duration: AppMotion.resolve(context, AppMotion.standard),
+        curve: AppMotion.curveSmooth,
+        alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+      ),);
+    });
   }
 
   /// Loại bỏ ngẫu nhiên 1 đáp án sai chưa bị ẩn — chỉ dùng được 1 lần/câu,
@@ -438,6 +468,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
         givenAnswerLabel: 'Hết giờ',
       ),);
     });
+    _revealCorrectOption();
     final question = widget.questions[_index];
     if (_isListeningQuestion(question)) {
       _stopAudio();
@@ -689,6 +720,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
               key: ValueKey(_index),
               child: Center(
                 child: SingleChildScrollView(
+                  controller: _bodyScroll,
                   child: Column(
                     children: [
                       Text(
@@ -771,6 +803,7 @@ class _QuizScreenState extends ConsumerState<QuizScreen>
                           selectedOption: _selectedOption,
                           answered: _answered,
                           hiddenOptions: _hiddenOptions,
+                          correctKey: _correctOptionKey,
                           onSelect: _onSelectOption,
                         ),
                         if (!_answered) ...[
@@ -978,6 +1011,7 @@ class _OptionsList extends StatelessWidget {
     required this.answered,
     required this.hiddenOptions,
     required this.onSelect,
+    this.correctKey,
   });
 
   final QuizQuestion question;
@@ -985,6 +1019,7 @@ class _OptionsList extends StatelessWidget {
   final bool answered;
   final Set<int> hiddenOptions;
   final ValueChanged<int> onSelect;
+  final GlobalKey? correctKey;
 
   @override
   Widget build(BuildContext context) {
@@ -992,13 +1027,16 @@ class _OptionsList extends StatelessWidget {
       children: [
         for (var i = 0; i < question.options.length; i++) ...[
           if (i > 0) const SizedBox(height: 10),
-          _OptionCard(
-            index: i,
-            label: question.options[i],
-            state: _stateFor(i),
-            onTap: (answered || hiddenOptions.contains(i))
-                ? null
-                : () => onSelect(i),
+          KeyedSubtree(
+            key: i == question.correctIndex ? correctKey : null,
+            child: _OptionCard(
+              index: i,
+              label: question.options[i],
+              state: _stateFor(i),
+              onTap: (answered || hiddenOptions.contains(i))
+                  ? null
+                  : () => onSelect(i),
+            ),
           ),
         ],
       ],
