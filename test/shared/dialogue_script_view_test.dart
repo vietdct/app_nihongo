@@ -69,4 +69,31 @@ void main() {
     await tester.pump();
     expect(find.text('Đang phát · 1/2'), findsOneWidget);
   });
+
+  testWidgets('avatar người đang nói phóng nhẹ theo currentTurn, không tự phát',
+      (tester) async {
+    final player = await pump(tester, turns('ABA'));
+    double scaleOf(int i) => tester
+        .widget<AnimatedScale>(
+          find.ancestor(
+            of: find.byType(CircleAvatar).at(i),
+            matching: find.byType(AnimatedScale),
+          ),
+        )
+        .scale;
+    expect(player.state.value, DialoguePlayState.idle);
+    expect([for (var i = 0; i < 3; i++) scaleOf(i)], [1, 1, 1]);
+
+    player.currentTurn.value = 1;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect([for (var i = 0; i < 3; i++) scaleOf(i)], [1, 1.12, 1]);
+
+    player.currentTurn.value = null;
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect([for (var i = 0; i < 3; i++) scaleOf(i)], [1, 1, 1]);
+    // Chỉ quan sát: UI không làm đổi state audio.
+    expect(player.state.value, DialoguePlayState.idle);
+  });
 }

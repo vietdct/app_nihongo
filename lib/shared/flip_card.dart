@@ -20,7 +20,8 @@ class FlipCard extends StatefulWidget {
 /// Public state so parent widgets can trigger a flip programmatically (VD nút
 /// "Xem lại"/"Tập viết" ở mặt sau quay ngược về mặt trước) qua GlobalKey,
 /// giống cách KanjiStrokeCanvasState expose replay().
-class FlipCardState extends State<FlipCard> with SingleTickerProviderStateMixin {
+class FlipCardState extends State<FlipCard>
+    with SingleTickerProviderStateMixin {
   late final _controller = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 380),
@@ -47,22 +48,32 @@ class FlipCardState extends State<FlipCard> with SingleTickerProviderStateMixin 
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: flip,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          final angle = _controller.value * math.pi;
-          final isFrontVisible = angle <= math.pi / 2;
-          final displayAngle = isFrontVisible ? angle : angle - math.pi;
-          return Transform(
-            alignment: Alignment.center,
-            transform: Matrix4.identity()
-              ..setEntry(3, 2, 0.0015)
-              ..rotateY(displayAngle),
-            child: isFrontVisible ? widget.front : widget.back,
-          );
-        },
+    return Semantics(
+      button: true,
+      onTapHint: _showingFront ? 'Lật xem mặt sau' : 'Lật về mặt trước',
+      child: GestureDetector(
+        onTap: flip,
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            final angle = _controller.value * math.pi;
+            final isFrontVisible = angle <= math.pi / 2;
+            final displayAngle = isFrontVisible ? angle : angle - math.pi;
+            // Nhấc nhẹ lên (tối đa 3%) ở giữa lúc lật cho có chiều sâu; về 1.0
+            // khi dừng nên không đổi kích thước thẻ lúc đứng yên.
+            final lift = 1 + 0.03 * math.sin(_controller.value * math.pi);
+            return Transform.scale(
+              scale: lift,
+              child: Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.0015)
+                  ..rotateY(displayAngle),
+                child: isFrontVisible ? widget.front : widget.back,
+              ),
+            );
+          },
+        ),
       ),
     );
   }

@@ -16,6 +16,7 @@ import '../../domain/services/quiz_generator.dart';
 import '../../shared/motion/animated_progress_bar.dart';
 import '../../shared/motion/answer_feedback.dart';
 import '../../shared/motion/enter_transition.dart';
+import '../../shared/motion/playing_indicator.dart';
 import '../../shared/motion/press_scale.dart';
 import '../home/providers/mission_providers.dart';
 import '../home/providers/profile_providers.dart';
@@ -972,23 +973,27 @@ class _ListenButton extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        PressScale(
-          child: InkWell(
-          borderRadius: BorderRadius.circular(100),
-          onTap: onTap,
-          child: Container(
-            width: 68,
-            height: 68,
-            decoration: const BoxDecoration(
-                color: AppColors.accentSoft, shape: BoxShape.circle,),
-            alignment: Alignment.center,
-            child: Icon(
-              playing ? Icons.pause_rounded : Icons.volume_up_rounded,
-              size: 32,
-              color: AppColors.accentStrong,
+        PlayingRing(
+          active: playing,
+          color: AppColors.accent,
+          child: PressScale(
+            child: InkWell(
+              borderRadius: BorderRadius.circular(100),
+              onTap: onTap,
+              child: Container(
+                width: 68,
+                height: 68,
+                decoration: const BoxDecoration(
+                    color: AppColors.accentSoft, shape: BoxShape.circle,),
+                alignment: Alignment.center,
+                child: SwapIcon(
+                  icon: playing ? Icons.pause_rounded : Icons.volume_up_rounded,
+                  size: 32,
+                  color: AppColors.accentStrong,
+                ),
+              ),
             ),
           ),
-        ),
         ),
         const SizedBox(height: 8),
         Text(playing ? 'Chạm để tạm dừng' : 'Chạm để nghe lại',

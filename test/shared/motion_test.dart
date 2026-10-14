@@ -4,6 +4,7 @@ import 'package:nihongo/shared/motion/animated_progress_bar.dart';
 import 'package:nihongo/shared/motion/answer_feedback.dart';
 import 'package:nihongo/shared/motion/enter_transition.dart';
 import 'package:nihongo/shared/motion/fade_switcher.dart';
+import 'package:nihongo/shared/motion/playing_indicator.dart';
 import 'package:nihongo/shared/motion/press_scale.dart';
 import 'package:nihongo/shared/motion/shake_once.dart';
 
@@ -325,6 +326,73 @@ void main() {
       await tester.pumpWidget(_app(const AnswerResultIcon(correct: false)));
       expect(find.byIcon(Icons.cancel_rounded), findsOneWidget);
       await tester.pumpAndSettle();
+    });
+  });
+
+  group('PlayingRing / SwapIcon', () {
+    Widget ring(bool active, {bool reduce = false}) => _app(
+          Center(
+            child: PlayingRing(
+              active: active,
+              color: Colors.orange,
+              child: const SizedBox(width: 60, height: 60),
+            ),
+          ),
+          reduceMotion: reduce,
+        );
+
+    testWidgets('đang phát: vòng sóng chạy; hết phát: dừng hẳn (không lặp mãi)',
+        (tester) async {
+      await tester.pumpWidget(ring(false));
+      await tester.pumpAndSettle();
+      expect(
+          find.byType(IgnorePointer).evaluate().where((e) {
+            return e.findAncestorWidgetOfExactType<PlayingRing>() != null;
+          }),
+          isEmpty);
+
+      await tester.pumpWidget(ring(true));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.hasRunningAnimations, isTrue);
+
+      await tester.pumpWidget(ring(false));
+      await tester.pumpAndSettle();
+      expect(tester.hasRunningAnimations, isFalse);
+    });
+
+    testWidgets('giảm chuyển động: vòng tĩnh, không có animation chạy',
+        (tester) async {
+      await tester.pumpWidget(ring(true, reduce: true));
+      await tester.pumpAndSettle();
+      expect(tester.hasRunningAnimations, isFalse);
+      expect(find.byType(DecoratedBox), findsOneWidget);
+    });
+
+    testWidgets('gỡ widget khi đang phát: không còn animation/lỗi',
+        (tester) async {
+      await tester.pumpWidget(ring(true));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.pumpWidget(_app(const SizedBox()));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('SwapIcon đổi icon theo state, tức thì khi giảm chuyển động',
+        (tester) async {
+      Widget w(IconData i, bool reduce) => _app(
+            SwapIcon(icon: i, size: 24, color: Colors.black),
+            reduceMotion: reduce,
+          );
+      await tester.pumpWidget(w(Icons.play_arrow_rounded, true));
+      await tester.pumpWidget(w(Icons.pause_rounded, true));
+      await tester.pump();
+      expect(find.byIcon(Icons.pause_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.play_arrow_rounded), findsNothing);
+
+      await tester.pumpWidget(w(Icons.play_arrow_rounded, false));
+      await tester.pumpAndSettle();
+      expect(find.byIcon(Icons.play_arrow_rounded), findsOneWidget);
+      expect(find.byIcon(Icons.pause_rounded), findsNothing);
     });
   });
 }
