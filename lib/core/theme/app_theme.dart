@@ -2,6 +2,8 @@ import 'dart:ui' show ColorSpace;
 
 import 'package:flutter/material.dart';
 
+import '../router/page_transitions.dart';
+
 /// Bảng màu ấm — nền kem, cam san hô làm điểm nhấn chính, mỗi mảng nội dung
 /// (Từ vựng/Kanji/Ngữ pháp/Kaiwa) một màu riêng. Theo bản mockup
 /// "Nihongo App Redesign" (claude.ai/design), thay cho bảng cam đất cũ.
@@ -265,6 +267,17 @@ abstract final class AppTheme {
       colorScheme: scheme,
       fontFamily: 'BeVietnamPro',
       scaffoldBackgroundColor: isLight ? AppColors.canvas : scheme.surface,
+      // iOS/macOS giữ chuyển cảnh Cupertino (kèm vuốt back); chỉ thêm nhánh
+      // "Giảm chuyển động". Android giữ nguyên mặc định của Flutter.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: {
+          TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+          TargetPlatform.iOS: ReducedMotionPageTransitionsBuilder(),
+          TargetPlatform.macOS: ReducedMotionPageTransitionsBuilder(),
+          TargetPlatform.windows: ZoomPageTransitionsBuilder(),
+          TargetPlatform.linux: ZoomPageTransitionsBuilder(),
+        },
+      ),
       textTheme:
           (isLight ? ThemeData.light().textTheme : ThemeData.dark().textTheme)
               .apply(
