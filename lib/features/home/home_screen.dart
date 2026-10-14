@@ -11,6 +11,8 @@ import '../../shared/level_badge.dart';
 import '../../shared/motion/animated_count.dart';
 import '../../shared/motion/animated_progress_bar.dart';
 import '../../shared/motion/press_scale.dart';
+import '../../shared/skeleton.dart';
+import '../../shared/skeleton_layouts.dart';
 import '../auth/auth_controller.dart';
 import '../grammar/providers/grammar_progress_providers.dart';
 import '../kanji/providers/kanji_progress_providers.dart';
@@ -88,12 +90,21 @@ class HomeScreen extends ConsumerWidget {
     final profile = profileAsync.valueOrNull;
     final displayName = profile?.displayName ?? email;
 
-    final vocabList = ref.watch(vocabularyListProvider).valueOrNull;
-    final kanjiList = ref.watch(kanjiListProvider).valueOrNull;
-    final grammarList = ref.watch(grammarListProvider).valueOrNull;
-    final vocabProgress = ref.watch(vocabProgressProvider).valueOrNull;
-    final kanjiProgress = ref.watch(kanjiProgressProvider).valueOrNull;
-    final grammarProgress = ref.watch(grammarProgressProvider).valueOrNull;
+    final vocabListAsync = ref.watch(vocabularyListProvider);
+    final kanjiListAsync = ref.watch(kanjiListProvider);
+    final grammarListAsync = ref.watch(grammarListProvider);
+    final vocabProgressAsync = ref.watch(vocabProgressProvider);
+    final kanjiProgressAsync = ref.watch(kanjiProgressProvider);
+    final grammarProgressAsync = ref.watch(grammarProgressProvider);
+    final vocabList = vocabListAsync.valueOrNull;
+    final kanjiList = kanjiListAsync.valueOrNull;
+    final grammarList = grammarListAsync.valueOrNull;
+    final vocabProgress = vocabProgressAsync.valueOrNull;
+    final kanjiProgress = kanjiProgressAsync.valueOrNull;
+    final grammarProgress = grammarProgressAsync.valueOrNull;
+    // Chỉ coi là "đang tải lần đầu" khi chưa có dữ liệu nào (đang làm mới mà đã
+    // có dữ liệu cũ thì không phủ skeleton lên nội dung đang hiển thị).
+    bool firstLoad(AsyncValue<Object?> a) => a.isLoading && !a.hasValue;
 
     final progressGauges = <_ProgressGaugeData>[
       if (_knownStats(vocabList, vocabProgress, (v) => v.id) case final s?)
@@ -205,6 +216,9 @@ class HomeScreen extends ConsumerWidget {
                             ],
                           ),
                         ),
+                  loading: () => currentLessonAsync.hasValue
+                      ? const SizedBox.shrink()
+                      : const _SectionSkeleton(top: 22, cardHeight: 96),
                   orElse: () => const SizedBox.shrink(),
                 ),
                 const Padding(
@@ -223,6 +237,16 @@ class HomeScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
+                if (progressGauges.isEmpty &&
+                    [
+                      vocabListAsync,
+                      kanjiListAsync,
+                      grammarListAsync,
+                      vocabProgressAsync,
+                      kanjiProgressAsync,
+                      grammarProgressAsync,
+                    ].any(firstLoad))
+                  const _GaugesSkeleton(),
                 if (progressGauges.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
@@ -246,6 +270,8 @@ class HomeScreen extends ConsumerWidget {
                       ],
                     ),
                   ),
+                if (wordOfDay == null && firstLoad(vocabListAsync))
+                  const _SectionSkeleton(top: 26, cardHeight: 90),
                 if (wordOfDay != null)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
@@ -843,7 +869,9 @@ class _TodayMissionSection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final status = ref.watch(dailyMissionStatusProvider).valueOrNull;
+    final statusAsync = ref.watch(dailyMissionStatusProvider);
+    final status = statusAsync.valueOrNull;
+    final statusLoading = statusAsync.isLoading && !statusAsync.hasValue;
     final missions = [
       _MissionData(
         label: 'Học 10 từ vựng mới',
@@ -876,25 +904,32 @@ class _TodayMissionSection extends ConsumerWidget {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const _SectionLabel("Today's Mission"),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [AppColors.accent, AppColors.accentStrong],
+            // Đang tải trạng thái lần đầu: không hiện "0/4" như thể chưa làm gì.
+            if (statusLoading)
+              const SkeletonScope(
+                child: SkeletonBox(width: 34, height: 20, radius: 100),
+              )
+            else
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [AppColors.accent, AppColors.accentStrong],
+                  ),
+                  borderRadius: BorderRadius.circular(100),
                 ),
-                borderRadius: BorderRadius.circular(100),
-              ),
-              child: Text(
-                '$doneCount/${missions.length}',
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                child: Text(
+                  '$doneCount/${missions.length}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                  ),
                 ),
               ),
-            ),
           ],
         ),
         const SizedBox(height: 10),
@@ -1329,6 +1364,96 @@ class _StaggerInState extends State<_StaggerIn>
     return FadeTransition(
       opacity: _fade,
       child: SlideTransition(position: _slide, child: widget.child),
+    );
+  }
+}
+
+/// Khung giữ chỗ cho 1 khu vực Home (nhãn + 1 thẻ) khi dữ liệu của khu vực đó
+/// đang tải lần đầu — chiều cao gần thẻ thật để không nhảy bố cục.
+class _SectionSkeleton extends StatelessWidget {
+  const _SectionSkeleton({required this.top, required this.cardHeight});
+
+  final double top;
+  final double cardHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, top, 20, 0),
+      child: SkeletonScope(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SkeletonBox(width: 110, height: 12),
+            const SizedBox(height: 10),
+            SkeletonCard(
+              radius: 18,
+              child: SizedBox(
+                height: cardHeight - 28,
+                child: const Row(
+                  children: [
+                    SkeletonBox(width: 56, height: 56, radius: 16),
+                    SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SkeletonBox(width: 130, height: 16),
+                          SizedBox(height: 9),
+                          SkeletonBox(height: 12),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Khung giữ chỗ cho hàng 3 vòng "Tiến độ học tập" khi chưa có dữ liệu nào.
+class _GaugesSkeleton extends StatelessWidget {
+  const _GaugesSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 26, 20, 0),
+      child: SkeletonScope(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SkeletonBox(width: 110, height: 12),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                for (var i = 0; i < 3; i++) ...[
+                  if (i > 0) const SizedBox(width: 10),
+                  const Expanded(
+                    child: SkeletonCard(
+                      padding:
+                          EdgeInsets.symmetric(vertical: 16, horizontal: 10),
+                      radius: 18,
+                      child: Column(
+                        children: [
+                          SkeletonBox(width: 60, height: 60, circle: true),
+                          SizedBox(height: 10),
+                          SkeletonBox(width: 50, height: 12),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

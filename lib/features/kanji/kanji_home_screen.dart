@@ -8,6 +8,7 @@ import '../../domain/entities/kanji_progress.dart';
 import '../../shared/level_badge.dart';
 import '../../shared/motion/animated_progress_bar.dart';
 import '../../shared/motion/press_scale.dart';
+import '../../shared/skeleton_layouts.dart';
 import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/kanji_progress_providers.dart';
@@ -33,7 +34,7 @@ class KanjiHomeScreen extends ConsumerWidget {
         actions: const [LevelBadge(), SizedBox(width: 12)],
       ),
       body: kanjiAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const SectionedHomeSkeleton(),
         error: (e, _) => Center(child: Text('Lỗi: $e')),
         data: (all) {
           if (all.isEmpty) {

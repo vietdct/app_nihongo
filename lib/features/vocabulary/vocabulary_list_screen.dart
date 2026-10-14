@@ -20,6 +20,7 @@ import '../../shared/level_badge.dart';
 import '../../shared/vocab_category_filter_dropdown.dart';
 import '../../shared/vocab_status_filter_dropdown.dart';
 import '../../shared/motion/playing_indicator.dart';
+import '../../shared/skeleton_layouts.dart';
 import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/vocab_progress_providers.dart';
@@ -171,7 +172,7 @@ class VocabularyListScreen extends ConsumerWidget {
           ),
           Expanded(
             child: vocabAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const ListCardSkeleton(trailingPill: true),
               error: (e, _) => Center(child: Text('Lỗi: $e')),
               data: (all) {
                 var filtered = all;

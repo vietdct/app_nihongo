@@ -9,6 +9,7 @@ import '../../domain/entities/lesson.dart';
 import '../../shared/debounced_search_field.dart';
 import '../../shared/lesson_filter_dropdown.dart';
 import '../../shared/level_badge.dart';
+import '../../shared/skeleton_layouts.dart';
 import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/grammar_progress_providers.dart';
@@ -109,7 +110,7 @@ class GrammarListScreen extends ConsumerWidget {
           ),
           Expanded(
             child: grammarAsync.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const ListCardSkeleton(),
               error: (e, _) => Center(child: Text('Lỗi: $e')),
               data: (all) {
                 if (all.isEmpty) {

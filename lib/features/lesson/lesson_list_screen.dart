@@ -6,6 +6,7 @@ import '../../core/theme/app_theme.dart';
 import '../../shared/level_badge.dart';
 import '../../shared/motion/fade_switcher.dart';
 import '../../shared/motion/press_scale.dart';
+import '../../shared/skeleton_layouts.dart';
 import 'it_learning_hub.dart';
 import 'providers/content_providers.dart';
 import 'providers/level_providers.dart';
@@ -26,8 +27,7 @@ class LessonListScreen extends ConsumerWidget {
       ),
       body: FadeSwitcher(
         child: lessons.when(
-        loading: () => const Center(
-            key: ValueKey('loading'), child: CircularProgressIndicator()),
+        loading: () => const LessonListSkeleton(key: ValueKey('loading')),
         error: (e, _) =>
             Center(key: const ValueKey('error'), child: Text('Lỗi: $e')),
         data: (items) {

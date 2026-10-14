@@ -10,6 +10,7 @@ import '../../shared/level_badge.dart';
 import '../../shared/motion/animated_progress_bar.dart';
 import '../../shared/motion/fade_switcher.dart';
 import '../../shared/motion/press_scale.dart';
+import '../../shared/skeleton_layouts.dart';
 import 'providers/content_providers.dart';
 
 /// Tiến độ đã lưu của mọi bài trong cấp độ đang chọn, 1 query duy nhất —
@@ -78,8 +79,10 @@ class ItLearningHub extends ConsumerWidget {
       ),
       body: FadeSwitcher(
         child: lessonsAsync.when(
-        loading: () => const Center(
-            key: ValueKey('loading'), child: CircularProgressIndicator()),
+        loading: () => const SectionedHomeSkeleton(
+            key: ValueKey('loading'),
+            showSearchBar: false,
+            cardHeights: [120, 96, 96]),
         error: (_, __) => _ErrorState(
             key: const ValueKey('error'),
             onRetry: () => ref.invalidate(lessonsProvider)),

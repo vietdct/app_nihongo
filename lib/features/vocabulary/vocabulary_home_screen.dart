@@ -10,6 +10,7 @@ import '../../domain/services/word_of_the_day.dart';
 import '../../shared/jp_speak_button.dart';
 import '../../shared/level_badge.dart';
 import '../../shared/motion/press_scale.dart';
+import '../../shared/skeleton_layouts.dart';
 import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
 import 'providers/vocab_progress_providers.dart';
@@ -60,7 +61,7 @@ class VocabularyHomeScreen extends ConsumerWidget {
         ],
       ),
       body: vocabAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const SectionedHomeSkeleton(),
         error: (e, _) => Center(child: Text('Lỗi: $e')),
         data: (all) {
           if (all.isEmpty) {
