@@ -54,6 +54,34 @@ void main() {
       }
     });
 
+    test('nhiều câu hỏi cùng 1 hội thoại: ưu tiên hội thoại khác nhau trước', () {
+      ListeningDialogue q(String id, String dialogue) => ListeningDialogue(
+            id: id,
+            levelId: 'it',
+            turns: [ListeningTurn(speaker: 'A', jp: 'hội thoại $dialogue')],
+            questionJa: 'Câu hỏi $id?',
+            options: const ['Đúng', 'Sai 1', 'Sai 2', 'Sai 3'],
+            correctIndex: 0,
+          );
+      final pool = [
+        for (var i = 0; i < 5; i++) q('a$i', 'A'),
+        for (var i = 0; i < 5; i++) q('b$i', 'B'),
+        for (var i = 0; i < 5; i++) q('c$i', 'C'),
+      ];
+
+      for (var seed = 0; seed < 20; seed++) {
+        final qs = DialogueListeningGenerator(random: Random(seed))
+            .generate(dialogues: pool, questionCount: 3);
+        expect(qs, hasLength(3));
+        final distinct = qs.map((e) => e.dialogueTurns!.first.jp).toSet();
+        expect(distinct, hasLength(3));
+      }
+
+      final many = DialogueListeningGenerator(random: Random(1))
+          .generate(dialogues: pool, questionCount: 15);
+      expect(many, hasLength(15));
+    });
+
     test('honest-empty-state khi có ít hơn 2 hội thoại hợp lệ', () {
       final dialogues = [_dialogue('d1')];
 

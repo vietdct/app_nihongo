@@ -35,10 +35,31 @@ class DialogueListeningGenerator {
     if (valid.length < (allowSingle ? 1 : 2)) return const [];
 
     final rng = _random ?? Random();
-    final chosen = valid.toList()..shuffle(rng);
-    final selected = chosen.take(min(questionCount, chosen.length));
+    final selected = _spreadAcrossDialogues(valid, rng).take(questionCount);
 
     return [for (final d in selected) _buildQuestion(d, rng)];
+  }
+
+  /// Xáo trộn nhưng ưu tiên mỗi hội thoại xuất hiện 1 lần trước khi lặp lại
+  /// (nhiều câu hỏi có thể dùng chung 1 hội thoại — ví dụ Tiếng Nhật IT có
+  /// 5 câu/bài), để 1 lượt luyện tập không nghe đi nghe lại cùng 1 đoạn.
+  List<ListeningDialogue> _spreadAcrossDialogues(
+    List<ListeningDialogue> items,
+    Random rng,
+  ) {
+    final groups = <String, List<ListeningDialogue>>{};
+    for (final d in items.toList()..shuffle(rng)) {
+      final key = [for (final t in d.turns) '${t.speaker}|${t.jp}'].join('\n');
+      groups.putIfAbsent(key, () => []).add(d);
+    }
+    final queues = groups.values.toList()..shuffle(rng);
+    final out = <ListeningDialogue>[];
+    for (var round = 0; out.length < items.length; round++) {
+      for (final q in queues) {
+        if (round < q.length) out.add(q[round]);
+      }
+    }
+    return out;
   }
 
   QuizQuestion _buildQuestion(ListeningDialogue d, Random rng) {
