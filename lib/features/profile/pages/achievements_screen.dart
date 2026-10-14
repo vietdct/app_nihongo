@@ -16,11 +16,41 @@ import '../widgets/study_heatmap.dart';
 /// thưởng dựa trên mốc dữ liệu thật đã có. Giải đấu (League) — hạng mục
 /// gamification treo còn lại (docs/REVIEW_DESIGN.md §11, §16 câu hỏi #4) —
 /// đã bị bỏ theo quyết định người dùng 2026-08-07, không còn giữ chỗ UI.
-class AchievementsScreen extends ConsumerWidget {
+class AchievementsScreen extends ConsumerStatefulWidget {
   const AchievementsScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AchievementsScreen> createState() => _AchievementsScreenState();
+}
+
+class _AchievementsScreenState extends ConsumerState<AchievementsScreen> {
+  /// Huy hiệu vừa mở khóa trong phiên (từ `AchievementUnlockTracker`) cần nảy
+  /// khi người dùng xem; lấy một lần lúc mở màn rồi báo "đã xem" để lần mở sau
+  /// không phát lại.
+  final Set<String> _celebrate = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _takePending(ref.read(achievementUnlockTrackerProvider));
+  }
+
+  void _takePending(Set<String> pending) {
+    if (pending.isEmpty) return;
+    _celebrate.addAll(pending);
+    final ids = {...pending};
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(achievementUnlockTrackerProvider.notifier).consume(ids);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    ref.listen<Set<String>>(achievementUnlockTrackerProvider, (_, next) {
+      if (next.isEmpty) return;
+      setState(() => _takePending(next));
+    });
     final profile = ref.watch(profileProvider).valueOrNull;
     final studyDays = ref.watch(studyDaysProvider).valueOrNull;
     final treasureBoxes = ref.watch(treasureBoxesProvider).valueOrNull ?? const [];
@@ -101,6 +131,7 @@ class AchievementsScreen extends ConsumerWidget {
                   icon: a.icon,
                   label: a.label,
                   sub: a.sub,
+                  celebrate: _celebrate.contains(a.id),
                 ),
             ],
           ),

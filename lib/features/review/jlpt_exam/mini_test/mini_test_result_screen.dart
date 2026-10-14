@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../../../domain/entities/lesson.dart';
+import '../../../../shared/motion/animated_count.dart';
 import '../../../home/providers/profile_providers.dart';
 import '../models/exam_review_answer.dart';
 import 'mini_test_xp_controller.dart';
@@ -143,6 +144,9 @@ class _MiniTestResultScreenState extends ConsumerState<MiniTestResultScreen> {
                     _MiniStat(
                       label: 'XP',
                       value: _awarding ? '…' : '+$_xpEarned',
+                      // XP vừa được ghi xong (1 lần ở initState): đếm 0 → số
+                      // đã nhận; chỉ hiển thị, không ghi gì.
+                      countTo: _awarding ? null : _xpEarned,
                     ),
                     const SizedBox(width: 28),
                     _MiniStat(
@@ -223,23 +227,36 @@ class _MiniTestResultScreenState extends ConsumerState<MiniTestResultScreen> {
 }
 
 class _MiniStat extends StatelessWidget {
-  const _MiniStat({required this.label, required this.value});
+  const _MiniStat({required this.label, required this.value, this.countTo});
 
   final String label;
   final String value;
+  final int? countTo;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        Text(
-          value,
-          style: const TextStyle(
-            fontWeight: FontWeight.w800,
-            fontSize: 16,
-            color: AppColors.indigo,
+        if (countTo != null)
+          AnimatedCount(
+            value: countTo,
+            from: 0,
+            prefix: '+',
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: AppColors.indigo,
+            ),
+          )
+        else
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              color: AppColors.indigo,
+            ),
           ),
-        ),
         const SizedBox(height: 2),
         Text(
           label,

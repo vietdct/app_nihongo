@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/network/supabase_providers.dart';
+import '../../core/theme/app_motion.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/vocabulary.dart';
 import '../../domain/services/word_of_the_day.dart';
 import '../../shared/level_badge.dart';
+import '../../shared/motion/animated_count.dart';
 import '../../shared/motion/animated_progress_bar.dart';
 import '../../shared/motion/press_scale.dart';
 import '../auth/auth_controller.dart';
@@ -14,6 +16,7 @@ import '../grammar/providers/grammar_progress_providers.dart';
 import '../kanji/providers/kanji_progress_providers.dart';
 import '../lesson/providers/content_providers.dart';
 import '../lesson/providers/level_providers.dart';
+import '../profile/providers/achievements_providers.dart';
 import '../profile/providers/ai_insights_providers.dart';
 import '../profile/providers/study_heatmap_providers.dart';
 import '../profile/widgets/weak_area_suggestion_card.dart';
@@ -52,6 +55,30 @@ class HomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(currentUserProvider);
+    // Nghe huy hiệu vừa mở khóa (trong bộ nhớ, không ghi dữ liệu): giữ bộ theo
+    // dõi sống từ khi vào Home và báo nhẹ bằng SnackBar; hiệu ứng nằm ở màn
+    // Thành tích (đánh dấu "đã xem" ở đó).
+    ref.listen<Set<String>>(achievementUnlockTrackerProvider, (prev, next) {
+      final fresh = next.difference(prev ?? const {});
+      if (fresh.isEmpty) return;
+      final defs = ref.read(loadedAchievementsProvider) ?? const [];
+      final names = [
+        for (final a in defs)
+          if (fresh.contains(a.id)) '${a.sub} ${a.label}',
+      ];
+      if (names.isEmpty) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text('🏅 Mở khóa huy hiệu: ${names.join(', ')}'),
+            action: SnackBarAction(
+              label: 'Xem',
+              onPressed: () => context.push('/profile/achievements'),
+            ),
+          ),
+        );
+    });
     final profileAsync = ref.watch(profileProvider);
     final currentLessonAsync = ref.watch(currentLessonProvider);
     final selectedLevel = ref.watch(selectedLevelCodeProvider);
@@ -407,6 +434,8 @@ class _HeroHeader extends StatelessWidget {
                     Expanded(
                       child: _HeroStat(
                         value: streakCount == null ? '–' : '$streakCount',
+                        count: streakCount,
+                        counted: true,
                         label: '🔥 Streak',
                         pulse: (streakCount ?? 0) > 0,
                       ),
@@ -415,6 +444,8 @@ class _HeroHeader extends StatelessWidget {
                     Expanded(
                       child: _HeroStat(
                         value: xp == null ? '–' : '$xp',
+                        count: xp,
+                        counted: true,
                         label: '⚡ XP',
                       ),
                     ),
@@ -463,9 +494,16 @@ class _HeroStat extends StatefulWidget {
     required this.label,
     this.suffix,
     this.pulse = false,
+    this.count,
+    this.counted = false,
   });
 
   final String value;
+
+  /// [counted] = true: số hiển thị bằng `AnimatedCount` theo [count] (null =
+  /// đang tải → '–'). Chỉ đếm khi giá trị thật đổi lúc widget còn sống.
+  final int? count;
+  final bool counted;
   final String? suffix;
   final String label;
   final bool pulse;
@@ -500,8 +538,15 @@ class _HeroStatState extends State<_HeroStat>
     if (oldWidget.pulse != widget.pulse) _syncPulse();
   }
 
+  // Bật/tắt "Giảm chuyển động" giữa chừng cũng phải dừng/chạy lại nhịp pulse.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncPulse();
+  }
+
   void _syncPulse() {
-    if (widget.pulse) {
+    if (widget.pulse && !AppMotion.reduced(context)) {
       _controller.repeat(reverse: true);
     } else {
       _controller
@@ -519,24 +564,28 @@ class _HeroStatState extends State<_HeroStat>
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final number = Text.rich(
-      TextSpan(
-        text: widget.value,
-        style: const TextStyle(
-          fontSize: 22,
-          fontWeight: FontWeight.w700,
-          color: Colors.white,
-          height: 1,
-        ),
-        children: [
-          if (widget.suffix != null)
-            TextSpan(
-              text: widget.suffix,
-              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            ),
-        ],
-      ),
+    const numberStyle = TextStyle(
+      fontSize: 22,
+      fontWeight: FontWeight.w700,
+      color: Colors.white,
+      height: 1,
     );
+    final number = widget.counted
+        ? AnimatedCount(value: widget.count, style: numberStyle)
+        : Text.rich(
+            TextSpan(
+              text: widget.value,
+              style: numberStyle,
+              children: [
+                if (widget.suffix != null)
+                  TextSpan(
+                    text: widget.suffix,
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+              ],
+            ),
+          );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(

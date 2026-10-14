@@ -4,6 +4,9 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/network/supabase_providers.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/motion/confetti_burst.dart';
+import '../../../shared/motion/enter_transition.dart';
+import '../../../shared/motion/pop_in.dart';
 import '../../../domain/entities/lesson.dart';
 import '../../../domain/services/lesson_progress_log.dart';
 import '../../../domain/services/srs_scheduler.dart';
@@ -117,6 +120,9 @@ class _LessonReviewViewState extends ConsumerState<LessonReviewView> {
         lessonId: widget.lessonId,
         lessonTitle: widget.lessonTitle,
         onComplete: _markCompleted,
+        // Chỉ ăn mừng khi vừa ôn xong ít nhất 1 mục trong phiên này (hàng đợi
+        // rỗng ngay từ đầu không phải sự kiện hoàn thành).
+        celebrate: _reviewedCount > 0,
       );
     }
 
@@ -251,6 +257,16 @@ class _ReviewCard extends StatelessWidget {
   }
 }
 
+class _CompletedTitle extends StatelessWidget {
+  const _CompletedTitle();
+
+  @override
+  Widget build(BuildContext context) => const Text(
+        'Hoàn thành bài học!',
+        style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.ink),
+      );
+}
+
 class _ReviewSummary extends StatelessWidget {
   const _ReviewSummary({
     required this.reviewedCount,
@@ -258,8 +274,10 @@ class _ReviewSummary extends StatelessWidget {
     required this.lessonId,
     required this.lessonTitle,
     required this.onComplete,
+    required this.celebrate,
   });
 
+  final bool celebrate;
   final int reviewedCount;
   final int forgotCount;
   final String lessonId;
@@ -268,19 +286,22 @@ class _ReviewSummary extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final content = Column(
       children: [
         Expanded(
           child: Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.check_circle_rounded, color: AppColors.moss, size: 56),
-                const SizedBox(height: 16),
-                const Text(
-                  'Hoàn thành bài học!',
-                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18, color: AppColors.ink),
+                PopIn(
+                  enabled: celebrate,
+                  child: const Icon(Icons.check_circle_rounded, color: AppColors.moss, size: 56),
                 ),
+                const SizedBox(height: 16),
+                if (celebrate)
+                  const EnterTransition(offset: Offset(0, 0.3), child: _CompletedTitle())
+                else
+                  const _CompletedTitle(),
                 const SizedBox(height: 8),
                 Text(
                   'Đã ôn $reviewedCount mục · Quên $forgotCount lần',
@@ -308,6 +329,16 @@ class _ReviewSummary extends StatelessWidget {
             child: const Text('Hoàn thành bài học'),
           ),
         ),
+      ],
+    );
+    // Confetti 1 lần, CHỈ khi vừa ôn xong trong phiên này (cùng điều kiện với
+    // dấu check); lớp phủ không chặn chạm nên các nút vẫn bấm được ngay.
+    if (!celebrate) return content;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        content,
+        const Positioned.fill(child: ConfettiBurst()),
       ],
     );
   }

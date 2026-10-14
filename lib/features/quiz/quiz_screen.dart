@@ -13,7 +13,9 @@ import '../../core/theme/app_motion.dart';
 import '../../core/theme/app_theme.dart';
 import '../../domain/entities/lesson.dart' show LessonItemType;
 import '../../domain/services/quiz_generator.dart';
+import '../../shared/motion/animated_count.dart';
 import '../../shared/motion/animated_progress_bar.dart';
+import '../../shared/motion/confetti_burst.dart';
 import '../../shared/motion/answer_feedback.dart';
 import '../../shared/motion/enter_transition.dart';
 import '../../shared/motion/playing_indicator.dart';
@@ -1672,19 +1674,7 @@ class _SummaryPanel extends StatefulWidget {
   State<_SummaryPanel> createState() => _SummaryPanelState();
 }
 
-class _SummaryPanelState extends State<_SummaryPanel>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _confettiController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2200),
-  )..forward();
-
-  @override
-  void dispose() {
-    _confettiController.dispose();
-    super.dispose();
-  }
-
+class _SummaryPanelState extends State<_SummaryPanel> {
   @override
   Widget build(BuildContext context) {
     final accuracy =
@@ -1696,7 +1686,7 @@ class _SummaryPanelState extends State<_SummaryPanel>
     return Stack(
       alignment: Alignment.center,
       children: [
-        Positioned.fill(child: _ConfettiOverlay(animation: _confettiController)),
+        const Positioned.fill(child: ConfettiBurst()),
         SafeArea(
           child: SingleChildScrollView(
             padding: const EdgeInsets.all(24),
@@ -1736,6 +1726,9 @@ class _SummaryPanelState extends State<_SummaryPanel>
                         fg: AppColors.inkSoft,),
                     _StatChip(
                         value: '${widget.xpEarned}',
+                        // XP của phiên này đếm từ 0 → số đã nhận (chỉ hiển
+                        // thị; việc cộng XP đã xảy ra từng câu ở _recordAnswer).
+                        countTo: widget.xpEarned,
                         label: 'XP',
                         bg: const Color(0xFFFFF1CE),
                         fg: const Color(0xFFB4790A),),
@@ -1931,98 +1924,16 @@ class _MistakeRow extends StatelessWidget {
   }
 }
 
-/// Confetti rơi 1 lần khi hoàn thành quiz — thuần hiệu ứng UI ăn mừng,
-/// không mang ý nghĩa dữ liệu nào (không cần thêm package ngoài).
-class _ConfettiOverlay extends StatelessWidget {
-  const _ConfettiOverlay({required this.animation});
-
-  final Animation<double> animation;
-
-  static final _pieces = List.generate(18, (i) {
-    final random = Random(i * 37 + 1);
-    const colors = [
-      AppColors.accent,
-      AppColors.moss,
-      AppColors.indigo,
-      AppColors.plum,
-      AppColors.teal,
-    ];
-    return _ConfettiPiece(
-      dx: random.nextDouble(),
-      delay: random.nextDouble() * 0.3,
-      color: colors[i % colors.length],
-      size: 6 + random.nextDouble() * 5,
-      spin: random.nextBool(),
-    );
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return IgnorePointer(
-      child: AnimatedBuilder(
-        animation: animation,
-        builder: (context, _) {
-          return LayoutBuilder(
-            builder: (context, constraints) {
-              return Stack(
-                children: [
-                  for (final piece in _pieces) _buildPiece(piece, constraints),
-                ],
-              );
-            },
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildPiece(_ConfettiPiece piece, BoxConstraints constraints) {
-    final t = ((animation.value - piece.delay) / (1 - piece.delay)).clamp(0.0, 1.0);
-    final top = t * (constraints.maxHeight + 40) - 20;
-    final angle = (piece.spin ? t : -t) * 6.2;
-    return Positioned(
-      left: piece.dx * constraints.maxWidth,
-      top: top,
-      child: Opacity(
-        opacity: (1 - t).clamp(0.0, 1.0),
-        child: Transform.rotate(
-          angle: angle,
-          child: Container(
-            width: piece.size,
-            height: piece.size * 1.6,
-            decoration: BoxDecoration(
-                color: piece.color, borderRadius: BorderRadius.circular(2),),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ConfettiPiece {
-  const _ConfettiPiece({
-    required this.dx,
-    required this.delay,
-    required this.color,
-    required this.size,
-    required this.spin,
-  });
-
-  final double dx;
-  final double delay;
-  final Color color;
-  final double size;
-  final bool spin;
-}
-
 class _StatChip extends StatelessWidget {
   const _StatChip(
       {required this.value,
       required this.label,
       required this.bg,
-      required this.fg,});
+      required this.fg,
+      this.countTo,});
 
   final String value;
+  final int? countTo;
   final String label;
   final Color bg;
   final Color fg;
@@ -2035,9 +1946,18 @@ class _StatChip extends StatelessWidget {
           BoxDecoration(color: bg, borderRadius: BorderRadius.circular(14)),
       child: Column(
         children: [
-          Text(value,
+          if (countTo != null)
+            AnimatedCount(
+              value: countTo,
+              from: 0,
+              popOnIncrease: false,
               style: TextStyle(
-                  fontWeight: FontWeight.w800, fontSize: 16, color: fg,),),
+                  fontWeight: FontWeight.w800, fontSize: 16, color: fg,),
+            )
+          else
+            Text(value,
+                style: TextStyle(
+                    fontWeight: FontWeight.w800, fontSize: 16, color: fg,),),
           Text(label,
               style: TextStyle(
                   fontWeight: FontWeight.w700, fontSize: 9.5, color: fg,),),
