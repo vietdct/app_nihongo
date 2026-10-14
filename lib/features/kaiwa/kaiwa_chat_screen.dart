@@ -16,6 +16,7 @@ import '../../domain/entities/kaiwa_message.dart';
 import '../../domain/entities/kaiwa_persona.dart';
 import '../../domain/entities/kaiwa_scenario.dart';
 import '../lesson/providers/level_providers.dart';
+import '../../shared/motion/chat_motion.dart';
 import 'kaiwa_summary_screen.dart';
 import 'kaiwa_tutor_screen.dart';
 import 'providers/kaiwa_chat_service.dart';
@@ -80,6 +81,8 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
   final _tts = FlutterTts();
 
   final List<KaiwaMessage> _messages = [];
+  // Chỉ phục vụ animation xuất hiện của bubble (không đọc/ghi dữ liệu hội thoại).
+  final _entrance = ChatEntranceTracker();
   String? _conversationId;
   bool _starting = true;
   bool _sending = false;
@@ -410,6 +413,7 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
       setState(() {
         _conversationId = result.conversationId;
         _messages.add(result.aiMessage);
+        _entrance.markFresh([result.aiMessage.id]);
         _starting = false;
         _suggestionVisible = false;
       });
@@ -478,6 +482,7 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
     final optimisticId = 'pending-${DateTime.now().microsecondsSinceEpoch}';
     setState(() {
       _messages.add(KaiwaMessage(id: optimisticId, role: KaiwaMessageRole.user, contentJp: text));
+      _entrance.markFresh([optimisticId]);
       _sending = true;
       _textController.clear();
       _suggestionVisible = false;
@@ -498,10 +503,14 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
         final idx = _messages.indexWhere((m) => m.id == optimisticId);
         if (idx != -1) {
           _messages[idx] = result.userMessage;
+          // Cùng bubble, id đổi từ tạm sang thật: giữ key để không dựng lại.
+          _entrance.alias(result.userMessage.id, optimisticId);
         } else {
           _messages.add(result.userMessage);
+          _entrance.markFresh([result.userMessage.id]);
         }
         _messages.add(result.aiMessage);
+        _entrance.markFresh([result.aiMessage.id]);
         _sending = false;
       });
       ref.invalidate(kaiwaConversationsProvider);
@@ -836,15 +845,25 @@ class _KaiwaChatScreenState extends ConsumerState<KaiwaChatScreen> {
                           itemCount: _messages.length + (_sending ? 1 : 0),
                           itemBuilder: (context, i) {
                             if (i == _messages.length) {
-                              return _TypingBubble(persona: widget.persona);
+                              return _TypingBubble(
+                                key: const ValueKey('kaiwa-typing'),
+                                persona: widget.persona,
+                              );
                             }
-                            return _MessageBubble(
-                              message: _messages[i],
-                              persona: widget.persona,
-                              showTranslation: _showTranslation,
-                              showFurigana: _showFurigana,
-                              onSpeak: (text) => _speak(text),
-                              onShowFeedback: () => _showFeedbackSheet(_messages[i]),
+                            final message = _messages[i];
+                            final key = _entrance.keyOf(message.id);
+                            return MessageEntrance(
+                              key: ValueKey(key),
+                              animate: _entrance.isFresh(key),
+                              fromRight: message.role == KaiwaMessageRole.user,
+                              child: _MessageBubble(
+                                message: message,
+                                persona: widget.persona,
+                                showTranslation: _showTranslation,
+                                showFurigana: _showFurigana,
+                                onSpeak: (text) => _speak(text),
+                                onShowFeedback: () => _showFeedbackSheet(message),
+                              ),
                             );
                           },
                         ),
@@ -1214,7 +1233,7 @@ class _SuggestionBar extends StatelessWidget {
 }
 
 class _TypingBubble extends StatelessWidget {
-  const _TypingBubble({required this.persona});
+  const _TypingBubble({super.key, required this.persona});
 
   final KaiwaPersona persona;
 
@@ -1239,11 +1258,7 @@ class _TypingBubble extends StatelessWidget {
               borderRadius: BorderRadius.circular(16),
               border: Border.all(color: AppColors.border, width: 1.0),
             ),
-            child: const SizedBox(
-              height: 14,
-              width: 14,
-              child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.teal),
-            ),
+            child: const TypingDots(color: AppColors.teal),
           ),
         ],
       ),
